@@ -1,0 +1,45 @@
+import Link from "next/link";
+
+export function Logo({ siteTitle, onDark = false }: { siteTitle: string; onDark?: boolean }) {
+  return (
+    <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
+      <svg width="34" height="34" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <path
+          d="M20 2 L36 9 V19 C36 29 29.5 35.5 20 38 C10.5 35.5 4 29 4 19 V9 Z"
+          fill={onDark ? "#C9971F" : "#123A73"}
+        />
+        <path
+          d="M20 2 L36 9 V19 C36 29 29.5 35.5 20 38 C10.5 35.5 4 29 4 19 V9 Z"
+          stroke={onDark ? "#0A1F44" : "#C9971F"}
+          strokeWidth="1.5"
+        />
+        <path
+          d="M13 17.5L20 13L27 17.5V25L20 29.5L13 25V17.5Z"
+          fill={onDark ? "#0A1F44" : "#ffffff"}
+          opacity="0.92"
+        />
+        <text
+          x="20"
+          y="24.5"
+          textAnchor="middle"
+          fontFamily="Georgia, serif"
+          fontSize="9"
+          fontWeight="700"
+          fill={onDark ? "#C9971F" : "#123A73"}
+        >
+          AU
+        </text>
+      </svg>
+      <span className="leading-tight">
+        <span
+          className={`block font-display font-bold text-[15px] sm:text-base ${onDark ? "text-white" : "text-primary-950"}`}
+        >
+          {siteTitle}
+        </span>
+        <span className={`block text-[10px] tracking-wide uppercase ${onDark ? "text-primary-200" : "text-slate"}`}>
+          Membership &amp; Information Portal
+        </span>
+      </span>
+    </Link>
+  );
+}

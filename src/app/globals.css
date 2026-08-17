@@ -1,0 +1,202 @@
+@import "tailwindcss";
+
+/*
+  Design tokens for the Acme University Students' Association portal.
+  Palette: deep institutional navy (primary) + academic gold (accent, used
+  sparingly on dark surfaces only -- never as small text on white, to keep
+  contrast solid). Serif display type for headings gives academic gravitas;
+  a plain system-sans carries body copy and UI; a monospace "data" face is
+  used for index numbers, dates, and tabular figures.
+*/
+@theme {
+  --color-primary-50: #eef3fb;
+  --color-primary-100: #dce7f6;
+  --color-primary-200: #b7ceeb;
+  --color-primary-300: #85a9d6;
+  --color-primary-400: #3e6fa8;
+  --color-primary-500: #245793;
+  --color-primary-600: #1e5aa8;
+  --color-primary-700: #163f7d;
+  --color-primary-800: #123a73;
+  --color-primary-900: #0f2e5c;
+  --color-primary-950: #0a1f44;
+
+  --color-accent-100: #f7ecd2;
+  --color-accent-200: #edd9a5;
+  --color-accent-400: #d9ac3e;
+  --color-accent-500: #c9971f;
+  --color-accent-600: #a87d18;
+  --color-accent-700: #97730a;
+
+  --color-ink: #131b23;
+  --color-slate: #5b6b7c;
+  --color-slate-light: #8b98a6;
+  --color-line: #e2e8f0;
+  --color-surface-muted: #f6f8fb;
+
+  --color-success: #157a4a;
+  --color-success-light: #e6f4ec;
+  --color-warning: #b45309;
+  --color-warning-light: #fdf1e3;
+  --color-danger: #b42318;
+  --color-danger-light: #fdeceb;
+
+  --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino,
+    serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-data: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --shadow-card: 0 1px 2px rgba(10, 31, 68, 0.06), 0 1px 3px rgba(10, 31, 68, 0.08);
+  --shadow-card-hover: 0 4px 10px rgba(10, 31, 68, 0.08), 0 2px 4px rgba(10, 31, 68, 0.06);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    color: var(--color-primary-950);
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background: var(--color-accent-200);
+    color: var(--color-primary-950);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent-500);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .kicker {
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-accent-600);
+  }
+
+  .kicker-on-dark {
+    color: var(--color-accent-400);
+  }
+
+  .section-heading-rule {
+    display: inline-block;
+    width: 2.5rem;
+    height: 3px;
+    background: var(--color-accent-500);
+    border-radius: 2px;
+  }
+
+  .prose-content {
+    font-size: 1rem;
+    line-height: 1.75;
+    color: var(--color-ink);
+  }
+  .prose-content > * + * {
+    margin-top: 1.1em;
+  }
+  .prose-content h1,
+  .prose-content h2,
+  .prose-content h3,
+  .prose-content h4 {
+    margin-top: 1.6em;
+    margin-bottom: 0.5em;
+  }
+  .prose-content h1 {
+    font-size: 1.6em;
+  }
+  .prose-content h2 {
+    font-size: 1.4em;
+  }
+  .prose-content h3 {
+    font-size: 1.2em;
+  }
+  .prose-content a {
+    color: var(--color-primary-700);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .prose-content ul,
+  .prose-content ol {
+    padding-left: 1.4em;
+  }
+  .prose-content ul {
+    list-style: disc;
+  }
+  .prose-content ol {
+    list-style: decimal;
+  }
+  .prose-content blockquote {
+    border-left: 3px solid var(--color-accent-500);
+    padding-left: 1em;
+    color: var(--color-slate);
+    font-style: italic;
+  }
+  .prose-content img {
+    border-radius: 8px;
+    margin-top: 1.2em;
+    margin-bottom: 1.2em;
+  }
+  .prose-content code {
+    background: var(--color-surface-muted);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    font-family: var(--font-data);
+    font-size: 0.9em;
+  }
+  .prose-content pre {
+    background: var(--color-primary-950);
+    color: white;
+    padding: 1em;
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+  .prose-content pre code {
+    background: none;
+    padding: 0;
+  }
+  .prose-content table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .prose-content th,
+  .prose-content td {
+    border: 1px solid var(--color-line);
+    padding: 0.5em 0.75em;
+    text-align: left;
+  }
+}

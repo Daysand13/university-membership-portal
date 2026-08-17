@@ -1,0 +1,505 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==================================================================
+// ENUMS
+// ==================================================================
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+  MEMBERSHIP_OFFICER
+  LIBRARIAN
+  ELECTION_OFFICER
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ApplicationStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum MemberStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum MessageStatus {
+  NEW
+  READ
+  ARCHIVED
+}
+
+enum SocialPlatform {
+  FACEBOOK
+  INSTAGRAM
+  TWITTER
+  TIKTOK
+  YOUTUBE
+  LINKEDIN
+  WHATSAPP
+  TELEGRAM
+  CUSTOM
+}
+
+enum NotificationType {
+  NEW_APPLICATION
+  NEW_MESSAGE
+  SYSTEM
+}
+
+enum MediaCategory {
+  HERO
+  NEWS
+  EVENT
+  ELECTION
+  PROFILE
+  LIBRARY_THUMBNAIL
+  DONATION
+  LOGO
+  OTHER
+}
+
+// ==================================================================
+// ADMIN & AUTH
+// ==================================================================
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         AdminRole @default(ADMIN)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  newsArticles         News[]
+  events               Event[]
+  documents            Document[]
+  elections            Election[]
+  reviewedApplications MembershipApplication[] @relation("ApplicationReviewer")
+  auditLogs            AuditLog[]
+  uploadedMedia        Media[]
+
+  @@map("admin_users")
+}
+
+model Member {
+  id                 String    @id @default(cuid())
+  indexNumber        String    @unique
+  passwordHash       String
+  mustChangePassword Boolean   @default(true)
+
+  firstName       String
+  middleName      String?
+  lastName        String
+  dateOfBirth     DateTime?
+  gender          Gender?
+  profileImageUrl String?
+  phone           String
+  email           String    @unique
+
+  programme              String
+  department             String
+  facultySchool          String
+  level                  String
+  campus                 String
+  yearOfAdmission        Int
+  expectedGraduationYear Int?
+
+  residentialAddress    String?
+  region                String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+
+  membershipType String?
+  status         MemberStatus @default(ACTIVE)
+
+  applicationId String?                 @unique
+  application   MembershipApplication? @relation(fields: [applicationId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  passwordResetTokens PasswordResetToken[]
+
+  @@index([status])
+  @@map("members")
+}
+
+model MembershipApplication {
+  id String @id @default(cuid())
+
+  firstName       String
+  middleName      String?
+  lastName        String
+  dateOfBirth     DateTime
+  gender          Gender
+  profileImageUrl String?
+  phone           String
+  email           String
+
+  indexNumber            String @unique
+  programme              String
+  department             String
+  facultySchool          String
+  level                  String
+  campus                 String
+  yearOfAdmission        Int
+  expectedGraduationYear Int?
+
+  residentialAddress    String
+  region                String
+  emergencyContactName  String
+  emergencyContactPhone String
+
+  membershipType   String?
+  additionalFields Json?
+
+  agreedToTerms Boolean @default(false)
+
+  status       ApplicationStatus @default(PENDING)
+  reviewedById String?
+  reviewedBy   AdminUser?        @relation("ApplicationReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  adminNote    String?
+
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  member Member?
+
+  @@index([status])
+  @@index([submittedAt])
+  @@map("membership_applications")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  memberId  String
+  member    Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([memberId])
+  @@map("password_reset_tokens")
+}
+
+// ==================================================================
+// NEWS
+// ==================================================================
+
+model NewsCategory {
+  id   String @id @default(cuid())
+  name String @unique
+  slug String @unique
+  news News[]
+
+  @@map("news_categories")
+}
+
+model News {
+  id            String        @id @default(cuid())
+  title         String
+  slug          String        @unique
+  excerpt       String
+  body          String
+  coverImageUrl String?
+  images        String[]      @default([])
+  authorId      String?
+  author        AdminUser?    @relation(fields: [authorId], references: [id])
+  categoryId    String?
+  category      NewsCategory? @relation(fields: [categoryId], references: [id])
+  tags          String[]      @default([])
+  status        ContentStatus @default(DRAFT)
+  featured      Boolean       @default(false)
+  publishedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([slug])
+  @@map("news")
+}
+
+// ==================================================================
+// EVENTS
+// ==================================================================
+
+model EventCategory {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  slug   String  @unique
+  events Event[]
+
+  @@map("event_categories")
+}
+
+model Event {
+  id               String         @id @default(cuid())
+  title            String
+  slug             String         @unique
+  description      String
+  shortDescription String?
+  imageUrl         String?
+  galleryImages    String[]       @default([])
+  documents        String[]       @default([])
+  startDate        DateTime
+  endDate          DateTime
+  startTime        String?
+  endTime          String?
+  venue            String
+  organizer        String?
+  contactInfo      String?
+  registrationLink String?
+  externalLink     String?
+  categoryId       String?
+  category         EventCategory? @relation(fields: [categoryId], references: [id])
+  featured         Boolean        @default(false)
+  status           ContentStatus  @default(DRAFT)
+  createdById      String?
+  createdBy        AdminUser?     @relation(fields: [createdById], references: [id])
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([status, startDate])
+  @@index([slug])
+  @@map("events")
+}
+
+// ==================================================================
+// LIBRARY
+// ==================================================================
+
+model DocumentCategory {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  slug      String     @unique
+  documents Document[]
+
+  @@map("document_categories")
+}
+
+model Document {
+  id            String            @id @default(cuid())
+  title         String
+  description   String?
+  categoryId    String?
+  category      DocumentCategory? @relation(fields: [categoryId], references: [id])
+  r2ObjectKey   String
+  publicUrl     String?
+  mimeType      String
+  fileSize      Int
+  thumbnailUrl  String?
+  version       String?
+  featured      Boolean           @default(false)
+  status        ContentStatus     @default(DRAFT)
+  isPublic      Boolean           @default(true)
+  uploadedById  String?
+  uploadedBy    AdminUser?        @relation(fields: [uploadedById], references: [id])
+  downloadCount Int               @default(0)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([status])
+  @@index([categoryId])
+  @@map("documents")
+}
+
+// ==================================================================
+// ELECTIONS (future-ready: candidates + results modeled now, no
+// voting engine implemented yet)
+// ==================================================================
+
+model Election {
+  id               String        @id @default(cuid())
+  title            String
+  description      String?
+  status           ContentStatus @default(DRAFT)
+  nominationStart  DateTime?
+  nominationEnd    DateTime?
+  votingDate       DateTime?
+  venueOrMethod    String?
+  rulesDocumentUrl String?
+  resultsSummary   String?
+  images           String[]      @default([])
+  documents        String[]      @default([])
+  createdById      String?
+  createdBy        AdminUser?    @relation(fields: [createdById], references: [id])
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  candidates ElectionCandidate[]
+
+  @@map("elections")
+}
+
+model ElectionCandidate {
+  id         String   @id @default(cuid())
+  electionId String
+  election   Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  name       String
+  position   String
+  photoUrl   String?
+  manifesto  String?
+  voteCount  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@map("election_candidates")
+}
+
+// ==================================================================
+// SITE CONTENT
+// ==================================================================
+
+model HeroSlide {
+  id        String   @id @default(cuid())
+  title     String
+  subtitle  String?
+  imageUrl  String?
+  ctaText   String?
+  ctaUrl    String?
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("hero_slides")
+}
+
+model AboutContent {
+  id                String   @id @default("default")
+  mission           String?
+  vision            String?
+  coreValues        String?
+  history           String?
+  objectives        String?
+  leadershipMessage String?
+  imageUrl          String?
+  updatedAt         DateTime @updatedAt
+
+  @@map("about_content")
+}
+
+model DonateContent {
+  id                 String   @id @default("default")
+  title              String?
+  description        String?
+  instructions       String?
+  bankDetails        String?
+  mobileMoneyDetails String?
+  paymentGatewayUrl  String?
+  qrCodeImageUrl     String?
+  contactInfo        String?
+  bannerImageUrl     String?
+  updatedAt          DateTime @updatedAt
+
+  @@map("donate_content")
+}
+
+model SiteSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value Json
+
+  @@map("site_settings")
+}
+
+model SocialLink {
+  id          String         @id @default(cuid())
+  platform    SocialPlatform
+  displayName String
+  url         String
+  isActive    Boolean        @default(true)
+  order       Int            @default(0)
+
+  @@map("social_links")
+}
+
+model ContactMessage {
+  id        String        @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String
+  message   String
+  status    MessageStatus @default(NEW)
+  createdAt DateTime      @default(now())
+
+  @@index([status])
+  @@map("contact_messages")
+}
+
+model Media {
+  id           String         @id @default(cuid())
+  filename     String
+  category     MediaCategory  @default(OTHER)
+  r2ObjectKey  String
+  publicUrl    String?
+  mimeType     String
+  fileSize     Int
+  altText      String?
+  width        Int?
+  height       Int?
+  uploadedById String?
+  uploadedBy   AdminUser?     @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime       @default(now())
+
+  @@map("media")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  body      String?
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([isRead])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id            String     @id @default(cuid())
+  adminId       String?
+  admin         AdminUser? @relation(fields: [adminId], references: [id])
+  action        String
+  entityType    String
+  entityId      String?
+  previousValue Json?
+  newValue      Json?
+  note          String?
+  createdAt     DateTime   @default(now())
+
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
