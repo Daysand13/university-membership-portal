@@ -55,7 +55,7 @@ export default async function AdminElectionsPage() {
                         <Pencil size={15} />
                       </Link>
                       <ConfirmButton
-                        action={() => deleteElectionAction(election.id)}
+                        action={deleteElectionAction.bind(null, election.id)}
                         confirmMessage="Delete this election permanently?"
                         className="p-2 rounded-md text-slate hover:bg-danger-light hover:text-danger"
                       >

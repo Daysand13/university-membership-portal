@@ -1,4 +1,5 @@
 import { SiteSettingsForm } from "@/components/admin/forms/SiteSettingsForm";
+import { AdminChangePasswordForm } from "@/components/admin/forms/AdminChangePasswordForm";
 import { getSiteSettings } from "@/lib/services/content-service";
 
 export const metadata = { title: "Settings" };
@@ -12,6 +13,12 @@ export default async function AdminSettingsPage() {
         <h1 className="font-display font-bold text-2xl text-primary-950">Settings</h1>
         <p className="text-sm text-slate mt-1">Site-wide branding and contact information.</p>
       </div>
+
+      <div className="bg-white rounded-lg border border-line p-6 sm:p-7 mb-6">
+        <h2 className="text-sm font-semibold text-primary-950 mb-4">Your Account Password</h2>
+        <AdminChangePasswordForm />
+      </div>
+
       <div className="bg-white rounded-lg border border-line p-6 sm:p-7">
         <SiteSettingsForm settings={settings} />
       </div>

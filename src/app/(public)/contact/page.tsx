@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import { Mail, Phone, MapPin, Clock, Send } from "lucide-react";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ContactForm } from "@/components/forms/ContactForm";
-import { getSiteSettings } from "@/lib/services/content-service";
+import { SocialIcon } from "@/components/layout/SocialIcon";
+import { getSiteSettings, getActiveSocialLinks } from "@/lib/services/content-service";
 
 export const metadata: Metadata = { title: "Contact Us" };
 export const dynamic = "force-dynamic";
 
 export default async function ContactPage() {
-  const settings = await getSiteSettings();
+  const [settings, socialLinks] = await Promise.all([getSiteSettings(), getActiveSocialLinks()]);
 
   return (
     <div className="bg-white">
@@ -64,6 +65,31 @@ export default async function ContactPage() {
               <div>
                 <p className="text-sm font-semibold text-primary-950">Office Hours</p>
                 <p className="text-sm text-slate mt-0.5">{settings.officeHours}</p>
+              </div>
+            </div>
+          )}
+
+          {socialLinks.length > 0 && (
+            <div className="flex gap-3.5">
+              <div className="w-10 h-10 rounded-lg bg-primary-50 text-primary-800 flex items-center justify-center shrink-0">
+                <Send size={16} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-primary-950 mb-2">Follow Us</p>
+                <div className="flex items-center gap-2">
+                  {socialLinks.map((link) => (
+                    <a
+                      key={link.id}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={link.displayName}
+                      className="p-2 rounded-full bg-primary-50 text-primary-800 hover:bg-primary-800 hover:text-white transition-colors"
+                    >
+                      <SocialIcon platform={link.platform} />
+                    </a>
+                  ))}
+                </div>
               </div>
             </div>
           )}

@@ -48,9 +48,6 @@ export async function Header() {
             <Link href="/membership/login" className="hover:text-accent-400">
               Member Login
             </Link>
-            <Link href="/admin/login" className="hover:text-accent-400">
-              Admin
-            </Link>
           </div>
         </div>
       </div>

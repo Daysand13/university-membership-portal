@@ -79,7 +79,7 @@ export function Hero({ slides }: { slides: HeroSlide[] }) {
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 sm:py-28 lg:py-32">
         <div className="max-w-2xl">
           <p className="kicker kicker-on-dark mb-4">Acme University Students&apos; Association</p>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-balance leading-tight">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-balance leading-tight text-white">
             {slide.title}
           </h1>
           {slide.subtitle && (

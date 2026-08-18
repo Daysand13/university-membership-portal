@@ -34,7 +34,7 @@ export default async function AdminSocialLinksPage() {
                   <span className="text-sm font-semibold text-primary-950">{link.displayName}</span>
                 </div>
                 <ConfirmButton
-                  action={() => deleteSocialLinkAction(link.id)}
+                  action={deleteSocialLinkAction.bind(null, link.id)}
                   confirmMessage={`Remove the ${link.displayName} link?`}
                   className="p-2 rounded-md text-slate hover:bg-danger-light hover:text-danger"
                 >
