@@ -64,7 +64,7 @@ export function applicationApprovedEmail(params: {
         <tr><td style="padding:14px 18px;">
           <div style="font-size:12px;color:#5b6b7c;text-transform:uppercase;letter-spacing:0.04em;">Index Number (username)</div>
           <div style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;margin-bottom:10px;">${indexNumber}</div>
-          <div style="font-size:12px;color:#5b6b7c;text-transform:uppercase;letter-spacing:0.04em;">Temporary Password</div>
+          <div style="font-size:12px;color:#5b6b7c;text-transform:uppercase;letter-spacing:0.04em;">Temporary Password (your phone number, digits only)</div>
           <div style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;">${temporaryPassword}</div>
         </td></tr>
       </table>

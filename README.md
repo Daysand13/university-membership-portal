@@ -297,9 +297,10 @@ or a short script — there's no self-service "invite an admin" UI yet (see
    **Suspend**. Every action is recorded in the audit log with the
    before/after status and the acting admin.
 3. **Approve** creates a `Member` row in the same database transaction as
-   the status update, using the index number as a temporary password —
-   hashed with bcrypt before it ever touches the database — and sends an
-   email with the index number, temporary password, and login link.
+   the status update, using the applicant's phone number (digits only) as
+   a temporary password — hashed with bcrypt before it ever touches the
+   database — and sends an email with the index number (their login
+   username), the temporary password, and a login link.
    `mustChangePassword` starts `true`.
 4. Member logs in at `/membership/login` with index number + temporary
    password, and can change it at `/membership/dashboard/change-password`

@@ -48,14 +48,14 @@ export type EnrollmentInput = z.infer<typeof enrollmentSchema>;
 
 export const memberLoginSchema = z.object({
   indexNumber: z.string().trim().min(1, "Index number is required"),
-  password: z.string().min(1, "Password is required"),
+  password: z.string().trim().min(1, "Password is required"),
 });
 
 export const changePasswordSchema = z
   .object({
-    currentPassword: z.string().min(1, "Current password is required"),
-    newPassword: z.string().refine(isPasswordStrongEnough, PASSWORD_REQUIREMENTS_MESSAGE),
-    confirmNewPassword: z.string(),
+    currentPassword: z.string().trim().min(1, "Current password is required"),
+    newPassword: z.string().trim().refine(isPasswordStrongEnough, PASSWORD_REQUIREMENTS_MESSAGE),
+    confirmNewPassword: z.string().trim(),
   })
   .refine((data) => data.newPassword === data.confirmNewPassword, {
     message: "Passwords do not match",
@@ -68,9 +68,9 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z
   .object({
-    token: z.string().min(1),
-    newPassword: z.string().refine(isPasswordStrongEnough, PASSWORD_REQUIREMENTS_MESSAGE),
-    confirmNewPassword: z.string(),
+    token: z.string().trim().min(1),
+    newPassword: z.string().trim().refine(isPasswordStrongEnough, PASSWORD_REQUIREMENTS_MESSAGE),
+    confirmNewPassword: z.string().trim(),
   })
   .refine((data) => data.newPassword === data.confirmNewPassword, {
     message: "Passwords do not match",

@@ -12,7 +12,7 @@ export async function Footer() {
       <div className="border-b-2 border-accent-500/40" />
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
         <div>
-          <Logo siteTitle={settings.siteTitle} onDark />
+          <Logo siteTitle={settings.siteTitle} logoUrl={settings.logoUrl} onDark />
           <p className="mt-4 text-sm leading-relaxed text-primary-200 max-w-xs">
             {settings.footerDescription}
           </p>
@@ -104,11 +104,8 @@ export async function Footer() {
       </div>
 
       <div className="border-t border-white/10">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-primary-300">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-center gap-3 text-xs text-primary-300">
           <p>{settings.copyrightText}</p>
-          <p className="text-primary-400">
-            Sample portal built on the Acme University template — replace with your institution&apos;s details.
-          </p>
         </div>
       </div>
     </footer>

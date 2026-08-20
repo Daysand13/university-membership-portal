@@ -89,6 +89,15 @@ export const adminLoginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+export const adminChangeEmailSchema = z.object({
+  currentPassword: z.string().trim().min(1, "Current password is required"),
+  newEmail: z.string().trim().toLowerCase().email("Enter a valid email address"),
+});
+
+export const adminUpdateNameSchema = z.object({
+  name: z.string().trim().min(2, "Name is required").max(150),
+});
+
 export const aboutContentSchema = z.object({
   mission: z.string().max(4000).optional().or(z.literal("")),
   vision: z.string().max(4000).optional().or(z.literal("")),

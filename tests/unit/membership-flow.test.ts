@@ -86,7 +86,7 @@ describe("membership end-to-end flow", () => {
     );
   });
 
-  it("approving an application creates a member with the index number as a securely hashed temporary password", async () => {
+  it("approving an application creates a member with the phone number as a securely hashed temporary password", async () => {
     const input = buildApplication();
     const application = await submitApplication(input, null);
     createdApplicationIds.push(application.id);
@@ -100,7 +100,7 @@ describe("membership end-to-end flow", () => {
 
     expect(member.indexNumber).toBe(input.indexNumber);
     expect(member.mustChangePassword).toBe(true);
-    expect(member.passwordHash).not.toBe(input.indexNumber); // never stored in plaintext
+    expect(member.passwordHash).not.toBe(input.phone.replace(/[^0-9]/g, "")); // never stored in plaintext
     expect(member.passwordHash.startsWith("$2")).toBe(true);
 
     const updatedApplication = await db.membershipApplication.findUnique({ where: { id: application.id } });
@@ -112,7 +112,7 @@ describe("membership end-to-end flow", () => {
     expect(auditEntry).not.toBeNull();
   });
 
-  it("the approved member can log in with the index number as password, and must change it", async () => {
+  it("the approved member can log in with their phone number as password, and must change it", async () => {
     const input = buildApplication();
     const application = await submitApplication(input, null);
     createdApplicationIds.push(application.id);
@@ -123,7 +123,7 @@ describe("membership end-to-end flow", () => {
     });
     createdMemberIds.push(member.id);
 
-    const authenticated = await authenticateMember(input.indexNumber, input.indexNumber);
+    const authenticated = await authenticateMember(input.indexNumber, input.phone.replace(/[^0-9]/g, ""));
     expect(authenticated.id).toBe(member.id);
     expect(authenticated.mustChangePassword).toBe(true);
 
@@ -140,17 +140,18 @@ describe("membership end-to-end flow", () => {
       loginUrl: "http://localhost:3000/membership/login",
     });
     createdMemberIds.push(member.id);
+    const temporaryPassword = input.phone.replace(/[^0-9]/g, "");
 
     await changeMemberPassword({
       memberId: member.id,
-      currentPassword: input.indexNumber,
+      currentPassword: temporaryPassword,
       newPassword: "NewSecurePass1",
     });
 
     const authenticated = await authenticateMember(input.indexNumber, "NewSecurePass1");
     expect(authenticated.mustChangePassword).toBe(false);
 
-    await expect(authenticateMember(input.indexNumber, input.indexNumber)).rejects.toBeInstanceOf(InvalidCredentialsError);
+    await expect(authenticateMember(input.indexNumber, temporaryPassword)).rejects.toBeInstanceOf(InvalidCredentialsError);
   });
 
   it("rejecting an application leaves it terminal without creating a member", async () => {

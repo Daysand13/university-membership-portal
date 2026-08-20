@@ -203,9 +203,12 @@ export async function approveApplication(params: {
     throw new Error("This application has already been approved.");
   }
 
-  // The index number is used as the temporary password, per the requested
-  // workflow — it is hashed immediately and never stored in plaintext.
-  const temporaryPassword = application.indexNumber;
+  // The temporary password is the applicant's phone number, normalized to
+  // digits only so formatting differences (spaces, dashes) between what
+  // they typed at enrollment and what they type at login can never cause a
+  // silent mismatch — the same class of bug as the untrimmed-whitespace
+  // issue elsewhere in this file.
+  const temporaryPassword = application.phone.replace(/[^0-9]/g, "");
   const passwordHash = await hashPassword(temporaryPassword);
 
   const { member } = await db.$transaction(async (tx) => {

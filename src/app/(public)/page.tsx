@@ -26,15 +26,40 @@ export default async function HomePage() {
       <Hero slides={slides} />
 
       {/* Welcome / introduction */}
-      <section className="bg-white">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16 text-center">
-          <SectionHeading kicker="Welcome" title="A community built around every student" align="center" />
-          <p className="mt-5 text-base text-slate leading-relaxed">
+      <section className={`relative overflow-hidden ${about.imageUrl ? "bg-primary-950" : "bg-white"}`}>
+        {about.imageUrl && (
+          <>
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${about.imageUrl})` }}
+            />
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "linear-gradient(180deg, rgba(10,31,68,0.90) 0%, rgba(10,31,68,0.84) 100%)",
+              }}
+            />
+          </>
+        )}
+        <div className="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16 text-center">
+          <SectionHeading
+            kicker="Welcome"
+            title="A community built around every student"
+            align="center"
+            onDark={!!about.imageUrl}
+          />
+          <p className={`mt-5 text-base leading-relaxed ${about.imageUrl ? "text-primary-100" : "text-slate"}`}>
             {about.mission ||
               "The Acme University Students' Association exists to represent, support, and connect every registered student — through news, events, resources, and a membership community that spans every faculty and campus."}
           </p>
           <div className="mt-6">
-            <Link href="/about" className="text-sm font-semibold text-primary-800 hover:text-accent-600 inline-flex items-center gap-1">
+            <Link
+              href="/about"
+              className={`text-sm font-semibold inline-flex items-center gap-1 ${
+                about.imageUrl ? "text-accent-400 hover:text-accent-300" : "text-primary-800 hover:text-accent-600"
+              }`}
+            >
               More about who we are <ArrowRight size={14} />
             </Link>
           </div>

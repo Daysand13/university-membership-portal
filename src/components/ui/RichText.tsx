@@ -1,4 +1,4 @@
-import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from "sanitize-html";
 
 const ALLOWED_TAGS = [
   "p",
@@ -29,9 +29,13 @@ const ALLOWED_TAGS = [
 ];
 
 export function sanitizeRichText(html: string): string {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS,
-    ALLOWED_ATTR: ["href", "src", "alt", "title", "target", "rel"],
+  return sanitizeHtml(html, {
+    allowedTags: ALLOWED_TAGS,
+    allowedAttributes: {
+      a: ["href", "title", "target", "rel"],
+      img: ["src", "alt", "title"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
   });
 }
 

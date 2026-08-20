@@ -4,10 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdminRole, requireAdminUser } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
-import { electionSchema } from "@/lib/validations/content";
+import { electionSchema, adminChangeEmailSchema, adminUpdateNameSchema } from "@/lib/validations/content";
 import { changePasswordSchema } from "@/lib/validations/membership";
 import { createElection, updateElection, deleteElection } from "@/lib/services/election-service";
-import { changeAdminPassword } from "@/lib/services/admin-auth-service";
+import {
+  changeAdminPassword,
+  changeAdminEmail,
+  updateAdminName,
+  DuplicateAdminEmailError,
+} from "@/lib/services/admin-auth-service";
 import { InvalidCredentialsError } from "@/lib/services/membership-service";
 import type { ActionState } from "./types";
 
@@ -78,5 +83,47 @@ export async function changeAdminPasswordAction(
     return { error: "Something went wrong. Please try again." };
   }
 
+  return {};
+}
+
+export async function changeAdminEmailAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireAdminUser();
+  const parsed = adminChangeEmailSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  try {
+    await changeAdminEmail({
+      adminId: admin.id,
+      currentPassword: parsed.data.currentPassword,
+      newEmail: parsed.data.newEmail,
+    });
+  } catch (err) {
+    if (err instanceof InvalidCredentialsError) {
+      return { fieldErrors: { currentPassword: [err.message] } };
+    }
+    if (err instanceof DuplicateAdminEmailError) {
+      return { fieldErrors: { newEmail: [err.message] } };
+    }
+    console.error("[admin-change-email]", err);
+    return { error: "Something went wrong. Please try again." };
+  }
+
+  revalidatePath("/admin", "layout");
+  return {};
+}
+
+export async function updateAdminNameAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireAdminUser();
+  const parsed = adminUpdateNameSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  await updateAdminName({ adminId: admin.id, name: parsed.data.name });
+  revalidatePath("/admin", "layout");
   return {};
 }
