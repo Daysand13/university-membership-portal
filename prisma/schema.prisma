@@ -83,6 +83,17 @@ enum MediaCategory {
   OTHER
 }
 
+enum MembershipType {
+  REGULAR
+  DISTANCE
+  SANDWICH
+}
+
+enum TeamMemberType {
+  LEADERSHIP
+  PATRON
+}
+
 // ==================================================================
 // ADMIN & AUTH
 // ==================================================================
@@ -126,6 +137,9 @@ model Member {
 
   programme              String
   department             String
+  academicDepartment     String?
+  hallOfAffiliation      String?
+  specificSupportNeeds   String[] @default([])
   level                  String
   campus                 String
   yearOfAdmission        Int
@@ -138,7 +152,7 @@ model Member {
   emergencyContactName  String?
   emergencyContactPhone String?
 
-  membershipType String?
+  membershipType MembershipType?
   status         MemberStatus @default(ACTIVE)
 
   applicationId String?                 @unique
@@ -168,6 +182,9 @@ model MembershipApplication {
   indexNumber            String @unique
   programme              String
   department             String
+  academicDepartment     String?
+  hallOfAffiliation      String?
+  specificSupportNeeds   String[] @default([])
   level                  String
   campus                 String
   yearOfAdmission        Int
@@ -180,7 +197,7 @@ model MembershipApplication {
   emergencyContactName  String
   emergencyContactPhone String
 
-  membershipType   String?
+  membershipType   MembershipType?
   additionalFields Json?
 
   agreedToTerms Boolean @default(false)
@@ -398,17 +415,35 @@ model HeroSlide {
 }
 
 model AboutContent {
-  id                String   @id @default("default")
-  mission           String?
-  vision            String?
-  coreValues        String?
-  history           String?
-  objectives        String?
-  leadershipMessage String?
-  imageUrl          String?
-  updatedAt         DateTime @updatedAt
+  id                     String   @id @default("default")
+  mission                String?
+  vision                 String?
+  coreValues             String?
+  history                String?
+  objectives             String?
+  leadershipMessage      String?
+  membershipEligibility  String?
+  partnersStakeholders   String?
+  imageUrl               String?
+  updatedAt              DateTime @updatedAt
 
   @@map("about_content")
+}
+
+model TeamMember {
+  id        String         @id @default(cuid())
+  type      TeamMemberType
+  name      String
+  position  String
+  photoUrl  String?
+  bio       String?
+  order     Int            @default(0)
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([type])
+  @@map("team_members")
 }
 
 model DonateContent {

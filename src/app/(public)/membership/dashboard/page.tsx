@@ -43,6 +43,10 @@ export default async function MemberDashboardPage() {
               </div>
             </div>
             <div>
+              <dt className="text-slate-light text-xs">Academic Department</dt>
+              <dd className="text-ink">{member.academicDepartment ?? "—"}</dd>
+            </div>
+            <div>
               <dt className="text-slate-light text-xs">Category of Special Needs</dt>
               <dd className="text-ink">{member.department}</dd>
             </div>
@@ -56,6 +60,30 @@ export default async function MemberDashboardPage() {
                 <dd className="text-ink">{member.campus}</dd>
               </div>
             </div>
+            {member.hallOfAffiliation && (
+              <div>
+                <dt className="text-slate-light text-xs">Hall of Affiliation</dt>
+                <dd className="text-ink">{member.hallOfAffiliation}</dd>
+              </div>
+            )}
+            {member.membershipType && (
+              <div>
+                <dt className="text-slate-light text-xs">Membership Type</dt>
+                <dd className="text-ink">{member.membershipType}</dd>
+              </div>
+            )}
+            {member.specificSupportNeeds.length > 0 && (
+              <div>
+                <dt className="text-slate-light text-xs mb-1">Specific Support Needed</dt>
+                <dd className="text-ink">
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {member.specificSupportNeeds.map((need) => (
+                      <li key={need}>{need}</li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+            )}
           </dl>
         </div>
 

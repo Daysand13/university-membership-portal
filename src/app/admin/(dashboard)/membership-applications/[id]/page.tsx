@@ -72,13 +72,36 @@ export default async function ReviewApplicationPage({ params }: { params: Promis
               <GraduationCap size={16} className="text-accent-500" /> Academic Information
             </h2>
             <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <Field label="Membership Type" value={application.membershipType} />
+              <Field label="Academic Department" value={application.academicDepartment} />
               <Field label="Programme" value={application.programme} />
-              <Field label="Category of Special Needs" value={application.department} />
               <Field label="Level" value={application.level} />
               <Field label="Campus" value={application.campus} />
+              <Field label="Hall of Affiliation" value={application.hallOfAffiliation} />
               <Field label="Year of Admission" value={application.yearOfAdmission} />
               <Field label="Expected Graduation" value={application.expectedGraduationYear} />
             </dl>
+          </section>
+
+          <section className="bg-white rounded-lg border border-line p-6">
+            <h2 className="flex items-center gap-2 font-display font-bold text-base text-primary-950 mb-4">
+              <ShieldAlert size={16} className="text-accent-500" /> Category of Special Needs
+            </h2>
+            <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <Field label="Category" value={application.department} />
+            </dl>
+            {application.specificSupportNeeds.length > 0 && (
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate mb-2">
+                  Specific Support Needed
+                </p>
+                <ul className="list-disc list-inside text-sm text-ink space-y-1">
+                  {application.specificSupportNeeds.map((need) => (
+                    <li key={need}>{need}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </section>
 
           <section className="bg-white rounded-lg border border-line p-6">

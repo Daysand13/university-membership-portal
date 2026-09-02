@@ -14,6 +14,8 @@ const STATIC_ROUTES = [
   "/donate",
   "/membership",
   "/membership/enroll",
+  "/membership/enroll/undergraduate",
+  "/membership/enroll/postgraduate",
   "/membership/login",
 ];
 

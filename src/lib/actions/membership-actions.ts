@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { enrollmentSchema, applicationReviewSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from "@/lib/validations/membership";
+import { enrollmentSchema, applicationReviewSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, MAX_PASSPORT_PICTURE_BYTES, MAX_MEDICAL_REPORT_BYTES } from "@/lib/validations/membership";
 import {
   submitApplication,
   approveApplication,
@@ -37,6 +37,7 @@ export async function submitEnrollmentAction(
   const candidate = {
     ...entries,
     agreedToTerms: entries.agreedToTerms === "on" || entries.agreedToTerms === "true",
+    specificSupportNeeds: formData.getAll("specificSupportNeeds"),
   };
   delete (candidate as Record<string, unknown>).profilePicture;
   delete (candidate as Record<string, unknown>).medicalReport;
@@ -64,6 +65,7 @@ export async function submitEnrollmentAction(
       mimeType,
       fileSize: file.size,
       category: "image",
+      maxSizeBytes: MAX_PASSPORT_PICTURE_BYTES,
     });
     if (!check.ok) {
       return { fieldErrors: { profilePicture: [check.error] } };
@@ -87,6 +89,7 @@ export async function submitEnrollmentAction(
       mimeType,
       fileSize: medicalReportFile.size,
       category: "document",
+      maxSizeBytes: MAX_MEDICAL_REPORT_BYTES,
     });
     if (!check.ok) {
       return { fieldErrors: { medicalReportKey: [check.error] } };

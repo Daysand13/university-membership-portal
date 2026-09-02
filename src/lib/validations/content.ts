@@ -105,7 +105,18 @@ export const aboutContentSchema = z.object({
   history: z.string().max(8000).optional().or(z.literal("")),
   objectives: z.string().max(4000).optional().or(z.literal("")),
   leadershipMessage: z.string().max(4000).optional().or(z.literal("")),
+  membershipEligibility: z.string().max(4000).optional().or(z.literal("")),
+  partnersStakeholders: z.string().max(4000).optional().or(z.literal("")),
   imageKey: z.string().optional().nullable(),
+});
+
+export const teamMemberSchema = z.object({
+  type: z.enum(["LEADERSHIP", "PATRON"]),
+  name: z.string().trim().min(1, "Name is required").max(150),
+  position: z.string().trim().min(1, "Position is required").max(150),
+  bio: z.string().max(2000).optional().or(z.literal("")),
+  order: z.coerce.number().int().default(0),
+  isActive: z.coerce.boolean().default(true),
 });
 
 export const donateContentSchema = z.object({

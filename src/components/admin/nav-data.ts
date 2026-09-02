@@ -35,6 +35,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     title: "Content",
     items: [
       { href: "/admin/hero-slides", label: "Hero Slides", icon: GalleryHorizontal, roles: [AdminRole.EDITOR] },
+      { href: "/admin/team", label: "Leadership & Patrons", icon: Users, roles: [AdminRole.EDITOR] },
       { href: "/admin/news", label: "News", icon: Newspaper, roles: [AdminRole.EDITOR] },
       { href: "/admin/events", label: "Events", icon: CalendarDays, roles: [AdminRole.EDITOR] },
       { href: "/admin/about", label: "About Us", icon: Info, roles: [AdminRole.EDITOR] },

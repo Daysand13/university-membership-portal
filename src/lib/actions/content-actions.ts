@@ -3,9 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { requireAdminRole, requireAdminUser } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
-import { aboutContentSchema, donateContentSchema, siteSettingsSchema, socialLinkSchema } from "@/lib/validations/content";
+import { aboutContentSchema, teamMemberSchema, donateContentSchema, siteSettingsSchema, socialLinkSchema } from "@/lib/validations/content";
 import {
   updateAboutContent,
+  createTeamMember,
+  updateTeamMember,
+  deleteTeamMember,
   updateDonateContent,
   createHeroSlide,
   updateHeroSlide,
@@ -135,4 +138,51 @@ export async function deleteSocialLinkAction(id: string): Promise<void> {
   await deleteSocialLink(id);
   revalidatePath("/", "layout");
   revalidatePath("/admin/social-links");
+}
+
+// ---------------------------------------------------------------------------
+// Team Members (Executive Leadership + Our Patrons)
+// ---------------------------------------------------------------------------
+
+export async function createTeamMemberAction(formData: FormData): Promise<void> {
+  await requireAdminRole(AdminRole.EDITOR);
+  const parsed = teamMemberSchema.safeParse({
+    type: formData.get("type"),
+    name: formData.get("name"),
+    position: formData.get("position"),
+    bio: formData.get("bio"),
+    order: formData.get("order") ?? 0,
+    isActive: formData.get("isActive") === "on",
+  });
+  if (!parsed.success) return;
+
+  const photoUrl = formData.get("photoUrl");
+  await createTeamMember({
+    ...parsed.data,
+    photoUrl: typeof photoUrl === "string" && photoUrl ? photoUrl : undefined,
+  });
+  revalidatePath("/about");
+  revalidatePath("/admin/team");
+}
+
+export async function updateTeamMemberAction(id: string, formData: FormData): Promise<void> {
+  await requireAdminRole(AdminRole.EDITOR);
+  const photoUrl = formData.get("photoUrl");
+  await updateTeamMember(id, {
+    name: String(formData.get("name") ?? ""),
+    position: String(formData.get("position") ?? ""),
+    bio: String(formData.get("bio") ?? "") || null,
+    photoUrl: typeof photoUrl === "string" && photoUrl ? photoUrl : null,
+    order: Number(formData.get("order") ?? 0),
+    isActive: formData.get("isActive") === "on",
+  });
+  revalidatePath("/about");
+  revalidatePath("/admin/team");
+}
+
+export async function deleteTeamMemberAction(id: string): Promise<void> {
+  await requireAdminRole(AdminRole.EDITOR);
+  await deleteTeamMember(id);
+  revalidatePath("/about");
+  revalidatePath("/admin/team");
 }

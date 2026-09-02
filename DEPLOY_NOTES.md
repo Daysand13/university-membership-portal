@@ -1,52 +1,51 @@
 # Deploying this update
 
-## ⚠️ One-time extra step this round — read before running anything
-
-Every previous round, you've just unzipped the files, `git push`ed, and Vercel
-redeployed. **This round needs one extra, one-time step run locally first**,
-because this is the first time this project uses real Prisma migrations
-instead of `prisma db push`.
-
-The short version of why this matters: your local `DATABASE_URL` and
-production point at the **same live Neon database**, which already has real
-applicant/member data in it (including, soon, medical report info). Prisma's
-`migrate dev` command, the very first time it's ever run against a database
-it doesn't recognize, can interpret "no migration history" as "this database
-is out of sync — reset it?" and offer to **drop and recreate every table**.
-That would delete real data. The steps below avoid that by explicitly telling
-Prisma "this database's current schema is already accounted for" before
-asking it to apply anything new.
-
-## Steps (run these locally, in order, once)
+The one-time database baselining from the previous round is done — you
+won't need to repeat it. From now on, every schema change just needs:
 
 ```bash
-# 1. Get the new Prisma Client and this update's code as usual.
 npx prisma generate
-
-# 2. Tell Prisma the CURRENT live schema is already accounted for.
-#    This does NOT touch your database — it only records, in Prisma's
-#    bookkeeping table, that the "0_baseline" migration (an intentionally
-#    empty file already included in this zip) has already happened.
-npx prisma migrate resolve --applied 0_baseline
-
-# 3. Now apply the real change for this round (drops facultySchool, adds
-#    medicalReportUrl to Members/Applications, adds backgroundColor to Hero
-#    Slides). Because step 2 already told Prisma about the current state,
-#    this will apply cleanly without any reset prompt.
 npx prisma migrate dev
 ```
 
-If step 3 ever prompts you with anything mentioning "reset" or "drop", **stop
-and don't confirm it** — that's not expected, and it would mean something
-about the live schema doesn't match what we assumed. Screenshot the prompt
-and send it over rather than pressing yes.
+This round adds two new migrations (medical report fields from before were
+already applied — these are new):
 
-After that, this round's zip-overwrite → `git add . / commit / push` →
-Vercel auto-redeploy workflow is exactly the same as every previous round.
+1. `20260902120000_membership_form_fields` — adds Academic Department, Hall
+   of Affiliation, Specific Support Needed, and converts Membership Type to
+   Regular / Distance / Sandwich.
+2. `20260902130000_about_team_members` — adds Membership Eligibility and
+   Partners/Stakeholders text fields to the About page, and a new table for
+   Executive Leadership + Our Patrons.
 
-## After this round
+Run the two commands above locally (same live database as always), then the
+usual flow:
 
-From now on, every future schema change ships as a normal
-`prisma/migrations/<timestamp>_<name>/` folder in the zip, and you'll just
-run `npx prisma migrate dev` locally (no more baselining needed — that was
-only because this was the first migration ever for this project).
+```bash
+git add .
+git commit -m "hero fixes, membership form overhaul, undergrad/postgrad split, about us sections"
+git push
+```
+
+## A couple of things worth knowing about this round
+
+- **Old membership applications/members with no Membership Type set**: the
+  migration converts that column from free text to Regular/Distance/Sandwich.
+  Since nothing on the site ever actually set this value before, existing
+  rows should just have it blank (NULL) — that's expected and safe. If the
+  migration ever complains about a value that doesn't match one of the three
+  options, stop and send me the error rather than guessing.
+- **Existing applications/members keep their old academic department value**
+  in the "Category of Special Needs" field — that field's meaning didn't
+  change. The new, separate "Academic Department" field (the real college
+  department, like "Department of Special Education") will be blank for any
+  application submitted before this update, since it didn't exist yet.
+- **Residential address, region, and emergency contact** are still collected
+  on the form (moved to an "Additional Information" section at the bottom) —
+  they weren't in the new form blueprint you sent, but I kept them rather
+  than silently dropping data collection, since the database still requires
+  them for new applications. Let me know if you'd rather remove them
+  entirely.
+- **Leadership team and Patrons start empty** — add them from
+  `/admin/team` after this deploys; they won't show on the About page until
+  you do.

@@ -3,6 +3,7 @@ import { enrollmentSchema, changePasswordSchema } from "@/lib/validations/member
 import { slugify, eventSchema } from "@/lib/validations/content";
 
 const validEnrollment = {
+  membershipType: "REGULAR",
   firstName: "Kojo",
   lastName: "Mensah",
   dateOfBirth: "2001-05-14",
@@ -10,10 +11,11 @@ const validEnrollment = {
   phone: "0244000000",
   email: "kojo@example.com",
   indexNumber: "UEW/EDU/24/0001",
-  programme: "B.Ed. Basic Education",
+  programme: "Bachelor of Education (B.Ed.) Basic Education (Early Grade / Primary / JHS Options)",
   department: "Visual Impairment",
-  level: "200",
-  campus: "Winneba Campus",
+  academicDepartment: "Department of Basic Education",
+  level: "Level 200",
+  campus: "Winneba Campus (Main Campus)",
   medicalReportKey: "test-medical-report-key",
   yearOfAdmission: "2024",
   residentialAddress: "123 Sample Street, Accra",

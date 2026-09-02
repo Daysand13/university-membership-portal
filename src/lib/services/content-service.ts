@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import type { SiteSettingsInput } from "@/lib/validations/content";
-import type { SocialPlatform } from "@/generated/prisma/client";
+import type { SocialPlatform, TeamMemberType } from "@/generated/prisma/client";
 
 // ---------------------------------------------------------------------------
 // About
@@ -22,6 +22,8 @@ export async function updateAboutContent(data: {
   history?: string;
   objectives?: string;
   leadershipMessage?: string;
+  membershipEligibility?: string;
+  partnersStakeholders?: string;
   imageUrl?: string | null;
 }) {
   return db.aboutContent.upsert({
@@ -29,6 +31,54 @@ export async function updateAboutContent(data: {
     update: data,
     create: { id: "default", ...data },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Team Members (Executive Leadership + Our Patrons)
+// ---------------------------------------------------------------------------
+
+export async function getActiveTeamMembers(type: TeamMemberType) {
+  return db.teamMember.findMany({
+    where: { type, isActive: true },
+    orderBy: { order: "asc" },
+  });
+}
+
+export async function listTeamMembersForAdmin(type: TeamMemberType) {
+  return db.teamMember.findMany({
+    where: { type },
+    orderBy: { order: "asc" },
+  });
+}
+
+export async function createTeamMember(data: {
+  type: TeamMemberType;
+  name: string;
+  position: string;
+  photoUrl?: string;
+  bio?: string;
+  order?: number;
+  isActive?: boolean;
+}) {
+  return db.teamMember.create({ data });
+}
+
+export async function updateTeamMember(
+  id: string,
+  data: Partial<{
+    name: string;
+    position: string;
+    photoUrl: string | null;
+    bio: string | null;
+    order: number;
+    isActive: boolean;
+  }>,
+) {
+  return db.teamMember.update({ where: { id }, data });
+}
+
+export async function deleteTeamMember(id: string) {
+  return db.teamMember.delete({ where: { id } });
 }
 
 // ---------------------------------------------------------------------------

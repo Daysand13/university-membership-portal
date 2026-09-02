@@ -128,8 +128,9 @@ export function validateUploadRequest(params: {
   mimeType: string;
   fileSize: number;
   category: "image" | "document";
+  maxSizeBytes?: number;
 }): { ok: true } | { ok: false; error: string } {
-  const { filename, mimeType, fileSize, category } = params;
+  const { filename, mimeType, fileSize, category, maxSizeBytes } = params;
 
   if (!isAllowedExtension(filename)) {
     return { ok: false, error: "That file type isn't supported." };
@@ -139,15 +140,17 @@ export function validateUploadRequest(params: {
     if (!isAllowedImageType(mimeType)) {
       return { ok: false, error: "Please upload a JPG, PNG, WEBP, or GIF image." };
     }
-    if (fileSize > MAX_IMAGE_SIZE_BYTES) {
-      return { ok: false, error: "Images must be 5 MB or smaller." };
+    const limit = maxSizeBytes ?? MAX_IMAGE_SIZE_BYTES;
+    if (fileSize > limit) {
+      return { ok: false, error: `Images must be ${Math.round(limit / (1024 * 1024))} MB or smaller.` };
     }
   } else {
     if (!isAllowedDocumentType(mimeType)) {
       return { ok: false, error: "That document type isn't supported." };
     }
-    if (fileSize > MAX_DOCUMENT_SIZE_BYTES) {
-      return { ok: false, error: "Documents must be 30 MB or smaller." };
+    const limit = maxSizeBytes ?? MAX_DOCUMENT_SIZE_BYTES;
+    if (fileSize > limit) {
+      return { ok: false, error: `Documents must be ${Math.round(limit / (1024 * 1024))} MB or smaller.` };
     }
   }
 

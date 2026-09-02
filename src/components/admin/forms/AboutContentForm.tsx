@@ -23,6 +23,14 @@ export function AboutContentForm({ about }: { about: AboutContent }) {
 
       <ImageUploadField name="imageUrl" category="OTHER" label="Banner Image" defaultUrl={about.imageUrl} aspect="aspect-[21/9]" />
 
+      <p className="text-xs text-slate-light bg-surface-muted rounded-md px-3.5 py-2.5">
+        Executive Leadership and Our Patrons have their own screen —{" "}
+        <a href="/admin/team" className="font-semibold text-primary-800 hover:underline">
+          manage them here
+        </a>
+        .
+      </p>
+
       <div>
         <Label htmlFor="mission">Mission</Label>
         <textarea id="mission" name="mission" rows={4} defaultValue={about.mission ?? ""} className={inputClasses} />
@@ -46,6 +54,26 @@ export function AboutContentForm({ about }: { about: AboutContent }) {
       <div>
         <Label htmlFor="objectives">Objectives</Label>
         <textarea id="objectives" name="objectives" rows={4} defaultValue={about.objectives ?? ""} className={inputClasses} />
+      </div>
+      <div>
+        <Label htmlFor="membershipEligibility">Membership Eligibility & Categories</Label>
+        <textarea
+          id="membershipEligibility"
+          name="membershipEligibility"
+          rows={4}
+          defaultValue={about.membershipEligibility ?? ""}
+          className={inputClasses}
+        />
+      </div>
+      <div>
+        <Label htmlFor="partnersStakeholders">Partners and Stakeholders</Label>
+        <textarea
+          id="partnersStakeholders"
+          name="partnersStakeholders"
+          rows={4}
+          defaultValue={about.partnersStakeholders ?? ""}
+          className={inputClasses}
+        />
       </div>
 
       <Button type="submit" disabled={isPending}>

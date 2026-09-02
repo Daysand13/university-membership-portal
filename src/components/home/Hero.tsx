@@ -29,34 +29,9 @@ function isLightColor(hex: string): boolean {
   return luminance > 0.55;
 }
 
-function PatternBackdrop() {
-  return (
-    <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
-      <svg width="100%" height="100%" className="absolute inset-0 opacity-[0.14]">
-        <defs>
-          <pattern id="hero-grid" width="46" height="46" patternUnits="userSpaceOnUse">
-            <path d="M46 0H0V46" fill="none" stroke="white" strokeWidth="1" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#hero-grid)" />
-      </svg>
-      <svg
-        className="absolute -right-24 -top-24 opacity-[0.16]"
-        width="520"
-        height="520"
-        viewBox="0 0 40 40"
-        fill="none"
-      >
-        <path
-          d="M20 2 L36 9 V19 C36 29 29.5 35.5 20 38 C10.5 35.5 4 29 4 19 V9 Z"
-          fill="none"
-          stroke="#C9971F"
-          strokeWidth="0.6"
-        />
-      </svg>
-    </div>
-  );
-}
+// Fixed height for every slide so the section never resizes as slides change,
+// no matter how much (or little) text a given slide has.
+const HERO_HEIGHT_CLASS = "h-[440px] sm:h-[480px] lg:h-[560px]";
 
 export function Hero({ slides, siteTitle }: { slides: HeroSlide[]; siteTitle?: string }) {
   const activeSlides = slides.length > 0 ? slides : [FALLBACK_SLIDE];
@@ -77,23 +52,25 @@ export function Hero({ slides, siteTitle }: { slides: HeroSlide[]; siteTitle?: s
 
   return (
     <section
-      className={`relative overflow-hidden ${textColorClass}`}
+      className={`relative overflow-hidden flex items-center ${HERO_HEIGHT_CLASS} ${textColorClass}`}
       style={!slide.imageUrl && slide.backgroundColor ? { backgroundColor: slide.backgroundColor } : undefined}
     >
-      <div
-        className="absolute inset-0 bg-cover bg-center transition-opacity duration-700"
-        style={{
-          backgroundImage: slide.imageUrl ? `url(${slide.imageUrl})` : undefined,
-        }}
-      />
       {slide.imageUrl && (
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(100deg, rgba(10,31,68,0.92) 0%, rgba(10,31,68,0.72) 55%, rgba(10,31,68,0.5) 100%)",
-          }}
-        />
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={slide.imageUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover object-center"
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(100deg, rgba(10,31,68,0.78) 0%, rgba(10,31,68,0.55) 55%, rgba(10,31,68,0.32) 100%)",
+            }}
+          />
+        </>
       )}
       {!slide.imageUrl && !slide.backgroundColor && (
         <div
@@ -103,9 +80,8 @@ export function Hero({ slides, siteTitle }: { slides: HeroSlide[]; siteTitle?: s
           }}
         />
       )}
-      <PatternBackdrop />
 
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 sm:py-28 lg:py-32">
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 w-full">
         <div className="max-w-2xl">
           <p className={`kicker ${isLight ? "" : "kicker-on-dark"} mb-4`}>
             {siteTitle || "Acme University Students' Association"}
