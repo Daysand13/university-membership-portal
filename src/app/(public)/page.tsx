@@ -7,23 +7,24 @@ import { EventCard } from "@/components/events/EventCard";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { LinkButton } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Common";
-import { getActiveHeroSlides, getAboutContent } from "@/lib/services/content-service";
+import { getActiveHeroSlides, getAboutContent, getSiteSettings } from "@/lib/services/content-service";
 import { getFeaturedNews } from "@/lib/services/news-service";
 import { getUpcomingEventsForHome } from "@/lib/services/event-service";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [slides, about, news, events] = await Promise.all([
+  const [slides, about, news, events, siteSettings] = await Promise.all([
     getActiveHeroSlides(),
     getAboutContent(),
     getFeaturedNews(3),
     getUpcomingEventsForHome(3),
+    getSiteSettings(),
   ]);
 
   return (
     <>
-      <Hero slides={slides} />
+      <Hero slides={slides} siteTitle={siteSettings.siteTitle} />
 
       {/* Welcome / introduction */}
       <section className={`relative overflow-hidden ${about.imageUrl ? "bg-primary-950" : "bg-white"}`}>

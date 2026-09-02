@@ -73,13 +73,30 @@ export default async function ReviewApplicationPage({ params }: { params: Promis
             </h2>
             <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <Field label="Programme" value={application.programme} />
-              <Field label="Department" value={application.department} />
-              <Field label="Faculty / School" value={application.facultySchool} />
+              <Field label="Category of Special Needs" value={application.department} />
               <Field label="Level" value={application.level} />
               <Field label="Campus" value={application.campus} />
               <Field label="Year of Admission" value={application.yearOfAdmission} />
               <Field label="Expected Graduation" value={application.expectedGraduationYear} />
             </dl>
+          </section>
+
+          <section className="bg-white rounded-lg border border-line p-6">
+            <h2 className="flex items-center gap-2 font-display font-bold text-base text-primary-950 mb-4">
+              <ShieldAlert size={16} className="text-accent-500" /> Medical Report
+            </h2>
+            {application.medicalReportUrl ? (
+              <a
+                href={application.medicalReportUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary-800 font-medium hover:text-accent-600 underline"
+              >
+                View uploaded medical report
+              </a>
+            ) : (
+              <p className="text-sm text-slate-light">No medical report uploaded.</p>
+            )}
           </section>
 
           <section className="bg-white rounded-lg border border-line p-6">

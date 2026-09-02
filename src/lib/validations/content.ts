@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ContentStatus } from "@/generated/prisma/client";
+import { ContentStatus } from "@/generated/prisma/enums";
 
 function slugify(input: string): string {
   return input

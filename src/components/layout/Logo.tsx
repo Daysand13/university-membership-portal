@@ -45,12 +45,12 @@ export function Logo({
       )}
       <span className="leading-tight min-w-0">
         <span
-          className={`block font-display font-bold text-[15px] sm:text-base truncate ${onDark ? "text-white" : "text-primary-950"}`}
+          className={`block font-display font-bold text-[15px] sm:text-base leading-snug ${onDark ? "text-white" : "text-primary-950"}`}
         >
           {siteTitle}
         </span>
         <span
-          className={`hidden sm:block text-[10px] tracking-wide uppercase truncate ${onDark ? "text-primary-200" : "text-slate"}`}
+          className={`hidden sm:block text-[10px] tracking-wide uppercase ${onDark ? "text-primary-200" : "text-slate"}`}
         >
           Membership &amp; Information Portal
         </span>

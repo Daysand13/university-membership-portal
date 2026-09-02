@@ -126,11 +126,12 @@ model Member {
 
   programme              String
   department             String
-  facultySchool          String
   level                  String
   campus                 String
   yearOfAdmission        Int
   expectedGraduationYear Int?
+
+  medicalReportUrl String?
 
   residentialAddress    String?
   region                String?
@@ -167,11 +168,12 @@ model MembershipApplication {
   indexNumber            String @unique
   programme              String
   department             String
-  facultySchool          String
   level                  String
   campus                 String
   yearOfAdmission        Int
   expectedGraduationYear Int?
+
+  medicalReportUrl String?
 
   residentialAddress    String
   region                String
@@ -383,13 +385,14 @@ model HeroSlide {
   id        String   @id @default(cuid())
   title     String
   subtitle  String?
-  imageUrl  String?
-  ctaText   String?
-  ctaUrl    String?
-  order     Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  imageUrl        String?
+  backgroundColor String?
+  ctaText         String?
+  ctaUrl          String?
+  order           Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@map("hero_slides")
 }

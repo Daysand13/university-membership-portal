@@ -29,10 +29,10 @@ function buildApplication(overrides: Partial<EnrollmentInput> = {}): EnrollmentI
     email: `test-${unique}@example.com`,
     indexNumber: `TEST/${unique}`,
     programme: "Test Programme",
-    department: "Test Department",
-    facultySchool: "Test Faculty",
+    department: "Visual Impairment",
+    medicalReportKey: "test-medical-report-key",
     level: "200",
-    campus: "Main Campus",
+    campus: "Winneba Campus",
     yearOfAdmission: 2024,
     residentialAddress: "1 Test Street",
     region: "Greater Accra",
@@ -66,7 +66,7 @@ describe("membership end-to-end flow", () => {
 
   it("saves a new application as PENDING and makes it visible to admin queries", async () => {
     const input = buildApplication();
-    const application = await submitApplication(input, null);
+    const application = await submitApplication(input, null, null);
     createdApplicationIds.push(application.id);
 
     expect(application.status).toBe("PENDING");
@@ -78,17 +78,17 @@ describe("membership end-to-end flow", () => {
 
   it("rejects a second application with the same index number", async () => {
     const input = buildApplication();
-    const first = await submitApplication(input, null);
+    const first = await submitApplication(input, null, null);
     createdApplicationIds.push(first.id);
 
-    await expect(submitApplication(buildApplication({ indexNumber: input.indexNumber }), null)).rejects.toBeInstanceOf(
+    await expect(submitApplication(buildApplication({ indexNumber: input.indexNumber }), null, null)).rejects.toBeInstanceOf(
       DuplicateIndexNumberError,
     );
   });
 
   it("approving an application creates a member with the phone number as a securely hashed temporary password", async () => {
     const input = buildApplication();
-    const application = await submitApplication(input, null);
+    const application = await submitApplication(input, null, null);
     createdApplicationIds.push(application.id);
 
     const member = await approveApplication({
@@ -114,7 +114,7 @@ describe("membership end-to-end flow", () => {
 
   it("the approved member can log in with their phone number as password, and must change it", async () => {
     const input = buildApplication();
-    const application = await submitApplication(input, null);
+    const application = await submitApplication(input, null, null);
     createdApplicationIds.push(application.id);
     const member = await approveApplication({
       applicationId: application.id,
@@ -132,7 +132,7 @@ describe("membership end-to-end flow", () => {
 
   it("a member can change their password, after which the old temporary password no longer works", async () => {
     const input = buildApplication();
-    const application = await submitApplication(input, null);
+    const application = await submitApplication(input, null, null);
     createdApplicationIds.push(application.id);
     const member = await approveApplication({
       applicationId: application.id,
@@ -156,7 +156,7 @@ describe("membership end-to-end flow", () => {
 
   it("rejecting an application leaves it terminal without creating a member", async () => {
     const input = buildApplication();
-    const application = await submitApplication(input, null);
+    const application = await submitApplication(input, null, null);
     createdApplicationIds.push(application.id);
 
     const rejected = await rejectApplication({ applicationId: application.id, adminId: testAdminId, note: "Test rejection" });

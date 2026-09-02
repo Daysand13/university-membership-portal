@@ -36,12 +36,14 @@ export default async function AboutPage() {
 
       {about.imageUrl && (
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 -mt-8">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={about.imageUrl}
-            alt="Acme University Students' Association"
-            className="w-full aspect-[21/9] object-cover rounded-lg shadow-md border border-line"
-          />
+          <div className="w-full max-h-[420px] rounded-lg shadow-md border border-line bg-surface-muted overflow-hidden flex items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={about.imageUrl}
+              alt="Acme University Students' Association"
+              className="w-full max-h-[420px] object-contain"
+            />
+          </div>
         </div>
       )}
 

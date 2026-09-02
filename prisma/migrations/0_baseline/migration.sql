@@ -1,0 +1,7 @@
+-- Baseline marker only. Intentionally empty.
+--
+-- This project's database was originally created with `prisma db push`
+-- (no migration history existed before this file was added). This migration
+-- represents the schema as it already exists live — nothing to run here.
+-- It exists only so it can be marked "already applied" without Prisma trying
+-- to (re)create tables that are already there. See DEPLOY_NOTES.md.

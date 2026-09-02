@@ -6,6 +6,7 @@ import { submitEnrollmentAction } from "@/lib/actions/membership-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
+import { DISABILITY_CATEGORIES, CAMPUSES } from "@/lib/validations/membership";
 
 const GHANA_REGIONS = [
   "Ahafo",
@@ -101,7 +102,7 @@ export function EnrollmentForm() {
           <FieldError messages={fe.email} />
         </div>
         <div>
-          <Label htmlFor="profilePicture">Profile Picture</Label>
+          <Label htmlFor="profilePicture">Passport Picture</Label>
           <div className="flex items-center gap-3">
             <div className="w-14 h-14 rounded-full bg-surface-muted border border-line overflow-hidden flex items-center justify-center text-slate-light shrink-0">
               {previewUrl ? (
@@ -123,7 +124,23 @@ export function EnrollmentForm() {
               className="block w-full text-sm text-slate file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-sm file:font-semibold hover:file:bg-primary-100"
             />
           </div>
+          <p className="mt-1 text-xs text-slate-light">
+            Passport-style photo on a plain white background, face clearly visible.
+          </p>
           <FieldError messages={fe.profilePicture} />
+        </div>
+        <div>
+          <Label htmlFor="medicalReport" required>Medical Report</Label>
+          <input
+            id="medicalReport"
+            name="medicalReport"
+            type="file"
+            required
+            accept="image/png,image/jpeg,image/webp,application/pdf"
+            className="block w-full text-sm text-slate file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-sm file:font-semibold hover:file:bg-primary-100"
+          />
+          <p className="mt-1 text-xs text-slate-light">Image or PDF, confirming your disability status.</p>
+          <FieldError messages={fe.medicalReportKey} />
         </div>
       </SectionCard>
 
@@ -139,14 +156,14 @@ export function EnrollmentForm() {
           <FieldError messages={fe.programme} />
         </div>
         <div>
-          <Label htmlFor="department" required>Department</Label>
-          <input id="department" name="department" required className={inputClasses} />
+          <Label htmlFor="department" required>Category of Special Needs</Label>
+          <select id="department" name="department" required className={inputClasses} defaultValue="">
+            <option value="" disabled>Select…</option>
+            {DISABILITY_CATEGORIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
           <FieldError messages={fe.department} />
-        </div>
-        <div>
-          <Label htmlFor="facultySchool" required>Faculty / School</Label>
-          <input id="facultySchool" name="facultySchool" required className={inputClasses} />
-          <FieldError messages={fe.facultySchool} />
         </div>
         <div>
           <Label htmlFor="level" required>Level</Label>
@@ -160,7 +177,12 @@ export function EnrollmentForm() {
         </div>
         <div>
           <Label htmlFor="campus" required>Campus</Label>
-          <input id="campus" name="campus" required className={inputClasses} />
+          <select id="campus" name="campus" required className={inputClasses} defaultValue="">
+            <option value="" disabled>Select…</option>
+            {CAMPUSES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
           <FieldError messages={fe.campus} />
         </div>
         <div>

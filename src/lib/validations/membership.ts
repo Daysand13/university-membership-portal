@@ -1,8 +1,26 @@
 import { z } from "zod";
-import { Gender } from "@/generated/prisma/client";
+import { Gender } from "@/generated/prisma/enums";
 import { isPasswordStrongEnough, PASSWORD_REQUIREMENTS_MESSAGE } from "@/lib/auth/password";
 
 const phoneRegex = /^[0-9+()\-\s]{7,20}$/;
+
+export const DISABILITY_CATEGORIES = [
+  "Visual Impairment",
+  "Low Vision",
+  "Hearing Impairment",
+  "Deaf",
+  "Physical / Mobility Impairment",
+  "Speech and Language Impairment",
+  "Intellectual Disability",
+  "Specific Learning Difficulty",
+  "Autism Spectrum Disorder",
+  "Albinism",
+  "Chronic Illness",
+  "Multiple Disabilities",
+  "Other",
+] as const;
+
+export const CAMPUSES = ["Winneba Campus", "Ejumako Campus"] as const;
 
 export const enrollmentSchema = z.object({
   // Personal
@@ -14,14 +32,16 @@ export const enrollmentSchema = z.object({
   phone: z.string().trim().regex(phoneRegex, "Enter a valid phone number"),
   email: z.string().trim().toLowerCase().email("Enter a valid email address"),
   profileImageKey: z.string().optional(),
+  medicalReportKey: z.string().min(1, "Medical report is required"),
 
   // Academic
   indexNumber: z.string().trim().min(3, "Index number is required").max(50),
   programme: z.string().trim().min(1, "Programme is required").max(150),
-  department: z.string().trim().min(1, "Department is required").max(150),
-  facultySchool: z.string().trim().min(1, "Faculty / School is required").max(150),
+  department: z.enum(DISABILITY_CATEGORIES, {
+    message: "Select a category of special needs",
+  }),
   level: z.string().trim().min(1, "Level is required").max(20),
-  campus: z.string().trim().min(1, "Campus is required").max(100),
+  campus: z.enum(CAMPUSES, { message: "Select a campus" }),
   yearOfAdmission: z.coerce
     .number()
     .int()

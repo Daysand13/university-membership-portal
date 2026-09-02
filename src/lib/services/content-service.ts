@@ -77,6 +77,7 @@ export async function createHeroSlide(data: {
   title: string;
   subtitle?: string;
   imageUrl?: string;
+  backgroundColor?: string;
   ctaText?: string;
   ctaUrl?: string;
   order?: number;
@@ -91,6 +92,7 @@ export async function updateHeroSlide(
     title: string;
     subtitle: string | null;
     imageUrl: string | null;
+    backgroundColor: string | null;
     ctaText: string | null;
     ctaUrl: string | null;
     order: number;

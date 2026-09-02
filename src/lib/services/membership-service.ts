@@ -85,6 +85,7 @@ function isUniqueConstraintError(err: unknown, target: string): boolean {
 export async function submitApplication(
   input: EnrollmentInput,
   profileImageUrl: string | null,
+  medicalReportUrl: string | null,
 ): Promise<MembershipApplication> {
   let application: MembershipApplication;
   try {
@@ -96,12 +97,12 @@ export async function submitApplication(
         dateOfBirth: input.dateOfBirth,
         gender: input.gender,
         profileImageUrl,
+        medicalReportUrl,
         phone: input.phone,
         email: input.email,
         indexNumber: input.indexNumber,
         programme: input.programme,
         department: input.department,
-        facultySchool: input.facultySchool,
         level: input.level,
         campus: input.campus,
         yearOfAdmission: input.yearOfAdmission,
@@ -225,11 +226,11 @@ export async function approveApplication(params: {
           dateOfBirth: application.dateOfBirth,
           gender: application.gender,
           profileImageUrl: application.profileImageUrl,
+          medicalReportUrl: application.medicalReportUrl,
           phone: application.phone,
           email: application.email,
           programme: application.programme,
           department: application.department,
-          facultySchool: application.facultySchool,
           level: application.level,
           campus: application.campus,
           yearOfAdmission: application.yearOfAdmission,

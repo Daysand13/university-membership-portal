@@ -13,7 +13,21 @@ const FALLBACK_SLIDE = {
   ctaText: "Become a Member",
   ctaUrl: "/membership/enroll",
   imageUrl: null as string | null,
+  backgroundColor: null as string | null,
 };
+
+/**
+ * Relative luminance (WCAG) for a hex color, used to decide whether light
+ * or dark text/UI reads better against a solid slide background.
+ */
+function isLightColor(hex: string): boolean {
+  const match = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+  if (!match) return false;
+  const [r, g, b] = [match[1], match[2], match[3]].map((c) => parseInt(c, 16) / 255);
+  const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const luminance = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  return luminance > 0.55;
+}
 
 function PatternBackdrop() {
   return (
@@ -44,7 +58,7 @@ function PatternBackdrop() {
   );
 }
 
-export function Hero({ slides }: { slides: HeroSlide[] }) {
+export function Hero({ slides, siteTitle }: { slides: HeroSlide[]; siteTitle?: string }) {
   const activeSlides = slides.length > 0 ? slides : [FALLBACK_SLIDE];
   const [index, setIndex] = useState(0);
 
@@ -57,33 +71,50 @@ export function Hero({ slides }: { slides: HeroSlide[] }) {
   }, [activeSlides.length]);
 
   const slide = activeSlides[index];
+  const isLight = !slide.imageUrl && !!slide.backgroundColor && isLightColor(slide.backgroundColor);
+  const textColorClass = isLight ? "text-primary-950" : "text-white";
+  const subtitleColorClass = isLight ? "text-primary-800" : "text-primary-100";
 
   return (
-    <section className="relative bg-primary-900 text-white overflow-hidden">
+    <section
+      className={`relative overflow-hidden ${textColorClass}`}
+      style={!slide.imageUrl && slide.backgroundColor ? { backgroundColor: slide.backgroundColor } : undefined}
+    >
       <div
         className="absolute inset-0 bg-cover bg-center transition-opacity duration-700"
         style={{
           backgroundImage: slide.imageUrl ? `url(${slide.imageUrl})` : undefined,
         }}
       />
-      <div
-        className="absolute inset-0"
-        style={{
-          background: slide.imageUrl
-            ? "linear-gradient(100deg, rgba(10,31,68,0.92) 0%, rgba(10,31,68,0.72) 55%, rgba(10,31,68,0.5) 100%)"
-            : "linear-gradient(120deg, #0A1F44 0%, #123A73 60%, #163F7D 100%)",
-        }}
-      />
+      {slide.imageUrl && (
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(100deg, rgba(10,31,68,0.92) 0%, rgba(10,31,68,0.72) 55%, rgba(10,31,68,0.5) 100%)",
+          }}
+        />
+      )}
+      {!slide.imageUrl && !slide.backgroundColor && (
+        <div
+          className="absolute inset-0"
+          style={{
+            background: "linear-gradient(120deg, #0A1F44 0%, #123A73 60%, #163F7D 100%)",
+          }}
+        />
+      )}
       <PatternBackdrop />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 sm:py-28 lg:py-32">
         <div className="max-w-2xl">
-          <p className="kicker kicker-on-dark mb-4">Acme University Students&apos; Association</p>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-balance leading-tight text-white">
+          <p className={`kicker ${isLight ? "" : "kicker-on-dark"} mb-4`}>
+            {siteTitle || "Acme University Students' Association"}
+          </p>
+          <h1 className={`text-3xl sm:text-4xl lg:text-5xl font-bold text-balance leading-tight ${textColorClass}`}>
             {slide.title}
           </h1>
           {slide.subtitle && (
-            <p className="mt-5 text-base sm:text-lg text-primary-100 leading-relaxed max-w-xl">
+            <p className={`mt-5 text-base sm:text-lg leading-relaxed max-w-xl ${subtitleColorClass}`}>
               {slide.subtitle}
             </p>
           )}
@@ -98,7 +129,11 @@ export function Hero({ slides }: { slides: HeroSlide[] }) {
             )}
             <Link
               href="/about"
-              className="inline-flex items-center rounded-md border border-white/30 text-white font-semibold px-6 py-3 text-sm hover:bg-white/10 transition-colors"
+              className={`inline-flex items-center rounded-md border font-semibold px-6 py-3 text-sm transition-colors ${
+                isLight
+                  ? "border-primary-950/30 text-primary-950 hover:bg-primary-950/10"
+                  : "border-white/30 text-white hover:bg-white/10"
+              }`}
             >
               Learn More
             </Link>
@@ -111,7 +146,7 @@ export function Hero({ slides }: { slides: HeroSlide[] }) {
               type="button"
               aria-label="Previous slide"
               onClick={() => setIndex((i) => (i - 1 + activeSlides.length) % activeSlides.length)}
-              className="p-2 rounded-full border border-white/25 hover:bg-white/10"
+              className={`p-2 rounded-full border hover:bg-white/10 ${isLight ? "border-primary-950/25" : "border-white/25"}`}
             >
               <ChevronLeft size={16} />
             </button>
@@ -123,7 +158,11 @@ export function Hero({ slides }: { slides: HeroSlide[] }) {
                   aria-label={`Go to slide ${i + 1}`}
                   onClick={() => setIndex(i)}
                   className={`h-1.5 rounded-full transition-all ${
-                    i === index ? "w-7 bg-accent-500" : "w-3 bg-white/30 hover:bg-white/50"
+                    i === index
+                      ? "w-7 bg-accent-500"
+                      : isLight
+                        ? "w-3 bg-primary-950/30 hover:bg-primary-950/50"
+                        : "w-3 bg-white/30 hover:bg-white/50"
                   }`}
                 />
               ))}
@@ -132,7 +171,7 @@ export function Hero({ slides }: { slides: HeroSlide[] }) {
               type="button"
               aria-label="Next slide"
               onClick={() => setIndex((i) => (i + 1) % activeSlides.length)}
-              className="p-2 rounded-full border border-white/25 hover:bg-white/10"
+              className={`p-2 rounded-full border hover:bg-white/10 ${isLight ? "border-primary-950/25" : "border-white/25"}`}
             >
               <ChevronRight size={16} />
             </button>

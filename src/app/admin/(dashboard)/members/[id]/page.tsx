@@ -72,12 +72,26 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
           <h2 className="font-display font-bold text-base text-primary-950 mb-4">Academic</h2>
           <dl className="grid grid-cols-2 gap-4">
             <Field label="Programme" value={member.programme} />
-            <Field label="Department" value={member.department} />
-            <Field label="Faculty / School" value={member.facultySchool} />
+            <Field label="Category of Special Needs" value={member.department} />
             <Field label="Level" value={member.level} />
             <Field label="Campus" value={member.campus} />
             <Field label="Membership Type" value={member.membershipType} />
           </dl>
+        </section>
+        <section className="bg-white rounded-lg border border-line p-6">
+          <h2 className="font-display font-bold text-base text-primary-950 mb-4">Medical Report</h2>
+          {member.medicalReportUrl ? (
+            <a
+              href={member.medicalReportUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-primary-800 font-medium hover:text-accent-600 underline"
+            >
+              View uploaded medical report
+            </a>
+          ) : (
+            <p className="text-sm text-slate-light">No medical report on file.</p>
+          )}
         </section>
       </div>
     </div>

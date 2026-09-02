@@ -43,12 +43,8 @@ export default async function MemberDashboardPage() {
               </div>
             </div>
             <div>
-              <dt className="text-slate-light text-xs">Department</dt>
+              <dt className="text-slate-light text-xs">Category of Special Needs</dt>
               <dd className="text-ink">{member.department}</dd>
-            </div>
-            <div>
-              <dt className="text-slate-light text-xs">Faculty / School</dt>
-              <dd className="text-ink">{member.facultySchool}</dd>
             </div>
             <div className="flex gap-6">
               <div>
@@ -62,6 +58,20 @@ export default async function MemberDashboardPage() {
             </div>
           </dl>
         </div>
+
+        {member.medicalReportUrl && (
+          <div className="bg-white rounded-lg border border-line p-6">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate mb-4">Medical Report</h3>
+            <a
+              href={member.medicalReportUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-primary-800 font-medium hover:text-accent-600 underline"
+            >
+              View uploaded medical report
+            </a>
+          </div>
+        )}
 
         <div className="bg-white rounded-lg border border-line p-6">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-slate mb-4">Account</h3>

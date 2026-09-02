@@ -53,10 +53,12 @@ export async function updateDonateAction(_prevState: ActionState, formData: Form
 export async function createHeroSlideAction(formData: FormData): Promise<void> {
   await requireAdminRole(AdminRole.EDITOR);
   const imageUrl = formData.get("imageUrl");
+  const backgroundColor = formData.get("backgroundColor");
   await createHeroSlide({
     title: String(formData.get("title") ?? ""),
     subtitle: String(formData.get("subtitle") ?? "") || undefined,
     imageUrl: typeof imageUrl === "string" ? imageUrl : undefined,
+    backgroundColor: typeof backgroundColor === "string" && backgroundColor ? backgroundColor : undefined,
     ctaText: String(formData.get("ctaText") ?? "") || undefined,
     ctaUrl: String(formData.get("ctaUrl") ?? "") || undefined,
     order: Number(formData.get("order") ?? 0),
@@ -64,15 +66,18 @@ export async function createHeroSlideAction(formData: FormData): Promise<void> {
   });
   revalidatePath("/");
   revalidatePath("/admin");
+  revalidatePath("/admin/hero-slides");
 }
 
 export async function updateHeroSlideAction(id: string, formData: FormData): Promise<void> {
   await requireAdminRole(AdminRole.EDITOR);
   const imageUrl = formData.get("imageUrl");
+  const backgroundColor = formData.get("backgroundColor");
   await updateHeroSlide(id, {
     title: String(formData.get("title") ?? ""),
     subtitle: String(formData.get("subtitle") ?? "") || null,
     imageUrl: typeof imageUrl === "string" && imageUrl ? imageUrl : null,
+    backgroundColor: typeof backgroundColor === "string" && backgroundColor ? backgroundColor : null,
     ctaText: String(formData.get("ctaText") ?? "") || null,
     ctaUrl: String(formData.get("ctaUrl") ?? "") || null,
     order: Number(formData.get("order") ?? 0),
@@ -80,6 +85,7 @@ export async function updateHeroSlideAction(id: string, formData: FormData): Pro
   });
   revalidatePath("/");
   revalidatePath("/admin");
+  revalidatePath("/admin/hero-slides");
 }
 
 export async function deleteHeroSlideAction(id: string): Promise<void> {
@@ -87,6 +93,7 @@ export async function deleteHeroSlideAction(id: string): Promise<void> {
   await deleteHeroSlide(id);
   revalidatePath("/");
   revalidatePath("/admin");
+  revalidatePath("/admin/hero-slides");
 }
 
 export async function updateSiteSettingsAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {

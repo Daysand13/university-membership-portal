@@ -39,6 +39,12 @@ export async function submitEnrollmentAction(
     agreedToTerms: entries.agreedToTerms === "on" || entries.agreedToTerms === "true",
   };
   delete (candidate as Record<string, unknown>).profilePicture;
+  delete (candidate as Record<string, unknown>).medicalReport;
+  // medicalReportKey is validated as "present" via the schema but the real
+  // value comes from the uploaded file below, not the form field itself.
+  const medicalReportFile = formData.get("medicalReport");
+  (candidate as Record<string, unknown>).medicalReportKey =
+    medicalReportFile instanceof File && medicalReportFile.size > 0 ? "pending" : "";
 
   const parsed = enrollmentSchema.safeParse(candidate);
   if (!parsed.success) {
@@ -71,8 +77,31 @@ export async function submitEnrollmentAction(
     }
   }
 
+  let medicalReportUrl: string | null = null;
+  if (medicalReportFile instanceof File && medicalReportFile.size > 0) {
+    const buffer = Buffer.from(await medicalReportFile.arrayBuffer());
+    const sniffed = sniffImageMimeType(new Uint8Array(buffer));
+    const mimeType = sniffed ?? medicalReportFile.type;
+    const check = validateUploadRequest({
+      filename: medicalReportFile.name,
+      mimeType,
+      fileSize: medicalReportFile.size,
+      category: "document",
+    });
+    if (!check.ok) {
+      return { fieldErrors: { medicalReportKey: [check.error] } };
+    }
+    if (isR2Configured()) {
+      const objectKey = generateObjectKey("members", medicalReportFile.name, mimeType);
+      await uploadBuffer({ objectKey, contentType: mimeType, body: buffer });
+      medicalReportUrl = buildPublicUrl(objectKey);
+    } else {
+      console.warn("[enroll] R2 not configured in this environment — medical report not stored.");
+    }
+  }
+
   try {
-    await submitApplication(parsed.data, profileImageUrl);
+    await submitApplication(parsed.data, profileImageUrl, medicalReportUrl);
   } catch (err) {
     if (err instanceof DuplicateIndexNumberError) {
       return { fieldErrors: { indexNumber: [err.message] } };

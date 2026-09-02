@@ -54,7 +54,7 @@ export async function Header() {
 
       {/* Main header */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-[68px]">
+        <div className="flex items-center justify-between min-h-[68px] py-2 gap-4">
           <Logo siteTitle={settings.siteTitle} logoUrl={settings.logoUrl} />
 
           <nav className="hidden lg:flex items-center gap-1">
