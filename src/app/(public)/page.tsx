@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { BookOpen, Vote, HandHeart, Users, ArrowRight, CalendarDays } from "lucide-react";
+import { BookOpen, Vote, HandHeart, Users, CalendarDays } from "lucide-react";
 import { Hero } from "@/components/home/Hero";
 import { CTACard } from "@/components/home/CTACard";
 import { NewsCard } from "@/components/news/NewsCard";
@@ -7,16 +6,15 @@ import { EventCard } from "@/components/events/EventCard";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { LinkButton } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Common";
-import { getActiveHeroSlides, getAboutContent, getSiteSettings } from "@/lib/services/content-service";
+import { getActiveHeroSlides, getSiteSettings } from "@/lib/services/content-service";
 import { getFeaturedNews } from "@/lib/services/news-service";
 import { getUpcomingEventsForHome } from "@/lib/services/event-service";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [slides, about, news, events, siteSettings] = await Promise.all([
+  const [slides, news, events, siteSettings] = await Promise.all([
     getActiveHeroSlides(),
-    getAboutContent(),
     getFeaturedNews(3),
     getUpcomingEventsForHome(3),
     getSiteSettings(),
@@ -25,47 +23,6 @@ export default async function HomePage() {
   return (
     <>
       <Hero slides={slides} siteTitle={siteSettings.siteTitle} />
-
-      {/* Welcome / introduction */}
-      <section className={`relative overflow-hidden ${about.imageUrl ? "bg-primary-950" : "bg-white"}`}>
-        {about.imageUrl && (
-          <>
-            <div
-              className="absolute inset-0 bg-cover bg-center"
-              style={{ backgroundImage: `url(${about.imageUrl})` }}
-            />
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  "linear-gradient(180deg, rgba(10,31,68,0.90) 0%, rgba(10,31,68,0.84) 100%)",
-              }}
-            />
-          </>
-        )}
-        <div className="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16 text-center">
-          <SectionHeading
-            kicker="Welcome"
-            title="A community built around every student"
-            align="center"
-            onDark={!!about.imageUrl}
-          />
-          <p className={`mt-5 text-base leading-relaxed ${about.imageUrl ? "text-primary-100" : "text-slate"}`}>
-            {about.mission ||
-              "The Acme University Students' Association exists to represent, support, and connect every registered student — through news, events, resources, and a membership community that spans every faculty and campus."}
-          </p>
-          <div className="mt-6">
-            <Link
-              href="/about"
-              className={`text-sm font-semibold inline-flex items-center gap-1 ${
-                about.imageUrl ? "text-accent-400 hover:text-accent-300" : "text-primary-800 hover:text-accent-600"
-              }`}
-            >
-              More about who we are <ArrowRight size={14} />
-            </Link>
-          </div>
-        </div>
-      </section>
 
       {/* Latest news */}
       <section className="bg-surface-muted">
