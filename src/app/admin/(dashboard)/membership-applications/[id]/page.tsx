@@ -73,6 +73,8 @@ export default async function ReviewApplicationPage({ params }: { params: Promis
             </h2>
             <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <Field label="Membership Type" value={application.membershipType} />
+              <Field label="Study Level (Track)" value={application.applicationTrack} />
+              <Field label="Postgraduate Degree Category" value={application.degreeCategory} />
               <Field label="Academic Department" value={application.academicDepartment} />
               <Field label="Programme" value={application.programme} />
               <Field label="Level" value={application.level} />

@@ -1,51 +1,45 @@
 # Deploying this update
 
-The one-time database baselining from the previous round is done — you
-won't need to repeat it. From now on, every schema change just needs:
+Same flow as before — one new migration this round:
 
 ```bash
 npx prisma generate
 npx prisma migrate dev
-```
-
-This round adds two new migrations (medical report fields from before were
-already applied — these are new):
-
-1. `20260902120000_membership_form_fields` — adds Academic Department, Hall
-   of Affiliation, Specific Support Needed, and converts Membership Type to
-   Regular / Distance / Sandwich.
-2. `20260902130000_about_team_members` — adds Membership Eligibility and
-   Partners/Stakeholders text fields to the About page, and a new table for
-   Executive Leadership + Our Patrons.
-
-Run the two commands above locally (same live database as always), then the
-usual flow:
-
-```bash
 git add .
-git commit -m "hero fixes, membership form overhaul, undergrad/postgrad split, about us sections"
+git commit -m "postgraduate form, gold enroll cards, campus/hall updates, readable checkboxes"
 git push
 ```
 
-## A couple of things worth knowing about this round
+## What's in this round
 
-- **Old membership applications/members with no Membership Type set**: the
-  migration converts that column from free text to Regular/Distance/Sandwich.
-  Since nothing on the site ever actually set this value before, existing
-  rows should just have it blank (NULL) — that's expected and safe. If the
-  migration ever complains about a value that doesn't match one of the three
-  options, stop and send me the error rather than guessing.
-- **Existing applications/members keep their old academic department value**
-  in the "Category of Special Needs" field — that field's meaning didn't
-  change. The new, separate "Academic Department" field (the real college
-  department, like "Department of Special Education") will be blank for any
-  application submitted before this update, since it didn't exist yet.
-- **Residential address, region, and emergency contact** are still collected
-  on the form (moved to an "Additional Information" section at the bottom) —
-  they weren't in the new form blueprint you sent, but I kept them rather
-  than silently dropping data collection, since the database still requires
-  them for new applications. Let me know if you'd rather remove them
-  entirely.
-- **Leadership team and Patrons start empty** — add them from
-  `/admin/team` after this deploys; they won't show on the About page until
-  you do.
+1. **Gold-accented enroll cards** — Undergraduate/Postgraduate choice cards on
+   `/membership/enroll` now use the site's gold accent color instead of plain
+   white/navy.
+2. **Hall of Affiliation** updated to: Ghartey Hall, GUSSS Hall, Kwegyir
+   Aggrey Hall, Simpa Hall, University Hall, Other Hall. *(One judgment call
+   here worth double-checking: your message listed "kwegyir, aggrey" as
+   separate items — I kept them as one "Kwegyir Aggrey Hall" entry, matching
+   the real UEW hall name from the original blueprint, rather than splitting
+   into two halls that don't otherwise exist. Let me know if you actually
+   meant two separate halls.)*
+3. **Campus** narrowed to just Winneba Main Campus and Ejumako Campus.
+4. **Postgraduate registration form is now live** (was a "coming soon" page
+   before) — Postgraduate Degree Category, the full postgraduate department
+   list, the full postgraduate program list, and Year 1–4 instead of Level
+   100–400, all from the document you sent. Everything else (personal info,
+   category of special needs, uploads, consent) matches the undergraduate
+   form.
+5. **Specific Support Needed checkboxes** now use dark, bold text instead of
+   the lighter gray from before, for better readability.
+
+## Under the hood
+
+- Existing applications/members from before this round will show a blank
+  "Study Level (Track)" in admin — that's expected, since older records
+  don't know which track they came from. Every new submission going forward
+  is tagged automatically.
+- The database column that stores Campus/Hall/Department/Programme values is
+  just plain text either way, so this update doesn't touch or invalidate any
+  previously submitted application data — old entries keep whatever values
+  they already had, even the old-format ones (e.g. "Winneba Campus (Main
+  Campus)").

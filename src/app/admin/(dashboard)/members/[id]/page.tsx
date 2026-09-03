@@ -72,6 +72,8 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
           <h2 className="font-display font-bold text-base text-primary-950 mb-4">Academic</h2>
           <dl className="grid grid-cols-2 gap-4">
             <Field label="Membership Type" value={member.membershipType} />
+            <Field label="Study Level (Track)" value={member.applicationTrack} />
+            <Field label="Postgraduate Degree Category" value={member.degreeCategory} />
             <Field label="Academic Department" value={member.academicDepartment} />
             <Field label="Programme" value={member.programme} />
             <Field label="Level" value={member.level} />

@@ -21,34 +21,36 @@ export default function EnrollChooserPage() {
         <div className="grid sm:grid-cols-2 gap-6">
           <Link
             href="/membership/enroll/undergraduate"
-            className="group bg-white rounded-lg border border-line p-8 hover:border-primary-800 hover:shadow-md transition-all"
+            className="group relative overflow-hidden rounded-lg border-2 border-accent-400 bg-gradient-to-br from-accent-50 via-white to-white p-8 shadow-sm hover:border-accent-500 hover:shadow-lg hover:-translate-y-0.5 transition-all"
           >
-            <div className="w-12 h-12 rounded-full bg-primary-50 text-primary-800 flex items-center justify-center mb-5">
+            <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-accent-200/50" />
+            <div className="relative w-12 h-12 rounded-full bg-accent-500 text-white flex items-center justify-center mb-5 shadow-sm">
               <School size={22} />
             </div>
-            <h2 className="font-display font-bold text-lg text-primary-950 mb-2">Undergraduate</h2>
-            <p className="text-sm text-slate leading-relaxed mb-5">
+            <h2 className="relative font-display font-bold text-lg text-primary-950 mb-2">Undergraduate</h2>
+            <p className="relative text-sm text-slate leading-relaxed mb-5">
               For undergraduate students (Level 100–400) registered with the Resource Center for Students with
               Special Needs.
             </p>
-            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-800 group-hover:text-accent-600">
+            <span className="relative inline-flex items-center gap-1.5 text-sm font-bold text-accent-700 group-hover:text-accent-600">
               Start registration <ArrowRight size={14} />
             </span>
           </Link>
 
           <Link
             href="/membership/enroll/postgraduate"
-            className="group bg-white rounded-lg border border-line p-8 hover:border-primary-800 hover:shadow-md transition-all"
+            className="group relative overflow-hidden rounded-lg border-2 border-accent-400 bg-gradient-to-br from-accent-50 via-white to-white p-8 shadow-sm hover:border-accent-500 hover:shadow-lg hover:-translate-y-0.5 transition-all"
           >
-            <div className="w-12 h-12 rounded-full bg-primary-50 text-primary-800 flex items-center justify-center mb-5">
+            <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-accent-200/50" />
+            <div className="relative w-12 h-12 rounded-full bg-accent-500 text-white flex items-center justify-center mb-5 shadow-sm">
               <GraduationCap size={22} />
             </div>
-            <h2 className="font-display font-bold text-lg text-primary-950 mb-2">Postgraduate</h2>
-            <p className="text-sm text-slate leading-relaxed mb-5">
+            <h2 className="relative font-display font-bold text-lg text-primary-950 mb-2">Postgraduate</h2>
+            <p className="relative text-sm text-slate leading-relaxed mb-5">
               For Masters and PhD students with special needs.
             </p>
-            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-800 group-hover:text-accent-600">
-              View details <ArrowRight size={14} />
+            <span className="relative inline-flex items-center gap-1.5 text-sm font-bold text-accent-700 group-hover:text-accent-600">
+              Start registration <ArrowRight size={14} />
             </span>
           </Link>
         </div>

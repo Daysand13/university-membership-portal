@@ -30,7 +30,7 @@ test.describe("Membership enrollment", () => {
     await page.getByLabel("Personal Email Address").fill(`e2e-${unique}@example.com`);
     await page.getByLabel(/Phone Number \/ WhatsApp/).fill("0244000000");
 
-    await page.getByLabel("UEW Campus").selectOption({ label: "Winneba Campus (Main Campus)" });
+    await page.getByLabel("UEW Campus").selectOption({ label: "Winneba Main Campus" });
     await page.getByLabel("Academic Department").selectOption({ label: "Department of Special Education" });
     await page.getByLabel("Program of Study").selectOption({
       label: "Bachelor of Education (B.Ed.) Special Education",
@@ -73,11 +73,12 @@ test.describe("Membership enrollment", () => {
     // await expect(page.getByText(/already exists/)).toBeVisible();
   });
 
-  test("the postgraduate option shows a coming-soon placeholder rather than a form", async ({ page }) => {
+  test("the postgraduate option leads to its own registration form with postgraduate-specific fields", async ({ page }) => {
     await page.goto("/membership/enroll");
     await page.getByRole("link", { name: /Postgraduate/ }).click();
     await expect(page).toHaveURL(/\/membership\/enroll\/postgraduate/);
-    await expect(page.getByText("Coming Soon")).toBeVisible();
+    await expect(page.getByLabel("Postgraduate Degree Category")).toBeVisible();
+    await expect(page.getByLabel(/Year of Study/)).toBeVisible();
   });
 });
 

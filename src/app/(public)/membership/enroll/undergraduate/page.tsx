@@ -17,7 +17,7 @@ export default function UndergraduateEnrollPage() {
         </div>
       </div>
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12">
-        <EnrollmentForm />
+        <EnrollmentForm track="UNDERGRADUATE" />
       </div>
     </div>
   );

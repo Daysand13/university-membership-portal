@@ -3,6 +3,7 @@ import { enrollmentSchema, changePasswordSchema } from "@/lib/validations/member
 import { slugify, eventSchema } from "@/lib/validations/content";
 
 const validEnrollment = {
+  track: "UNDERGRADUATE",
   membershipType: "REGULAR",
   firstName: "Kojo",
   lastName: "Mensah",
@@ -15,7 +16,7 @@ const validEnrollment = {
   department: "Visual Impairment",
   academicDepartment: "Department of Basic Education",
   level: "Level 200",
-  campus: "Winneba Campus (Main Campus)",
+  campus: "Winneba Main Campus",
   medicalReportKey: "test-medical-report-key",
   yearOfAdmission: "2024",
   residentialAddress: "123 Sample Street, Accra",

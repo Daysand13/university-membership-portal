@@ -14,9 +14,14 @@ import {
   ACADEMIC_DEPARTMENTS,
   PROGRAMS_OF_STUDY,
   LEVELS,
+  POSTGRAD_DEGREE_CATEGORIES,
+  POSTGRAD_DEPARTMENTS,
+  POSTGRAD_PROGRAMS,
+  POSTGRAD_LEVELS,
   MEMBERSHIP_TYPE_LABELS,
   MAX_PASSPORT_PICTURE_BYTES,
   MAX_MEDICAL_REPORT_BYTES,
+  type ApplicationTrack,
 } from "@/lib/validations/membership";
 
 const GHANA_REGIONS = [
@@ -64,16 +69,23 @@ function fileTooLarge(file: File | undefined, maxBytes: number): boolean {
   return !!file && file.size > maxBytes;
 }
 
-export function EnrollmentForm() {
+export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
   const [state, formAction, isPending] = useActionState(submitEnrollmentAction, initialActionState);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [passportTooLarge, setPassportTooLarge] = useState(false);
   const [medicalTooLarge, setMedicalTooLarge] = useState(false);
   const fe = state.fieldErrors ?? {};
 
+  const isPg = track === "POSTGRADUATE";
+  const departmentOptions = isPg ? POSTGRAD_DEPARTMENTS : ACADEMIC_DEPARTMENTS;
+  const programmeOptions = isPg ? POSTGRAD_PROGRAMS : PROGRAMS_OF_STUDY;
+  const levelOptions = isPg ? POSTGRAD_LEVELS : LEVELS;
+  const levelLabel = isPg ? "Year of Study" : "Level / Year of Study";
+
   return (
     <form action={formAction} className="space-y-6" encType="multipart/form-data">
       <FormAlert message={state.error} />
+      <input type="hidden" name="track" value={track} />
 
       {/* Notice — must be read before membership type / rest of the form */}
       <div className="rounded-lg border border-accent-300 bg-accent-50 p-6 sm:p-7 flex gap-3">
@@ -186,11 +198,23 @@ export function EnrollmentForm() {
           </select>
           <FieldError messages={fe.hallOfAffiliation} />
         </div>
+        {isPg && (
+          <div className="sm:col-span-2">
+            <Label htmlFor="degreeCategory" required>Postgraduate Degree Category</Label>
+            <select id="degreeCategory" name="degreeCategory" required className={inputClasses} defaultValue="">
+              <option value="" disabled>Select…</option>
+              {POSTGRAD_DEGREE_CATEGORIES.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+            <FieldError messages={fe.degreeCategory} />
+          </div>
+        )}
         <div className="sm:col-span-2">
           <Label htmlFor="academicDepartment" required>Academic Department</Label>
           <select id="academicDepartment" name="academicDepartment" required className={inputClasses} defaultValue="">
             <option value="" disabled>Select…</option>
-            {ACADEMIC_DEPARTMENTS.map((d) => (
+            {departmentOptions.map((d) => (
               <option key={d} value={d}>{d}</option>
             ))}
           </select>
@@ -200,24 +224,21 @@ export function EnrollmentForm() {
           <Label htmlFor="programme" required>Program of Study</Label>
           <select id="programme" name="programme" required className={inputClasses} defaultValue="">
             <option value="" disabled>Select…</option>
-            {PROGRAMS_OF_STUDY.map((p) => (
+            {programmeOptions.map((p) => (
               <option key={p} value={p}>{p}</option>
             ))}
           </select>
           <FieldError messages={fe.programme} />
         </div>
         <div>
-          <Label htmlFor="level" required>Level / Year of Study</Label>
+          <Label htmlFor="level" required>{levelLabel}</Label>
           <select id="level" name="level" required className={inputClasses} defaultValue="">
             <option value="" disabled>Select…</option>
-            {LEVELS.map((l) => (
+            {levelOptions.map((l) => (
               <option key={l} value={l}>{l}</option>
             ))}
           </select>
           <FieldError messages={fe.level} />
-          <p className="mt-1 text-xs text-slate-light">
-            Postgraduate applicants: a dedicated postgraduate registration form is coming soon.
-          </p>
         </div>
         <div>
           <Label htmlFor="indexNumber" required>Index Number</Label>
@@ -247,15 +268,15 @@ export function EnrollmentForm() {
           <FieldError messages={fe.department} />
         </div>
         <div className="sm:col-span-2">
-          <p className="block text-sm font-medium text-primary-950 mb-2">Specific Support Needed on Campus</p>
-          <div className="space-y-2">
+          <p className="block text-sm font-semibold text-ink mb-2">Specific Support Needed on Campus</p>
+          <div className="space-y-2.5">
             {SUPPORT_NEEDS.map((need) => (
-              <label key={need} className="flex items-start gap-2.5 text-sm text-slate cursor-pointer">
+              <label key={need} className="flex items-start gap-2.5 text-sm text-ink font-medium cursor-pointer">
                 <input
                   type="checkbox"
                   name="specificSupportNeeds"
                   value={need}
-                  className="mt-0.5 h-4 w-4 rounded border-line text-primary-800 focus:ring-primary-600"
+                  className="mt-0.5 h-5 w-5 rounded border-2 border-slate text-primary-800 focus:ring-primary-600 shrink-0"
                 />
                 {need}
               </label>

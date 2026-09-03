@@ -21,6 +21,7 @@ import type { EnrollmentInput } from "@/lib/validations/membership";
 function buildApplication(overrides: Partial<EnrollmentInput> = {}): EnrollmentInput {
   const unique = randomUUID().slice(0, 8);
   return {
+    track: "UNDERGRADUATE",
     firstName: "Test",
     lastName: "Applicant",
     dateOfBirth: new Date("2001-01-01"),
@@ -34,7 +35,7 @@ function buildApplication(overrides: Partial<EnrollmentInput> = {}): EnrollmentI
     specificSupportNeeds: [],
     medicalReportKey: "test-medical-report-key",
     level: "Level 200",
-    campus: "Winneba Campus (Main Campus)",
+    campus: "Winneba Main Campus",
     yearOfAdmission: 2024,
     residentialAddress: "1 Test Street",
     region: "Greater Accra",

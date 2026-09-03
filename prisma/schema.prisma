@@ -94,6 +94,11 @@ enum TeamMemberType {
   PATRON
 }
 
+enum ApplicationTrack {
+  UNDERGRADUATE
+  POSTGRADUATE
+}
+
 // ==================================================================
 // ADMIN & AUTH
 // ==================================================================
@@ -135,6 +140,8 @@ model Member {
   phone           String
   email           String    @unique
 
+  applicationTrack       ApplicationTrack?
+  degreeCategory         String?
   programme              String
   department             String
   academicDepartment     String?
@@ -180,6 +187,8 @@ model MembershipApplication {
   email           String
 
   indexNumber            String @unique
+  applicationTrack       ApplicationTrack?
+  degreeCategory         String?
   programme              String
   department             String
   academicDepartment     String?
