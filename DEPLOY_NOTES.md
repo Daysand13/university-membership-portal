@@ -1,62 +1,42 @@
 # Deploying this update
 
-Same routine, one new migration:
+No database changes this round — just code:
 
 ```bash
-npx prisma generate
-npx prisma migrate dev
 git add .
-git commit -m "email audit logging, retries, profile-update confirmation emails"
+git commit -m "dynamic email branding (name + logo), no more hardcoded Acme name"
 git push
 ```
 
-## What was already working (before this round)
+## What changed
 
-Worth knowing, since the request read like a from-scratch build: most of this
-was already live —
+1. **Email header/footer name** — every email (approval, rejection, password
+   reset, etc.) now pulls the organization name from **Admin → Settings →
+   Site Title**, instead of a hardcoded "Acme University Students'
+   Association". If your Site Title is already set correctly there, emails
+   will pick it up automatically on the next send — no further action
+   needed.
+2. **Email logo** — if you've uploaded a logo under **Admin → Settings**
+   (the same logo that shows in your site header), emails now show that
+   logo image instead of a plain solid-color bar. If no logo is set, it
+   falls back to the plain color bar with the site title as text, same as
+   before.
+3. **"Log in to the Membership Portal" button going to the wrong URL** —
+   this isn't a code bug, the code already builds this link from your
+   `NEXT_PUBLIC_APP_URL` environment variable. **You need to update that
+   variable in Vercel** to `https://assnuew.com` (it's likely still set to
+   the old `.vercel.app` URL from before you connected the custom domain),
+   then redeploy. Same applies to the password-reset link and the "Review
+   Application" link in admin notification emails — they all use the same
+   variable.
 
-- Approval emails, with index number + phone-number-as-temporary-password
-- Rejection emails
-- Full forgot-password flow: verify email exists, send a 30-minute expiring
-  reset link, never reveal whether an email is registered (anti-enumeration)
-- RESEND_API_KEY read from environment variables, never hardcoded
-- Passwords hashed, temporary passwords forced to be changed on first login
+## One thing to check before you deploy
 
-## What was actually missing, now added
+Go to **Admin → Settings** on the live site right now and confirm:
+- **Site Title** is set to the association's real full name (this is what
+  will appear in every email header/footer)
+- A **logo** is uploaded, if you want emails to show it instead of the
+  plain color bar
 
-1. **Profile-update confirmation emails.** Updating your info on
-   `/membership/dashboard` (phone, address, emergency contact, etc.) now
-   sends a confirmation email listing exactly what changed. If nothing
-   actually changed, no email is sent.
-2. **Retries.** Every email now retries automatically up to 3 times with a
-   short backoff if Resend's API has a transient failure, before being
-   marked failed.
-3. **Audit logging.** Every email attempt — sent, failed, or skipped because
-   no API key is configured (local dev) — is now recorded in a new
-   `email_logs` table: recipient, subject, template name, status, and
-   attempt count. View it at **Admin → Email Logs** (Super Admin only). This
-   is separate from your existing Audit Log, which tracks admin actions
-   (approvals, rejections) rather than the emails themselves.
-
-## Folder structure (for reference)
-
-```
-src/lib/email/
-  client.ts       — sendEmail(): retry logic + audit logging, talks to Resend
-  templates.ts    — every email's subject + HTML, one function per email type
-src/lib/services/membership-service.ts  — calls sendEmail() at each lifecycle point
-src/app/admin/(dashboard)/email-logs/page.tsx — the new admin viewer
-prisma/schema.prisma — EmailLog model + EmailStatus enum
-```
-
-## Security notes
-
-- The Resend API key lives only in Vercel's environment variables (and your
-  local `.env`, which is gitignored) — never in code, never in the
-  repository.
-- Email sending failures are swallowed inside `sendEmail()` and logged, by
-  design — an approval or password reset always completes even if the email
-  provider is down; the admin can see the failure in Email Logs and manually
-  follow up rather than the whole action failing.
-- The forgot-password endpoint always behaves identically whether or not the
-  email is registered, so it can't be used to check who has an account.
+Both of these already exist as settings from earlier work — this round
+just makes emails actually use them.

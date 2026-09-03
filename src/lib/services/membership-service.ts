@@ -10,6 +10,7 @@ import {
   type MembershipApplication,
 } from "@/generated/prisma/client";
 import { sendEmail } from "@/lib/email/client";
+import { getEmailBrand } from "@/lib/services/content-service";
 import {
   applicationReceivedEmail,
   applicationApprovedEmail,
@@ -135,9 +136,12 @@ export async function submitApplication(
     },
   });
 
+  const brand = await getEmailBrand();
+
   const { subject, html } = applicationReceivedEmail({
     firstName: application.firstName,
     indexNumber: application.indexNumber,
+    brand,
   });
   await sendEmail({
     to: application.email,
@@ -162,6 +166,7 @@ export async function submitApplication(
       applicantName: `${application.firstName} ${application.lastName}`,
       indexNumber: application.indexNumber,
       reviewUrl,
+      brand,
     });
     await Promise.all(
       notifyRecipients.map((admin) =>
@@ -307,6 +312,7 @@ export async function approveApplication(params: {
     indexNumber: member.indexNumber,
     temporaryPassword,
     loginUrl,
+    brand: await getEmailBrand(),
   });
   await sendEmail({
     to: member.email,
@@ -353,6 +359,7 @@ export async function rejectApplication(params: {
   const { subject, html } = applicationRejectedEmail({
     firstName: application.firstName,
     adminNote: note,
+    brand: await getEmailBrand(),
   });
   await sendEmail({
     to: application.email,
@@ -396,7 +403,11 @@ export async function requestApplicationChanges(params: {
     },
   });
 
-  const { subject, html } = applicationChangesRequestedEmail({ firstName: application.firstName, adminNote: note });
+  const { subject, html } = applicationChangesRequestedEmail({
+    firstName: application.firstName,
+    adminNote: note,
+    brand: await getEmailBrand(),
+  });
   await sendEmail({
     to: application.email,
     subject,
@@ -484,6 +495,7 @@ export async function requestPasswordReset(email: string, resetBaseUrl: string):
   const { subject, html } = passwordResetEmail({
     firstName: member.firstName,
     resetUrl: `${resetBaseUrl}?token=${rawToken}`,
+    brand: await getEmailBrand(),
   });
   await sendEmail({
     to: member.email,
@@ -547,7 +559,11 @@ export async function updateMemberProfile(
   // otherwise-successful profile update look like it failed.
   if (changedFields.length > 0) {
     try {
-      const { subject, html } = profileUpdatedEmail({ firstName: updated.firstName, changedFields });
+      const { subject, html } = profileUpdatedEmail({
+        firstName: updated.firstName,
+        changedFields,
+        brand: await getEmailBrand(),
+      });
       await sendEmail({
         to: updated.email,
         subject,

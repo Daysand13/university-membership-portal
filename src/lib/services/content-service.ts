@@ -186,6 +186,13 @@ export async function getSiteSettings(): Promise<SiteSettingsInput> {
   return { ...DEFAULT_SITE_SETTINGS, ...(record.value as Partial<SiteSettingsInput>) };
 }
 
+/** The subset of Site Settings the email templates need, so template call
+ * sites don't have to know the full settings shape. */
+export async function getEmailBrand(): Promise<{ siteTitle: string; logoUrl: string | null | undefined }> {
+  const settings = await getSiteSettings();
+  return { siteTitle: settings.siteTitle, logoUrl: settings.logoUrl };
+}
+
 export async function updateSiteSettings(data: SiteSettingsInput): Promise<SiteSettingsInput> {
   await db.siteSetting.upsert({
     where: { key: SETTINGS_KEY },

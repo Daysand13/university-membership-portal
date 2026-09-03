@@ -32,6 +32,7 @@ export async function submitContactMessage(input: ContactMessageInput) {
         name: input.name,
         subject: input.subject,
         reviewUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/admin/contact-messages`,
+        brand: { siteTitle: settings.siteTitle, logoUrl: settings.logoUrl },
       });
       await sendEmail({
         to: notifyTo,
