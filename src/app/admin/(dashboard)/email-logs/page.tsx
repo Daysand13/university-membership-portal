@@ -74,7 +74,12 @@ export default async function AdminEmailLogsPage() {
                   <td className="px-5 py-3">
                     <StatusBadge status={log.status} />
                   </td>
-                  <td className="px-5 py-3 text-ink">{log.to}</td>
+                  <td className="px-5 py-3 text-ink">
+                    {log.to}
+                    {log.status === "FAILED" && log.errorMessage && (
+                      <p className="text-xs text-danger mt-0.5">{log.errorMessage}</p>
+                    )}
+                  </td>
                   <td className="px-5 py-3 text-slate max-w-xs truncate" title={log.subject}>
                     {log.subject}
                   </td>

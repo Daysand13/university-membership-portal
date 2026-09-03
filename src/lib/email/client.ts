@@ -104,15 +104,34 @@ export async function sendEmail(params: SendEmailParams): Promise<{ delivered: b
     return { delivered: false };
   }
 
-  let lastError: unknown;
+  // Resend's SDK does NOT throw for most API-level failures (e.g. an
+  // unverified sending domain, an invalid "from" address) — it resolves
+  // successfully with an `error` field set instead. Only a genuine network
+  // failure throws. Both cases must be treated as failure.
+  const RETRYABLE_ERROR_CODES = new Set(["rate_limit_exceeded", "internal_server_error", "application_error"]);
+
+  let lastErrorMessage = "Unknown error";
+  let attemptsUsed = 0;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    attemptsUsed = attempt;
     try {
-      await client.emails.send({
+      const result = await client.emails.send({
         from,
         to: params.to,
         subject: params.subject,
         html: params.html,
       });
+
+      if (result.error) {
+        lastErrorMessage = `[${result.error.name}] ${result.error.message}`;
+        console.error(`[email] Resend rejected the send (attempt ${attempt}/${MAX_ATTEMPTS}):`, result.error);
+        // Don't burn retries on errors that will never succeed no matter
+        // how many times we ask (bad domain, bad address, bad API key).
+        if (!RETRYABLE_ERROR_CODES.has(result.error.name)) break;
+        if (attempt < MAX_ATTEMPTS) await sleep(RETRY_DELAY_MS[attempt - 1]);
+        continue;
+      }
+
       await logEmailAttempt({
         to: params.to,
         subject: params.subject,
@@ -124,8 +143,8 @@ export async function sendEmail(params: SendEmailParams): Promise<{ delivered: b
       });
       return { delivered: true };
     } catch (error) {
-      lastError = error;
-      console.error(`[email] Resend send failed (attempt ${attempt}/${MAX_ATTEMPTS}):`, error);
+      lastErrorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`[email] Resend send threw (attempt ${attempt}/${MAX_ATTEMPTS}):`, error);
       if (attempt < MAX_ATTEMPTS) {
         await sleep(RETRY_DELAY_MS[attempt - 1]);
       }
@@ -137,8 +156,8 @@ export async function sendEmail(params: SendEmailParams): Promise<{ delivered: b
     subject: params.subject,
     template,
     status: "FAILED",
-    attempts: MAX_ATTEMPTS,
-    errorMessage: lastError instanceof Error ? lastError.message : String(lastError),
+    attempts: attemptsUsed,
+    errorMessage: lastErrorMessage,
     entityType: params.entityType,
     entityId: params.entityId,
   });
