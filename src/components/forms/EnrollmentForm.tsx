@@ -191,7 +191,7 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
         <div>
           <Label htmlFor="hallOfAffiliation">Hall of Affiliation</Label>
           <select id="hallOfAffiliation" name="hallOfAffiliation" className={inputClasses} defaultValue="">
-            <option value="">Not applicable / off-campus</option>
+            <option value="">Select (optional)</option>
             {HALLS_OF_AFFILIATION.map((h) => (
               <option key={h} value={h}>{h}</option>
             ))}
@@ -268,17 +268,20 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
           <FieldError messages={fe.department} />
         </div>
         <div className="sm:col-span-2">
-          <p className="block text-sm font-semibold text-ink mb-2">Specific Support Needed on Campus</p>
-          <div className="space-y-2.5">
+          <p className="block text-base font-bold text-ink mb-3">Specific Support Needed on Campus</p>
+          <div className="grid gap-2.5">
             {SUPPORT_NEEDS.map((need) => (
-              <label key={need} className="flex items-start gap-2.5 text-sm text-ink font-medium cursor-pointer">
+              <label
+                key={need}
+                className="flex items-start gap-3 rounded-md border-2 border-line bg-white px-4 py-3 cursor-pointer hover:border-primary-600 has-[:checked]:border-primary-700 has-[:checked]:bg-primary-50"
+              >
                 <input
                   type="checkbox"
                   name="specificSupportNeeds"
                   value={need}
-                  className="mt-0.5 h-5 w-5 rounded border-2 border-slate text-primary-800 focus:ring-primary-600 shrink-0"
+                  className="mt-0.5 h-5 w-5 rounded border-2 border-slate text-primary-800 focus:ring-2 focus:ring-primary-600 shrink-0"
                 />
-                {need}
+                <span className="text-base font-semibold text-ink leading-snug">{need}</span>
               </label>
             ))}
           </div>

@@ -48,7 +48,7 @@ export function AboutContentForm({ about }: { about: AboutContent }) {
         <textarea id="leadershipMessage" name="leadershipMessage" rows={4} defaultValue={about.leadershipMessage ?? ""} className={inputClasses} />
       </div>
       <div>
-        <Label htmlFor="history">History</Label>
+        <Label htmlFor="history">Our History and Background</Label>
         <textarea id="history" name="history" rows={5} defaultValue={about.history ?? ""} className={inputClasses} />
       </div>
       <div>
