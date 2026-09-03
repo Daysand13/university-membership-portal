@@ -100,6 +100,22 @@ export function applicationRejectedEmail(params: { firstName: string; adminNote?
   };
 }
 
+export function profileUpdatedEmail(params: { firstName: string; changedFields: string[] }) {
+  const { firstName, changedFields } = params;
+  const fieldList = changedFields.length
+    ? `<ul style="margin:8px 0 0;padding-left:20px;">${changedFields.map((f) => `<li>${f}</li>`).join("")}</ul>`
+    : "";
+  return {
+    subject: "Your profile was updated",
+    html: baseLayout(`
+      <p>Hi ${firstName},</p>
+      <p>This confirms your membership portal profile was just updated.</p>
+      ${fieldList}
+      <p style="margin-top:16px;color:#5b6b7c;font-size:13px;">If you didn't make this change, please contact us via the Contact page right away.</p>
+    `),
+  };
+}
+
 export function passwordResetEmail(params: { firstName: string; resetUrl: string }) {
   const { firstName, resetUrl } = params;
   return {

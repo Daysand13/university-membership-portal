@@ -33,7 +33,14 @@ export async function submitContactMessage(input: ContactMessageInput) {
         subject: input.subject,
         reviewUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/admin/contact-messages`,
       });
-      await sendEmail({ to: notifyTo, subject, html });
+      await sendEmail({
+        to: notifyTo,
+        subject,
+        html,
+        template: "admin-new-contact-message",
+        entityType: "ContactMessage",
+        entityId: message.id,
+      });
     }
   } catch (err) {
     console.error("[contact] failed to notify admins:", err);

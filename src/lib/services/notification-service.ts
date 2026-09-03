@@ -25,6 +25,13 @@ export async function listAuditLog(limit = 100) {
   });
 }
 
+export async function listEmailLogs(limit = 200) {
+  return db.emailLog.findMany({
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+}
+
 export async function getDashboardCounts() {
   const [
     totalMembers,

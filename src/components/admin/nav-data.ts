@@ -70,6 +70,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { href: "/admin/social-links", label: "Social Links", icon: Share2 },
       { href: "/admin/settings", label: "Settings", icon: Settings, roles: [AdminRole.SUPER_ADMIN] },
       { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText, roles: [AdminRole.SUPER_ADMIN] },
+      { href: "/admin/email-logs", label: "Email Logs", icon: Mail, roles: [AdminRole.SUPER_ADMIN] },
     ],
   },
 ];

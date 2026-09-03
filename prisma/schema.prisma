@@ -550,3 +550,27 @@ model AuditLog {
   @@index([entityType, entityId])
   @@map("audit_logs")
 }
+
+enum EmailStatus {
+  SENT
+  FAILED
+  SKIPPED_NO_PROVIDER
+}
+
+model EmailLog {
+  id           String      @id @default(cuid())
+  to           String
+  subject      String
+  template     String
+  status       EmailStatus
+  attempts     Int         @default(1)
+  errorMessage String?
+  entityType   String?
+  entityId     String?
+  createdAt    DateTime    @default(now())
+
+  @@index([to])
+  @@index([status])
+  @@index([entityType, entityId])
+  @@map("email_logs")
+}

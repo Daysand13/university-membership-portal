@@ -16,6 +16,7 @@ import {
   applicationRejectedEmail,
   applicationChangesRequestedEmail,
   passwordResetEmail,
+  profileUpdatedEmail,
   adminNewApplicationNotificationEmail,
 } from "@/lib/email/templates";
 import type { EnrollmentInput } from "@/lib/validations/membership";
@@ -138,7 +139,14 @@ export async function submitApplication(
     firstName: application.firstName,
     indexNumber: application.indexNumber,
   });
-  await sendEmail({ to: application.email, subject, html });
+  await sendEmail({
+    to: application.email,
+    subject,
+    html,
+    template: "application-received",
+    entityType: "MembershipApplication",
+    entityId: application.id,
+  });
 
   // Best-effort notify the membership team. Failure to notify never blocks
   // the applicant's confirmation — the application is already saved and
@@ -156,7 +164,16 @@ export async function submitApplication(
       reviewUrl,
     });
     await Promise.all(
-      notifyRecipients.map((admin) => sendEmail({ to: admin.email, subject: notice.subject, html: notice.html })),
+      notifyRecipients.map((admin) =>
+        sendEmail({
+          to: admin.email,
+          subject: notice.subject,
+          html: notice.html,
+          template: "admin-new-application-notification",
+          entityType: "MembershipApplication",
+          entityId: application.id,
+        }),
+      ),
     );
   } catch (err) {
     console.error("[membership] failed to notify admins of new application:", err);
@@ -291,7 +308,14 @@ export async function approveApplication(params: {
     temporaryPassword,
     loginUrl,
   });
-  await sendEmail({ to: member.email, subject, html });
+  await sendEmail({
+    to: member.email,
+    subject,
+    html,
+    template: "application-approved",
+    entityType: "Member",
+    entityId: member.id,
+  });
 
   return member;
 }
@@ -330,7 +354,14 @@ export async function rejectApplication(params: {
     firstName: application.firstName,
     adminNote: note,
   });
-  await sendEmail({ to: application.email, subject, html });
+  await sendEmail({
+    to: application.email,
+    subject,
+    html,
+    template: "application-rejected",
+    entityType: "MembershipApplication",
+    entityId: application.id,
+  });
 
   return application;
 }
@@ -366,7 +397,14 @@ export async function requestApplicationChanges(params: {
   });
 
   const { subject, html } = applicationChangesRequestedEmail({ firstName: application.firstName, adminNote: note });
-  await sendEmail({ to: application.email, subject, html });
+  await sendEmail({
+    to: application.email,
+    subject,
+    html,
+    template: "application-changes-requested",
+    entityType: "MembershipApplication",
+    entityId: application.id,
+  });
 
   return application;
 }
@@ -447,7 +485,14 @@ export async function requestPasswordReset(email: string, resetBaseUrl: string):
     firstName: member.firstName,
     resetUrl: `${resetBaseUrl}?token=${rawToken}`,
   });
-  await sendEmail({ to: member.email, subject, html });
+  await sendEmail({
+    to: member.email,
+    subject,
+    html,
+    template: "password-reset",
+    entityType: "Member",
+    entityId: member.id,
+  });
 }
 
 export async function resetPasswordWithToken(rawToken: string, newPassword: string): Promise<void> {
@@ -472,15 +517,51 @@ const EDITABLE_MEMBER_FIELDS = [
   "profileImageUrl",
 ] as const;
 
+const EDITABLE_FIELD_LABELS: Record<(typeof EDITABLE_MEMBER_FIELDS)[number], string> = {
+  phone: "Phone Number",
+  residentialAddress: "Residential Address",
+  region: "Region",
+  emergencyContactName: "Emergency Contact Name",
+  emergencyContactPhone: "Emergency Contact Phone",
+  profileImageUrl: "Profile Picture",
+};
+
 export async function updateMemberProfile(
   memberId: string,
   updates: Partial<Pick<Member, (typeof EDITABLE_MEMBER_FIELDS)[number]>>,
 ): Promise<Member> {
+  const before = await db.member.findUniqueOrThrow({ where: { id: memberId } });
+
   const safeUpdates: Record<string, unknown> = {};
+  const changedFields: string[] = [];
   for (const field of EDITABLE_MEMBER_FIELDS) {
-    if (field in updates) safeUpdates[field] = updates[field];
+    if (field in updates && updates[field] !== before[field]) {
+      safeUpdates[field] = updates[field];
+      changedFields.push(EDITABLE_FIELD_LABELS[field]);
+    }
   }
-  return db.member.update({ where: { id: memberId }, data: safeUpdates });
+
+  const updated = await db.member.update({ where: { id: memberId }, data: safeUpdates });
+
+  // Best-effort confirmation — a stalled/failed email must never make an
+  // otherwise-successful profile update look like it failed.
+  if (changedFields.length > 0) {
+    try {
+      const { subject, html } = profileUpdatedEmail({ firstName: updated.firstName, changedFields });
+      await sendEmail({
+        to: updated.email,
+        subject,
+        html,
+        template: "profile-updated",
+        entityType: "Member",
+        entityId: updated.id,
+      });
+    } catch (err) {
+      console.error("[membership] failed to send profile-update confirmation email:", err);
+    }
+  }
+
+  return updated;
 }
 
 export async function listMembers(filter?: { search?: string }) {
