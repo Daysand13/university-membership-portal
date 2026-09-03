@@ -35,14 +35,20 @@ export default async function ReviewApplicationPage({ params }: { params: Promis
 
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-primary-50 border border-line overflow-hidden flex items-center justify-center text-primary-300 shrink-0">
+          <a
+            href={application.profileImageUrl ?? undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-disabled={!application.profileImageUrl}
+            className={`w-16 h-16 rounded-full bg-primary-50 border border-line overflow-hidden flex items-center justify-center text-primary-300 shrink-0 ${application.profileImageUrl ? "hover:opacity-80 cursor-zoom-in" : "pointer-events-none"}`}
+          >
             {application.profileImageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={application.profileImageUrl} alt="" className="w-full h-full object-cover" />
             ) : (
               <User size={26} />
             )}
-          </div>
+          </a>
           <div>
             <h1 className="font-display font-bold text-2xl text-primary-950">
               {application.firstName} {application.middleName} {application.lastName}
@@ -122,6 +128,20 @@ export default async function ReviewApplicationPage({ params }: { params: Promis
             ) : (
               <p className="text-sm text-slate-light">No medical report uploaded.</p>
             )}
+            <div className="mt-3">
+              {application.profileImageUrl ? (
+                <a
+                  href={application.profileImageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary-800 font-medium hover:text-accent-600 underline"
+                >
+                  View passport picture
+                </a>
+              ) : (
+                <p className="text-sm text-slate-light">No passport picture uploaded.</p>
+              )}
+            </div>
           </section>
 
           <section className="bg-white rounded-lg border border-line p-6">

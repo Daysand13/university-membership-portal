@@ -30,14 +30,20 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
 
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-primary-50 border border-line overflow-hidden flex items-center justify-center text-primary-300 shrink-0">
+          <a
+            href={member.profileImageUrl ?? undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-disabled={!member.profileImageUrl}
+            className={`w-16 h-16 rounded-full bg-primary-50 border border-line overflow-hidden flex items-center justify-center text-primary-300 shrink-0 ${member.profileImageUrl ? "hover:opacity-80 cursor-zoom-in" : "pointer-events-none"}`}
+          >
             {member.profileImageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={member.profileImageUrl} alt="" className="w-full h-full object-cover" />
             ) : (
               <User size={26} />
             )}
-          </div>
+          </a>
           <div>
             <h1 className="font-display font-bold text-2xl text-primary-950">{member.firstName} {member.lastName}</h1>
             <p className="text-sm text-slate font-data">{member.indexNumber}</p>
@@ -113,6 +119,20 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
           ) : (
             <p className="text-sm text-slate-light">No medical report on file.</p>
           )}
+          <div className="mt-3">
+            {member.profileImageUrl ? (
+              <a
+                href={member.profileImageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary-800 font-medium hover:text-accent-600 underline"
+              >
+                View passport picture
+              </a>
+            ) : (
+              <p className="text-sm text-slate-light">No passport picture on file.</p>
+            )}
+          </div>
         </section>
       </div>
     </div>

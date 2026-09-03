@@ -15,14 +15,20 @@ export default async function MemberDashboardPage() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-1 space-y-6">
         <div className="bg-white rounded-lg border border-line p-6 text-center">
-          <div className="w-20 h-20 rounded-full bg-primary-50 mx-auto overflow-hidden flex items-center justify-center text-primary-300 border border-line">
+          <a
+            href={member.profileImageUrl ?? undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-disabled={!member.profileImageUrl}
+            className={`w-20 h-20 rounded-full bg-primary-50 mx-auto overflow-hidden flex items-center justify-center text-primary-300 border border-line ${member.profileImageUrl ? "hover:opacity-80 cursor-zoom-in" : "pointer-events-none"}`}
+          >
             {member.profileImageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={member.profileImageUrl} alt={member.firstName} className="w-full h-full object-cover" />
             ) : (
               <User size={28} />
             )}
-          </div>
+          </a>
           <h2 className="mt-4 font-display font-bold text-lg text-primary-950">
             {member.firstName} {member.lastName}
           </h2>
@@ -97,6 +103,20 @@ export default async function MemberDashboardPage() {
               className="text-sm text-primary-800 font-medium hover:text-accent-600 underline"
             >
               View uploaded medical report
+            </a>
+          </div>
+        )}
+
+        {member.profileImageUrl && (
+          <div className="bg-white rounded-lg border border-line p-6">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate mb-4">Passport Picture</h3>
+            <a
+              href={member.profileImageUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-primary-800 font-medium hover:text-accent-600 underline"
+            >
+              View passport picture
             </a>
           </div>
         )}
