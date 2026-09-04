@@ -36,7 +36,7 @@ export default async function AdminHeroSlidesPage() {
                   <div
                     className="w-10 h-10 rounded-md border border-line shrink-0 bg-cover bg-center"
                     style={{
-                      backgroundColor: slide.backgroundColor ?? "#0A1F44",
+                      backgroundColor: slide.backgroundColor ?? "#14153D",
                       backgroundImage: slide.imageUrl ? `url(${slide.imageUrl})` : undefined,
                     }}
                   />

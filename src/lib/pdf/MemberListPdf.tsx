@@ -8,7 +8,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 9, color: "#5b6b7c", marginBottom: 3 },
   filterLine: { fontSize: 8, color: "#5b6b7c", marginBottom: 10 },
   table: { display: "flex", width: "100%", borderWidth: 1, borderColor: "#e2e8f0" },
-  headerRow: { flexDirection: "row", backgroundColor: "#123A73" },
+  headerRow: { flexDirection: "row", backgroundColor: "#24266B" },
   headerCell: { color: "#ffffff", fontWeight: 700, padding: 5, fontSize: 7.5 },
   row: { flexDirection: "row", borderTopWidth: 1, borderTopColor: "#e2e8f0" },
   rowAlt: { backgroundColor: "#f6f8fb" },

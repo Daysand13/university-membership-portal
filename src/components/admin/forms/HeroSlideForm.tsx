@@ -8,12 +8,12 @@ import { Button } from "@/components/ui/Button";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import type { HeroSlide } from "@/generated/prisma/client";
 
-const PRESET_COLORS = ["#0A1F44", "#123A73", "#C9971F", "#FFFFFF", "#F4F1E9", "#7A1F2B"];
+const PRESET_COLORS = ["#14153D", "#24266B", "#C9971F", "#FFFFFF", "#F4F1E9", "#7A1F2B"];
 
 export function HeroSlideForm({ slide }: { slide?: HeroSlide }) {
   const [isPending, setIsPending] = useState(false);
   const [background, setBackground] = useState<"image" | "color">(slide?.backgroundColor ? "color" : "image");
-  const [color, setColor] = useState(slide?.backgroundColor ?? "#0A1F44");
+  const [color, setColor] = useState(slide?.backgroundColor ?? "#14153D");
   const formRef = useRef<HTMLFormElement>(null);
 
   async function handleSubmit(formData: FormData) {
@@ -103,7 +103,7 @@ export function HeroSlideForm({ slide }: { slide?: HeroSlide }) {
               value={color}
               onChange={(e) => setColor(e.target.value)}
               className={inputClasses}
-              placeholder="#0A1F44"
+              placeholder="#14153D"
             />
             <div className="flex gap-1.5">
               {PRESET_COLORS.map((c) => (

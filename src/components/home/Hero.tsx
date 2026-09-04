@@ -67,7 +67,15 @@ export function Hero({ slides, siteTitle }: { slides: HeroSlide[]; siteTitle?: s
             className="absolute inset-0"
             style={{
               background:
-                "linear-gradient(100deg, rgba(10,31,68,0.78) 0%, rgba(10,31,68,0.55) 55%, rgba(10,31,68,0.32) 100%)",
+                "linear-gradient(100deg, rgba(20,21,61,0.78) 0%, rgba(20,21,61,0.55) 55%, rgba(20,21,61,0.32) 100%)",
+            }}
+          />
+          {/* Blue wash fading down from the top edge, so the image blends
+              smoothly into the header above it rather than cutting off sharply. */}
+          <div
+            className="absolute inset-x-0 top-0 h-32 sm:h-40"
+            style={{
+              background: "linear-gradient(to bottom, rgba(20,21,61,0.85) 0%, rgba(20,21,61,0) 100%)",
             }}
           />
         </>
@@ -76,7 +84,7 @@ export function Hero({ slides, siteTitle }: { slides: HeroSlide[]; siteTitle?: s
         <div
           className="absolute inset-0"
           style={{
-            background: "linear-gradient(120deg, #0A1F44 0%, #123A73 60%, #163F7D 100%)",
+            background: "linear-gradient(120deg, #14153D 0%, #24266B 60%, #2A2D82 100%)",
           }}
         />
       )}

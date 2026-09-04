@@ -9,17 +9,17 @@
   used for index numbers, dates, and tabular figures.
 */
 @theme {
-  --color-primary-50: #eef3fb;
-  --color-primary-100: #dce7f6;
-  --color-primary-200: #b7ceeb;
-  --color-primary-300: #85a9d6;
-  --color-primary-400: #3e6fa8;
-  --color-primary-500: #245793;
-  --color-primary-600: #1e5aa8;
-  --color-primary-700: #163f7d;
-  --color-primary-800: #123a73;
-  --color-primary-900: #0f2e5c;
-  --color-primary-950: #0a1f44;
+  --color-primary-50: #eef0fb;
+  --color-primary-100: #dadff6;
+  --color-primary-200: #b4bced;
+  --color-primary-300: #8791e0;
+  --color-primary-400: #5c62cf;
+  --color-primary-500: #3f44b8;
+  --color-primary-600: #33379e;
+  --color-primary-700: #2a2d82;
+  --color-primary-800: #24266b;
+  --color-primary-900: #1c1e54;
+  --color-primary-950: #14153d;
 
   --color-accent-100: #f7ecd2;
   --color-accent-200: #edd9a5;

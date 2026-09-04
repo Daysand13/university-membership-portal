@@ -1,4 +1,4 @@
-const BRAND_COLOR = "#123A73";
+const BRAND_COLOR = "#24266B";
 
 /** Everything the email layout needs to look like it actually belongs to
  * this association, pulled from Site Settings rather than hardcoded, so
@@ -86,7 +86,7 @@ export function applicationApprovedEmail(params: {
       `
       <p>Dear ${firstName},</p>
       <p>We are pleased to inform you that your membership application has been <strong>approved</strong>. Your member account has been created and is now ready for use.</p>
-      <table role="presentation" style="width:100%;background:#eef3fb;border-radius:6px;margin:18px 0;">
+      <table role="presentation" style="width:100%;background:#eef0fb;border-radius:6px;margin:18px 0;">
         <tr><td style="padding:14px 18px;">
           <div style="font-size:12px;color:#5b6b7c;text-transform:uppercase;letter-spacing:0.04em;">Index Number (Username)</div>
           <div style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;margin-bottom:10px;">${indexNumber}</div>
