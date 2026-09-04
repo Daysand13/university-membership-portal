@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { Gender } from "@/generated/prisma/enums";
 import { MembershipType } from "@/generated/prisma/enums";
 import { isPasswordStrongEnough, PASSWORD_REQUIREMENTS_MESSAGE } from "@/lib/auth/password";
 
@@ -346,7 +345,7 @@ export const enrollmentSchema = z
     phone: z.string().trim().regex(phoneRegex, "Enter a valid phone / WhatsApp number"),
 
     dateOfBirth: z.coerce.date({ message: "Enter a valid date of birth" }),
-    gender: z.enum(Gender),
+    gender: z.enum(["MALE", "FEMALE"], { message: "Select a gender" }),
 
     // Section B: Campus & Academic Department (valid options depend on track)
     campus: z.enum(CAMPUSES, { message: "Select a campus" }),

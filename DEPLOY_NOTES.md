@@ -1,42 +1,47 @@
 # Deploying this update
 
-No database changes this round — just code:
+No database changes this round — just code, plus one new dependency
+(@react-pdf/renderer, for the PDF export). npm install picks that up
+automatically.
 
 ```bash
+npm install
 git add .
-git commit -m "dynamic email branding (name + logo), no more hardcoded Acme name"
+git commit -m "form review step, gender restriction, admin filters/delete/PDF export, formal emails"
 git push
 ```
 
-## What changed
+## What's in this round
 
-1. **Email header/footer name** — every email (approval, rejection, password
-   reset, etc.) now pulls the organization name from **Admin → Settings →
-   Site Title**, instead of a hardcoded "Acme University Students'
-   Association". If your Site Title is already set correctly there, emails
-   will pick it up automatically on the next send — no further action
-   needed.
-2. **Email logo** — if you've uploaded a logo under **Admin → Settings**
-   (the same logo that shows in your site header), emails now show that
-   logo image instead of a plain solid-color bar. If no logo is set, it
-   falls back to the plain color bar with the site title as text, same as
-   before.
-3. **"Log in to the Membership Portal" button going to the wrong URL** —
-   this isn't a code bug, the code already builds this link from your
-   `NEXT_PUBLIC_APP_URL` environment variable. **You need to update that
-   variable in Vercel** to `https://assnuew.com` (it's likely still set to
-   the old `.vercel.app` URL from before you connected the custom domain),
-   then redeploy. Same applies to the password-reset link and the "Review
-   Application" link in admin notification emails — they all use the same
-   variable.
+1. **Form preview before submission** — both the undergraduate and
+   postgraduate registration forms now have a "Review Application" step.
+   Clicking it validates everything first (any missing/invalid field stops
+   it right there), then shows a full read-only summary — including a
+   thumbnail of the passport picture and the medical report's filename —
+   with "Edit Application" (goes back, nothing is lost) and "Confirm &
+   Submit" buttons.
+2. **Gender restricted to Male/Female** in the form. The database itself
+   still technically allows other values (so nothing breaks for any old
+   records), this is a form-level restriction only.
+3. **More professional emails** — every email (approval, rejection,
+   password reset, profile update, admin notifications) now reads more
+   formally, with a proper salutation and sign-off.
+4. **Admin member filters** at `/admin/members` — department, programme,
+   membership type, gender, undergraduate/postgraduate, campus, status, and
+   a date range, all combinable, all reflected in the URL so a filtered view
+   can be bookmarked or shared with another admin.
+5. **Admin delete** — Super Admins can delete a member directly from the
+   list (with a confirmation prompt). This is permanent and does not touch
+   their original application record, only the member account itself.
+   Logged in the Audit Log.
+6. **PDF export** — "Export PDF" on the members page generates a formatted
+   PDF of exactly what's currently on screen (respects every active
+   filter). Un-filtered, it exports the full member list.
 
-## One thing to check before you deploy
+## A judgment call worth knowing about
 
-Go to **Admin → Settings** on the live site right now and confirm:
-- **Site Title** is set to the association's real full name (this is what
-  will appear in every email header/footer)
-- A **logo** is uploaded, if you want emails to show it instead of the
-  plain color bar
-
-Both of these already exist as settings from earlier work — this round
-just makes emails actually use them.
+The PDF export **does not include "Category of Special Needs"** (disability
+category) — that's sensitive, health-adjacent information, and since it
+wasn't one of the filters you asked for, I left it out of the exported
+document by default to avoid it ending up in something that gets printed or
+forwarded. Let me know if you'd actually like it included and I'll add it.

@@ -8,6 +8,9 @@ import {
   Prisma,
   type Member,
   type MembershipApplication,
+  type Gender,
+  type MembershipType,
+  type ApplicationTrack,
 } from "@/generated/prisma/client";
 import { sendEmail } from "@/lib/email/client";
 import { getEmailBrand } from "@/lib/services/content-service";
@@ -580,20 +583,109 @@ export async function updateMemberProfile(
   return updated;
 }
 
-export async function listMembers(filter?: { search?: string }) {
+export interface MemberListFilter {
+  search?: string;
+  academicDepartment?: string;
+  programme?: string;
+  membershipType?: string;
+  gender?: string;
+  applicationTrack?: string;
+  campus?: string;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+function buildMemberWhere(filter?: MemberListFilter): Prisma.MemberWhereInput {
+  const where: Prisma.MemberWhereInput = {};
+  const and: Prisma.MemberWhereInput[] = [];
+
+  if (filter?.search) {
+    and.push({
+      OR: [
+        { firstName: { contains: filter.search, mode: "insensitive" } },
+        { lastName: { contains: filter.search, mode: "insensitive" } },
+        { indexNumber: { contains: filter.search, mode: "insensitive" } },
+        { email: { contains: filter.search, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (filter?.academicDepartment) and.push({ academicDepartment: filter.academicDepartment });
+  if (filter?.programme) and.push({ programme: filter.programme });
+  if (filter?.membershipType) and.push({ membershipType: filter.membershipType as MembershipType });
+  if (filter?.gender) and.push({ gender: filter.gender as Gender });
+  if (filter?.applicationTrack) and.push({ applicationTrack: filter.applicationTrack as ApplicationTrack });
+  if (filter?.campus) and.push({ campus: filter.campus });
+  if (filter?.status) and.push({ status: filter.status as MemberStatus });
+  if (filter?.dateFrom) and.push({ createdAt: { gte: new Date(filter.dateFrom) } });
+  if (filter?.dateTo) {
+    const end = new Date(filter.dateTo);
+    end.setHours(23, 59, 59, 999);
+    and.push({ createdAt: { lte: end } });
+  }
+
+  if (and.length > 0) where.AND = and;
+  return where;
+}
+
+export async function listMembers(filter?: MemberListFilter) {
   return db.member.findMany({
-    where: filter?.search
-      ? {
-          OR: [
-            { firstName: { contains: filter.search, mode: "insensitive" } },
-            { lastName: { contains: filter.search, mode: "insensitive" } },
-            { indexNumber: { contains: filter.search, mode: "insensitive" } },
-            { email: { contains: filter.search, mode: "insensitive" } },
-          ],
-        }
-      : {},
+    where: buildMemberWhere(filter),
     orderBy: { createdAt: "desc" },
   });
+}
+
+/** Distinct values currently in use, for populating the admin filter
+ * dropdowns — reflects real data rather than a static list that could
+ * drift out of sync with what members actually have on file. */
+export async function getMemberFilterOptions() {
+  const [departments, programmes, campuses] = await Promise.all([
+    db.member.findMany({
+      where: { academicDepartment: { not: null } },
+      distinct: ["academicDepartment"],
+      select: { academicDepartment: true },
+      orderBy: { academicDepartment: "asc" },
+    }),
+    db.member.findMany({
+      distinct: ["programme"],
+      select: { programme: true },
+      orderBy: { programme: "asc" },
+    }),
+    db.member.findMany({
+      distinct: ["campus"],
+      select: { campus: true },
+      orderBy: { campus: "asc" },
+    }),
+  ]);
+  return {
+    departments: departments.map((d) => d.academicDepartment).filter((d): d is string => !!d),
+    programmes: programmes.map((p) => p.programme),
+    campuses: campuses.map((c) => c.campus),
+  };
+}
+
+export async function deleteMember(params: { memberId: string; adminId: string; note?: string }): Promise<void> {
+  const { memberId, adminId, note } = params;
+  const member = await db.member.findUniqueOrThrow({ where: { id: memberId } });
+
+  await db.$transaction([
+    db.member.delete({ where: { id: memberId } }),
+    db.auditLog.create({
+      data: {
+        adminId,
+        action: "DELETE_MEMBER",
+        entityType: "Member",
+        entityId: memberId,
+        previousValue: {
+          firstName: member.firstName,
+          lastName: member.lastName,
+          indexNumber: member.indexNumber,
+          email: member.email,
+        },
+        note: note || null,
+      },
+    }),
+  ]);
 }
 
 export async function setMemberStatus(params: {

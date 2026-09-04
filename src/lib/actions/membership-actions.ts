@@ -13,6 +13,7 @@ import {
   requestPasswordReset,
   resetPasswordWithToken,
   updateMemberProfile,
+  deleteMember,
   DuplicateIndexNumberError,
   DuplicateEmailError,
   InvalidCredentialsError,
@@ -273,4 +274,11 @@ export async function setMemberStatusAction(memberId: string, status: "ACTIVE" |
   await setMemberStatus({ memberId, adminId: admin.id, status });
   revalidatePath("/admin/members");
   revalidatePath(`/admin/members/${memberId}`);
+}
+
+export async function deleteMemberAction(memberId: string): Promise<void> {
+  const admin = await requireAdminRole(AdminRole.SUPER_ADMIN);
+  await deleteMember({ memberId, adminId: admin.id });
+  revalidatePath("/admin/members");
+  redirect("/admin/members");
 }

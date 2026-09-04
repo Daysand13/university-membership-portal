@@ -58,7 +58,9 @@ test.describe("Membership enrollment", () => {
     await page.getByLabel("Emergency Contact Phone").fill("0244111111");
 
     await page.getByLabel(/I confirm that I have registered at the Resource Center/).check();
-    await page.getByRole("button", { name: /Submit Membership Registration/ }).click();
+    await page.getByRole("button", { name: "Review Application" }).click();
+    await expect(page.getByText("Please review your details carefully")).toBeVisible();
+    await page.getByRole("button", { name: /Confirm & Submit Membership Registration/ }).click();
 
     await expect(page).toHaveURL(/\/membership\/enroll\/success/);
     await expect(page.getByText("Application Submitted")).toBeVisible();

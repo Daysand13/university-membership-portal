@@ -29,7 +29,14 @@ export function ConfirmButton({
           startTransition(async () => {
             try {
               await action();
-            } catch {
+            } catch (err) {
+              // Next.js's redirect() throws internally as part of how it
+              // works — that's a signal to navigate, not a real failure,
+              // so it must be allowed to propagate rather than be treated
+              // as an error here.
+              if (err && typeof err === "object" && "digest" in err && String(err.digest).startsWith("NEXT_REDIRECT")) {
+                throw err;
+              }
               setError("That didn't work — please try again.");
             }
           });
