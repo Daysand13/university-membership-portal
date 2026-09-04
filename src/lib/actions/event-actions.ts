@@ -38,7 +38,7 @@ export async function createEventAction(_prevState: ActionState, formData: FormD
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
   const imageUrl = formData.get("imageUrl");
-  const event = await createEvent(
+  await createEvent(
     parsed.data,
     typeof imageUrl === "string" && imageUrl ? imageUrl : null,
     admin.id,
@@ -47,7 +47,7 @@ export async function createEventAction(_prevState: ActionState, formData: FormD
   revalidatePath("/events");
   revalidatePath("/");
   revalidatePath("/admin/events");
-  redirect(`/admin/events/${event.id}`);
+  redirect("/admin/events");
 }
 
 export async function updateEventAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
@@ -66,7 +66,7 @@ export async function updateEventAction(_prevState: ActionState, formData: FormD
   revalidatePath(`/events/${updated.slug}`);
   revalidatePath("/");
   revalidatePath("/admin/events");
-  return {};
+  redirect("/admin/events");
 }
 
 export async function deleteEventAction(id: string): Promise<void> {

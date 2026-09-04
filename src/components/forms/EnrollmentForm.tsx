@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { Loader2, ImagePlus, AlertCircle, Pencil, CheckCircle2, FileText } from "lucide-react";
 import { submitEnrollmentAction } from "@/lib/actions/membership-actions";
 import { initialActionState } from "@/lib/actions/types";
@@ -45,6 +45,75 @@ const GHANA_REGIONS = [
 
 const GENDER_LABELS: Record<string, string> = { MALE: "Male", FEMALE: "Female" };
 
+// Accepts common existing-file pickers as well as the camera on Android —
+// listing broad wildcard image/* (rather than only exact MIME types) is
+// what reliably makes Android's chooser offer "Files"/"Gallery" alongside
+// "Camera" instead of defaulting straight to the camera.
+const MEDICAL_REPORT_ACCEPT =
+  "image/*,application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx";
+
+// Every field the form collects, all controlled by React state. This is
+// deliberate: React automatically resets *uncontrolled* fields once a
+// useActionState action finishes — including when it finishes with a
+// validation error, not just on success. If these were left uncontrolled,
+// any server-side error (e.g. a duplicate index number) would silently
+// wipe the whole form the instant it happened. Controlled state persists
+// through that, and through switching back and forth between the form and
+// the review screen.
+interface FormValues {
+  membershipType: string;
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  dateOfBirth: string;
+  gender: string;
+  email: string;
+  phone: string;
+  campus: string;
+  hallOfAffiliation: string;
+  degreeCategory: string;
+  academicDepartment: string;
+  programme: string;
+  level: string;
+  indexNumber: string;
+  yearOfAdmission: string;
+  expectedGraduationYear: string;
+  department: string;
+  specificSupportNeeds: string[];
+  residentialAddress: string;
+  region: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  agreedToTerms: boolean;
+}
+
+const INITIAL_VALUES: FormValues = {
+  membershipType: "",
+  firstName: "",
+  middleName: "",
+  lastName: "",
+  dateOfBirth: "",
+  gender: "",
+  email: "",
+  phone: "",
+  campus: "",
+  hallOfAffiliation: "",
+  degreeCategory: "",
+  academicDepartment: "",
+  programme: "",
+  level: "",
+  indexNumber: "",
+  yearOfAdmission: "",
+  expectedGraduationYear: "",
+  department: "",
+  specificSupportNeeds: [],
+  residentialAddress: "",
+  region: "",
+  emergencyContactName: "",
+  emergencyContactPhone: "",
+  agreedToTerms: false,
+};
+
 function SectionCard({
   step,
   title,
@@ -73,9 +142,8 @@ function fileTooLarge(file: File | undefined, maxBytes: number): boolean {
 
 // ---------------------------------------------------------------------------
 // Review screen — read-only summary of everything captured in the form,
-// built from the live FormData at the moment "Review Application" was
-// clicked. The underlying <form> stays mounted (just visually hidden) the
-// whole time, so nothing is lost when going back to edit.
+// read directly from the same controlled state the form itself uses, so it
+// can never drift out of sync with what's actually been entered.
 // ---------------------------------------------------------------------------
 
 function ReviewField({ label, value }: { label: string; value: React.ReactNode }) {
@@ -97,25 +165,22 @@ function ReviewSection({ title, children }: { title: string; children: React.Rea
 }
 
 function ReviewScreen({
-  data,
+  values,
   isPg,
   passportPreviewUrl,
+  medicalFileName,
   onEdit,
   onConfirm,
   isPending,
 }: {
-  data: FormData;
+  values: FormValues;
   isPg: boolean;
   passportPreviewUrl: string | null;
+  medicalFileName: string | null;
   onEdit: () => void;
   onConfirm: () => void;
   isPending: boolean;
 }) {
-  const get = (name: string) => (data.get(name) as string) || "";
-  const supportNeeds = data.getAll("specificSupportNeeds") as string[];
-  const medicalFile = data.get("medicalReport");
-  const medicalFileName = medicalFile instanceof File && medicalFile.size > 0 ? medicalFile.name : null;
-
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-primary-300 bg-primary-50 p-6 sm:p-7 flex gap-3">
@@ -127,39 +192,42 @@ function ReviewScreen({
       </div>
 
       <ReviewSection title="Membership Type">
-        <ReviewField label="Membership Status" value={MEMBERSHIP_TYPE_LABELS[get("membershipType") as keyof typeof MEMBERSHIP_TYPE_LABELS] ?? get("membershipType")} />
+        <ReviewField
+          label="Membership Status"
+          value={MEMBERSHIP_TYPE_LABELS[values.membershipType as keyof typeof MEMBERSHIP_TYPE_LABELS] ?? values.membershipType}
+        />
       </ReviewSection>
 
       <ReviewSection title="Personal Identification">
-        <ReviewField label="First Name" value={get("firstName")} />
-        <ReviewField label="Middle Name" value={get("middleName")} />
-        <ReviewField label="Surname" value={get("lastName")} />
-        <ReviewField label="Date of Birth" value={get("dateOfBirth")} />
-        <ReviewField label="Gender" value={GENDER_LABELS[get("gender")] ?? get("gender")} />
-        <ReviewField label="Personal Email Address" value={get("email")} />
-        <ReviewField label="Phone Number / WhatsApp" value={get("phone")} />
+        <ReviewField label="First Name" value={values.firstName} />
+        <ReviewField label="Middle Name" value={values.middleName} />
+        <ReviewField label="Surname" value={values.lastName} />
+        <ReviewField label="Date of Birth" value={values.dateOfBirth} />
+        <ReviewField label="Gender" value={GENDER_LABELS[values.gender] ?? values.gender} />
+        <ReviewField label="Personal Email Address" value={values.email} />
+        <ReviewField label="Phone Number / WhatsApp" value={values.phone} />
       </ReviewSection>
 
       <ReviewSection title={isPg ? "Campus & Postgraduate Department" : "UEW Campus & Academic Department"}>
-        <ReviewField label="UEW Campus" value={get("campus")} />
-        <ReviewField label="Hall of Affiliation" value={get("hallOfAffiliation")} />
-        {isPg && <ReviewField label="Postgraduate Degree Category" value={get("degreeCategory")} />}
-        <ReviewField label="Academic Department" value={get("academicDepartment")} />
-        <ReviewField label="Program of Study" value={get("programme")} />
-        <ReviewField label={isPg ? "Year of Study" : "Level"} value={get("level")} />
-        <ReviewField label="Index Number" value={get("indexNumber")} />
-        <ReviewField label="Year of Admission" value={get("yearOfAdmission")} />
-        <ReviewField label="Expected Graduation Year" value={get("expectedGraduationYear")} />
+        <ReviewField label="UEW Campus" value={values.campus} />
+        <ReviewField label="Hall of Affiliation" value={values.hallOfAffiliation} />
+        {isPg && <ReviewField label="Postgraduate Degree Category" value={values.degreeCategory} />}
+        <ReviewField label="Academic Department" value={values.academicDepartment} />
+        <ReviewField label="Program of Study" value={values.programme} />
+        <ReviewField label={isPg ? "Year of Study" : "Level"} value={values.level} />
+        <ReviewField label="Index Number" value={values.indexNumber} />
+        <ReviewField label="Year of Admission" value={values.yearOfAdmission} />
+        <ReviewField label="Expected Graduation Year" value={values.expectedGraduationYear} />
       </ReviewSection>
 
       <ReviewSection title="Category of Special Needs">
-        <ReviewField label="Category of Special Needs" value={get("department")} />
+        <ReviewField label="Category of Special Needs" value={values.department} />
         <ReviewField
           label="Specific Support Needed on Campus"
           value={
-            supportNeeds.length > 0 ? (
+            values.specificSupportNeeds.length > 0 ? (
               <ul className="list-disc list-inside space-y-0.5">
-                {supportNeeds.map((need) => (
+                {values.specificSupportNeeds.map((need) => (
                   <li key={need}>{need}</li>
                 ))}
               </ul>
@@ -200,10 +268,10 @@ function ReviewScreen({
       </div>
 
       <ReviewSection title="Additional Information">
-        <ReviewField label="Residential Address" value={get("residentialAddress")} />
-        <ReviewField label="Region" value={get("region")} />
-        <ReviewField label="Emergency Contact Name" value={get("emergencyContactName")} />
-        <ReviewField label="Emergency Contact Phone" value={get("emergencyContactPhone")} />
+        <ReviewField label="Residential Address" value={values.residentialAddress} />
+        <ReviewField label="Region" value={values.region} />
+        <ReviewField label="Emergency Contact Name" value={values.emergencyContactName} />
+        <ReviewField label="Emergency Contact Phone" value={values.emergencyContactPhone} />
       </ReviewSection>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -222,11 +290,15 @@ function ReviewScreen({
 export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
   const [state, formAction, isPending] = useActionState(submitEnrollmentAction, initialActionState);
   const formRef = useRef<HTMLFormElement>(null);
+  const passportInputRef = useRef<HTMLInputElement>(null);
+  const medicalInputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<"form" | "review">("form");
-  const [reviewData, setReviewData] = useState<FormData | null>(null);
+  const [values, setValues] = useState<FormValues>(INITIAL_VALUES);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [medicalFileName, setMedicalFileName] = useState<string | null>(null);
   const [passportTooLarge, setPassportTooLarge] = useState(false);
   const [medicalTooLarge, setMedicalTooLarge] = useState(false);
+  const [filesClearedNotice, setFilesClearedNotice] = useState(false);
   const fe = state.fieldErrors ?? {};
 
   const isPg = track === "POSTGRADUATE";
@@ -235,6 +307,51 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
   const levelOptions = isPg ? POSTGRAD_LEVELS : LEVELS;
   const levelLabel = isPg ? "Year of Study" : "Level / Year of Study";
 
+  // If the server action comes back with an error (e.g. a duplicate index
+  // number — the one thing that can only be checked server-side), jump back
+  // to the editable form automatically so the error is actually visible
+  // instead of rendering inside a hidden review screen. React also clears
+  // the (uncontrolled, unavoidably so) file inputs whenever an action
+  // finishes, so warn the person to reselect their files if that happened.
+  // Adjusted during render (React's recommended pattern for reacting to a
+  // prop/value change) rather than in a useEffect, so it can't cause an
+  // extra render-then-fix flash.
+  const [lastHandledState, setLastHandledState] = useState(state);
+  if (state !== lastHandledState) {
+    setLastHandledState(state);
+    if (state.error || (state.fieldErrors && Object.keys(state.fieldErrors).length > 0)) {
+      setPhase("form");
+      if (previewUrl || medicalFileName) {
+        setFilesClearedNotice(true);
+        setPreviewUrl(null);
+        setMedicalFileName(null);
+      }
+    }
+  }
+
+  // Scrolling to top is a genuine side-effect on the browser (not React
+  // state), so this belongs in an effect — unlike the state adjustment
+  // above. Runs whenever the visible phase changes, covering the review
+  // click, the edit-application click, and the error-triggered bounce back
+  // to the form, all in one place.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [phase]);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+    const { name, value } = e.target;
+    setValues((prev) => ({ ...prev, [name]: value }));
+  }
+
+  function handleSupportNeedToggle(need: string, checked: boolean) {
+    setValues((prev) => ({
+      ...prev,
+      specificSupportNeeds: checked
+        ? [...prev.specificSupportNeeds, need]
+        : prev.specificSupportNeeds.filter((n) => n !== need),
+    }));
+  }
+
   function handleReviewClick() {
     const formEl = formRef.current;
     if (!formEl) return;
@@ -242,9 +359,7 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
       formEl.reportValidity();
       return;
     }
-    setReviewData(new FormData(formEl));
     setPhase("review");
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function handleConfirmSubmit() {
@@ -255,15 +370,13 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
 
   return (
     <div>
-      {phase === "review" && reviewData && (
+      {phase === "review" && (
         <ReviewScreen
-          data={reviewData}
+          values={values}
           isPg={isPg}
           passportPreviewUrl={previewUrl}
-          onEdit={() => {
-            setPhase("form");
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
+          medicalFileName={medicalFileName}
+          onEdit={() => setPhase("form")}
           onConfirm={handleConfirmSubmit}
           isPending={isPending}
         />
@@ -277,6 +390,13 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
       >
         <FormAlert message={state.error} />
         <input type="hidden" name="track" value={track} />
+
+        {filesClearedNotice && (
+          <div className="rounded-lg border border-danger bg-danger-light p-4 text-sm text-danger">
+            For security, your browser clears selected files whenever a submission doesn&apos;t go through. Please
+            reselect your Passport Picture and Medical Report below before submitting again.
+          </div>
+        )}
 
         {/* Notice — must be read before membership type / rest of the form */}
         <div className="rounded-lg border border-accent-300 bg-accent-50 p-6 sm:p-7 flex gap-3">
@@ -301,7 +421,14 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
         <SectionCard step={1} title="Membership Type">
           <div className="sm:col-span-2">
             <Label htmlFor="membershipType" required>Membership Status</Label>
-            <select id="membershipType" name="membershipType" required className={inputClasses} defaultValue="">
+            <select
+              id="membershipType"
+              name="membershipType"
+              required
+              className={inputClasses}
+              value={values.membershipType}
+              onChange={handleChange}
+            >
               <option value="" disabled>Select…</option>
               {Object.entries(MEMBERSHIP_TYPE_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
@@ -314,26 +441,26 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
         <SectionCard step={2} title="Personal Identification">
           <div>
             <Label htmlFor="firstName" required>First Name</Label>
-            <input id="firstName" name="firstName" required className={inputClasses} />
+            <input id="firstName" name="firstName" required className={inputClasses} value={values.firstName} onChange={handleChange} />
             <FieldError messages={fe.firstName} />
           </div>
           <div>
             <Label htmlFor="middleName">Middle Name</Label>
-            <input id="middleName" name="middleName" className={inputClasses} />
+            <input id="middleName" name="middleName" className={inputClasses} value={values.middleName} onChange={handleChange} />
           </div>
           <div>
             <Label htmlFor="lastName" required>Surname</Label>
-            <input id="lastName" name="lastName" required className={inputClasses} />
+            <input id="lastName" name="lastName" required className={inputClasses} value={values.lastName} onChange={handleChange} />
             <FieldError messages={fe.lastName} />
           </div>
           <div>
             <Label htmlFor="dateOfBirth" required>Date of Birth</Label>
-            <input id="dateOfBirth" name="dateOfBirth" type="date" required className={inputClasses} />
+            <input id="dateOfBirth" name="dateOfBirth" type="date" required className={inputClasses} value={values.dateOfBirth} onChange={handleChange} />
             <FieldError messages={fe.dateOfBirth} />
           </div>
           <div>
             <Label htmlFor="gender" required>Gender</Label>
-            <select id="gender" name="gender" required className={inputClasses} defaultValue="">
+            <select id="gender" name="gender" required className={inputClasses} value={values.gender} onChange={handleChange}>
               <option value="" disabled>Select…</option>
               <option value="MALE">Male</option>
               <option value="FEMALE">Female</option>
@@ -349,6 +476,8 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
               required
               placeholder="e.g., yourname@gmail.com"
               className={inputClasses}
+              value={values.email}
+              onChange={handleChange}
             />
             <FieldError messages={fe.email} />
           </div>
@@ -361,6 +490,8 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
               required
               placeholder="e.g., 0240000000"
               className={inputClasses}
+              value={values.phone}
+              onChange={handleChange}
             />
             <FieldError messages={fe.phone} />
           </div>
@@ -369,7 +500,7 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
         <SectionCard step={3} title="UEW Campus & Academic Department">
           <div>
             <Label htmlFor="campus" required>UEW Campus</Label>
-            <select id="campus" name="campus" required className={inputClasses} defaultValue="">
+            <select id="campus" name="campus" required className={inputClasses} value={values.campus} onChange={handleChange}>
               <option value="" disabled>Select…</option>
               {CAMPUSES.map((c) => (
                 <option key={c} value={c}>{c}</option>
@@ -379,7 +510,7 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
           </div>
           <div>
             <Label htmlFor="hallOfAffiliation">Hall of Affiliation</Label>
-            <select id="hallOfAffiliation" name="hallOfAffiliation" className={inputClasses} defaultValue="">
+            <select id="hallOfAffiliation" name="hallOfAffiliation" className={inputClasses} value={values.hallOfAffiliation} onChange={handleChange}>
               <option value="">Select (optional)</option>
               {HALLS_OF_AFFILIATION.map((h) => (
                 <option key={h} value={h}>{h}</option>
@@ -390,7 +521,14 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
           {isPg && (
             <div className="sm:col-span-2">
               <Label htmlFor="degreeCategory" required>Postgraduate Degree Category</Label>
-              <select id="degreeCategory" name="degreeCategory" required className={inputClasses} defaultValue="">
+              <select
+                id="degreeCategory"
+                name="degreeCategory"
+                required
+                className={inputClasses}
+                value={values.degreeCategory}
+                onChange={handleChange}
+              >
                 <option value="" disabled>Select…</option>
                 {POSTGRAD_DEGREE_CATEGORIES.map((d) => (
                   <option key={d} value={d}>{d}</option>
@@ -401,7 +539,14 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
           )}
           <div className="sm:col-span-2">
             <Label htmlFor="academicDepartment" required>Academic Department</Label>
-            <select id="academicDepartment" name="academicDepartment" required className={inputClasses} defaultValue="">
+            <select
+              id="academicDepartment"
+              name="academicDepartment"
+              required
+              className={inputClasses}
+              value={values.academicDepartment}
+              onChange={handleChange}
+            >
               <option value="" disabled>Select…</option>
               {departmentOptions.map((d) => (
                 <option key={d} value={d}>{d}</option>
@@ -411,7 +556,7 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
           </div>
           <div className="sm:col-span-2">
             <Label htmlFor="programme" required>Program of Study</Label>
-            <select id="programme" name="programme" required className={inputClasses} defaultValue="">
+            <select id="programme" name="programme" required className={inputClasses} value={values.programme} onChange={handleChange}>
               <option value="" disabled>Select…</option>
               {programmeOptions.map((p) => (
                 <option key={p} value={p}>{p}</option>
@@ -421,7 +566,7 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
           </div>
           <div>
             <Label htmlFor="level" required>{levelLabel}</Label>
-            <select id="level" name="level" required className={inputClasses} defaultValue="">
+            <select id="level" name="level" required className={inputClasses} value={values.level} onChange={handleChange}>
               <option value="" disabled>Select…</option>
               {levelOptions.map((l) => (
                 <option key={l} value={l}>{l}</option>
@@ -431,24 +576,43 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
           </div>
           <div>
             <Label htmlFor="indexNumber" required>Index Number</Label>
-            <input id="indexNumber" name="indexNumber" required className={inputClasses} />
+            <input id="indexNumber" name="indexNumber" required className={inputClasses} value={values.indexNumber} onChange={handleChange} />
             <FieldError messages={fe.indexNumber} />
           </div>
           <div>
             <Label htmlFor="yearOfAdmission" required>Year of Admission</Label>
-            <input id="yearOfAdmission" name="yearOfAdmission" type="number" min="2000" max="2100" required className={inputClasses} />
+            <input
+              id="yearOfAdmission"
+              name="yearOfAdmission"
+              type="number"
+              min="2000"
+              max="2100"
+              required
+              className={inputClasses}
+              value={values.yearOfAdmission}
+              onChange={handleChange}
+            />
             <FieldError messages={fe.yearOfAdmission} />
           </div>
           <div>
             <Label htmlFor="expectedGraduationYear">Expected Graduation Year</Label>
-            <input id="expectedGraduationYear" name="expectedGraduationYear" type="number" min="2000" max="2100" className={inputClasses} />
+            <input
+              id="expectedGraduationYear"
+              name="expectedGraduationYear"
+              type="number"
+              min="2000"
+              max="2100"
+              className={inputClasses}
+              value={values.expectedGraduationYear}
+              onChange={handleChange}
+            />
           </div>
         </SectionCard>
 
         <SectionCard step={4} title="Category of Special Needs">
           <div className="sm:col-span-2">
             <Label htmlFor="department" required>Category of Special Needs</Label>
-            <select id="department" name="department" required className={inputClasses} defaultValue="">
+            <select id="department" name="department" required className={inputClasses} value={values.department} onChange={handleChange}>
               <option value="" disabled>Select…</option>
               {DISABILITY_CATEGORIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
@@ -468,6 +632,8 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
                     type="checkbox"
                     name="specificSupportNeeds"
                     value={need}
+                    checked={values.specificSupportNeeds.includes(need)}
+                    onChange={(e) => handleSupportNeedToggle(need, e.target.checked)}
                     className="mt-0.5 h-5 w-5 rounded border-2 border-slate text-primary-800 focus:ring-2 focus:ring-primary-600 shrink-0"
                   />
                   <span className="text-base font-semibold text-ink leading-snug">{need}</span>
@@ -491,21 +657,24 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
                 )}
               </div>
               <input
+                ref={passportInputRef}
                 id="profilePicture"
                 name="profilePicture"
                 type="file"
                 required
-                accept="image/png,image/jpeg"
+                accept="image/*"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   setPassportTooLarge(fileTooLarge(file, MAX_PASSPORT_PICTURE_BYTES));
                   setPreviewUrl(file ? URL.createObjectURL(file) : null);
+                  if (file) setFilesClearedNotice(false);
                 }}
                 className="block w-full text-sm text-slate file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-sm file:font-semibold hover:file:bg-primary-100"
               />
             </div>
             <p className="mt-1 text-xs text-slate-light">
-              Clear, recent passport-sized photo on a plain white background. JPG or PNG, max 2MB.
+              Clear, recent passport-sized photo on a plain white background. JPG or PNG, max 2MB. On your phone,
+              you can choose an existing photo or take a new one.
             </p>
             {passportTooLarge && (
               <p className="mt-1 text-xs text-danger">This photo is over 2MB — please choose a smaller file.</p>
@@ -515,17 +684,24 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
           <div>
             <Label htmlFor="medicalReport" required>Medical Report / Disability Assessment</Label>
             <input
+              ref={medicalInputRef}
               id="medicalReport"
               name="medicalReport"
               type="file"
               required
-              accept="image/png,image/jpeg,application/pdf"
-              onChange={(e) => setMedicalTooLarge(fileTooLarge(e.target.files?.[0], MAX_MEDICAL_REPORT_BYTES))}
+              accept={MEDICAL_REPORT_ACCEPT}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                setMedicalTooLarge(fileTooLarge(file, MAX_MEDICAL_REPORT_BYTES));
+                setMedicalFileName(file ? file.name : null);
+                if (file) setFilesClearedNotice(false);
+              }}
               className="block w-full text-sm text-slate file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-sm file:font-semibold hover:file:bg-primary-100"
             />
             <p className="mt-1 text-xs text-slate-light">
               Official medical report or verification document confirming your registration at the Resource
-              Center. PDF, JPG, or PNG, max 5MB.
+              Center. PDF, Word document (.doc/.docx), JPG, or PNG, max 5MB. On your phone, you can choose an
+              existing file from Files/Drive/Gallery, not only the camera.
             </p>
             {medicalTooLarge && (
               <p className="mt-1 text-xs text-danger">This file is over 5MB — please choose a smaller file.</p>
@@ -537,12 +713,19 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
         <SectionCard step={6} title="Additional Information">
           <div className="sm:col-span-2">
             <Label htmlFor="residentialAddress" required>Residential Address</Label>
-            <input id="residentialAddress" name="residentialAddress" required className={inputClasses} />
+            <input
+              id="residentialAddress"
+              name="residentialAddress"
+              required
+              className={inputClasses}
+              value={values.residentialAddress}
+              onChange={handleChange}
+            />
             <FieldError messages={fe.residentialAddress} />
           </div>
           <div>
             <Label htmlFor="region" required>Region</Label>
-            <select id="region" name="region" required className={inputClasses} defaultValue="">
+            <select id="region" name="region" required className={inputClasses} value={values.region} onChange={handleChange}>
               <option value="" disabled>Select…</option>
               {GHANA_REGIONS.map((r) => (
                 <option key={r} value={r}>{r}</option>
@@ -553,19 +736,41 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
           <div />
           <div>
             <Label htmlFor="emergencyContactName" required>Emergency Contact Name</Label>
-            <input id="emergencyContactName" name="emergencyContactName" required className={inputClasses} />
+            <input
+              id="emergencyContactName"
+              name="emergencyContactName"
+              required
+              className={inputClasses}
+              value={values.emergencyContactName}
+              onChange={handleChange}
+            />
             <FieldError messages={fe.emergencyContactName} />
           </div>
           <div>
             <Label htmlFor="emergencyContactPhone" required>Emergency Contact Phone</Label>
-            <input id="emergencyContactPhone" name="emergencyContactPhone" type="tel" required className={inputClasses} />
+            <input
+              id="emergencyContactPhone"
+              name="emergencyContactPhone"
+              type="tel"
+              required
+              className={inputClasses}
+              value={values.emergencyContactPhone}
+              onChange={handleChange}
+            />
             <FieldError messages={fe.emergencyContactPhone} />
           </div>
         </SectionCard>
 
         <div className="rounded-lg border border-line p-6 sm:p-7">
           <label className="flex items-start gap-3 cursor-pointer">
-            <input type="checkbox" name="agreedToTerms" required className="mt-1 h-4 w-4 rounded border-line text-primary-800 focus:ring-primary-600" />
+            <input
+              type="checkbox"
+              name="agreedToTerms"
+              required
+              checked={values.agreedToTerms}
+              onChange={(e) => setValues((prev) => ({ ...prev, agreedToTerms: e.target.checked }))}
+              className="mt-1 h-4 w-4 rounded border-line text-primary-800 focus:ring-primary-600"
+            />
             <span className="text-sm text-slate leading-relaxed">
               I confirm that I have registered at the Resource Center for Students with Special Needs (FES Block,
               Room 104), that all information provided is accurate, and I consent to the association team

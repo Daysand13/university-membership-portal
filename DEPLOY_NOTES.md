@@ -1,47 +1,87 @@
 # Deploying this update
 
-No database changes this round — just code, plus one new dependency
-(@react-pdf/renderer, for the PDF export). npm install picks that up
-automatically.
+No database changes this round — just code:
 
 ```bash
-npm install
 git add .
-git commit -m "form review step, gender restriction, admin filters/delete/PDF export, formal emails"
+git commit -m "fix enrollment form reset bug, broaden mobile file picker, redirect after event save"
 git push
 ```
 
-## What's in this round
+## What was actually wrong (Issue 1)
 
-1. **Form preview before submission** — both the undergraduate and
-   postgraduate registration forms now have a "Review Application" step.
-   Clicking it validates everything first (any missing/invalid field stops
-   it right there), then shows a full read-only summary — including a
-   thumbnail of the passport picture and the medical report's filename —
-   with "Edit Application" (goes back, nothing is lost) and "Confirm &
-   Submit" buttons.
-2. **Gender restricted to Male/Female** in the form. The database itself
-   still technically allows other values (so nothing breaks for any old
-   records), this is a form-level restriction only.
-3. **More professional emails** — every email (approval, rejection,
-   password reset, profile update, admin notifications) now reads more
-   formally, with a proper salutation and sign-off.
-4. **Admin member filters** at `/admin/members` — department, programme,
-   membership type, gender, undergraduate/postgraduate, campus, status, and
-   a date range, all combinable, all reflected in the URL so a filtered view
-   can be bookmarked or shared with another admin.
-5. **Admin delete** — Super Admins can delete a member directly from the
-   list (with a confirmation prompt). This is permanent and does not touch
-   their original application record, only the member account itself.
-   Logged in the Audit Log.
-6. **PDF export** — "Export PDF" on the members page generates a formatted
-   PDF of exactly what's currently on screen (respects every active
-   filter). Un-filtered, it exports the full member list.
+Both symptoms you reported — "Confirm and Submit does nothing" and "going
+back to edit wipes the form" — turned out to be **one root cause**, not two
+separate bugs.
 
-## A judgment call worth knowing about
+React automatically clears any form fields that aren't explicitly tied to
+React's own state ("uncontrolled" fields) the moment a form action finishes
+— including when it finishes with a validation error, not only on success.
+The review screen sat on top of the real (hidden) form, so:
 
-The PDF export **does not include "Category of Special Needs"** (disability
-category) — that's sensitive, health-adjacent information, and since it
-wasn't one of the filters you asked for, I left it out of the exported
-document by default to avoid it ending up in something that gets printed or
-forwarded. Let me know if you'd actually like it included and I'll add it.
+- If anything failed server-side (the only realistic case here is a
+  duplicate index number, since everything else is checked before you even
+  reach the review screen), the error message rendered *inside the hidden
+  form* — invisible, hence "nothing happens."
+- At the same moment, React silently wiped every field in that hidden form.
+  So clicking "Edit Application" afterward showed a blank form — not
+  because editing broke it, but because the failed submit attempt already
+  cleared it a moment earlier.
+
+**The fix**: every text/select/checkbox field is now backed by React state
+directly (a "controlled" form), which is immune to that automatic clearing
+— it only ever changes when the code explicitly changes it. On a
+server-side error, the form now automatically comes back to the front (not
+hidden) so the error is visible, and if file selections were affected,
+there's now a clear on-screen notice asking the person to reselect their
+passport picture and medical report before trying again — the one thing
+that unfortunately cannot be preserved, since browsers never allow a file
+input's value to be set or restored by JavaScript, for security reasons.
+
+This is the standard, framework-recommended pattern (controlled inputs) for
+any form that needs to reliably survive a failed submission — worth using
+for the same reason on any other multi-step or review-before-submit form
+added later.
+
+## Issue 2 — mobile file picker
+
+The medical report field's `accept` attribute was narrowly listing exact
+image MIME types plus PDF only, which is part of why some Android browsers
+were defaulting to camera-only. Two changes:
+
+- Broadened to `accept="image/*,application/pdf,.pdf,application/msword,.doc,...,.docx"`
+  — using the `image/*` wildcard (rather than listing `image/png`,
+  `image/jpeg` individually) is what reliably gets Android to show its full
+  chooser (Files, Drive, Gallery, Camera) instead of jumping straight to
+  the camera.
+- **Word documents (.doc/.docx) are now actually selectable** — the server
+  already accepted them, but the form's `accept` attribute was silently
+  filtering them out of the picker before they could even be chosen. Fixed.
+
+Passport picture was similarly broadened to `accept="image/*"` for the same
+Android-reliability reason.
+
+## Issue 3 — admin event redirect
+
+`updateEventAction` genuinely didn't redirect at all before — it returned
+success silently and left the admin sitting on the same edit page.
+`createEventAction` redirected to the newly-created event's own edit page
+rather than the list. Both now redirect to `/admin/events` (the list) on
+success, matching what you asked for.
+
+## Best practices, since you asked
+
+- **Form persistence across multi-step flows**: always use controlled
+  inputs (React state, not `defaultValue`) for any form with a
+  review/confirm step, or any form using `useActionState` where you want
+  values to survive a failed submission. Uncontrolled fields are fine for
+  simple one-shot forms with no review step.
+- **Mobile file inputs**: prefer wildcard `accept` values (`image/*`) over
+  listing exact MIME types when you want the broadest picker (Files,
+  Gallery, Drive, Camera) rather than the narrowest one. Never set the
+  `capture` attribute unless you specifically want to force the camera and
+  skip the picker entirely.
+- **Admin workflow UX**: after any create/update action that succeeds,
+  redirect back to the relevant list view rather than leaving the admin on
+  the form — it's the clearest signal that the action actually completed,
+  and it matches what almost every admin panel does by convention.
