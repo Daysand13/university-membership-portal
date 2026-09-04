@@ -14,6 +14,7 @@ import {
   resetPasswordWithToken,
   updateMemberProfile,
   deleteMember,
+  deleteApplication,
   DuplicateIndexNumberError,
   DuplicateEmailError,
   InvalidCredentialsError,
@@ -281,4 +282,11 @@ export async function deleteMemberAction(memberId: string): Promise<void> {
   await deleteMember({ memberId, adminId: admin.id });
   revalidatePath("/admin/members");
   redirect("/admin/members");
+}
+
+export async function deleteApplicationAction(applicationId: string): Promise<void> {
+  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await deleteApplication({ applicationId, adminId: admin.id });
+  revalidatePath("/admin/membership-applications");
+  redirect("/admin/membership-applications");
 }

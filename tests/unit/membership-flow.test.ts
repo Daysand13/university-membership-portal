@@ -7,6 +7,8 @@ import {
   rejectApplication,
   authenticateMember,
   changeMemberPassword,
+  deleteMember,
+  deleteApplication,
   DuplicateIndexNumberError,
   InvalidCredentialsError,
 } from "@/lib/services/membership-service";
@@ -168,6 +170,44 @@ describe("membership end-to-end flow", () => {
 
     const member = await db.member.findUnique({ where: { indexNumber: input.indexNumber } });
     expect(member).toBeNull();
+  });
+
+  it("deleting a member also removes their original application, freeing the index number to reapply", async () => {
+    const input = buildApplication();
+    const application = await submitApplication(input, null, null);
+    const member = await approveApplication({
+      applicationId: application.id,
+      adminId: testAdminId,
+      loginUrl: "http://localhost:3000/membership/login",
+    });
+
+    await deleteMember({ memberId: member.id, adminId: testAdminId });
+
+    // Neither the member nor the original application should still exist —
+    // this is what actually frees the indexNumber (and, indirectly, the
+    // email) to be used again.
+    expect(await db.member.findUnique({ where: { id: member.id } })).toBeNull();
+    expect(await db.membershipApplication.findUnique({ where: { id: application.id } })).toBeNull();
+
+    // The real regression test: re-submitting with the exact same index
+    // number must succeed, not throw DuplicateIndexNumberError.
+    const resubmitted = await submitApplication(buildApplication({ indexNumber: input.indexNumber }), null, null);
+    createdApplicationIds.push(resubmitted.id);
+    expect(resubmitted.indexNumber).toBe(input.indexNumber);
+  });
+
+  it("an admin can delete a rejected application, but not a pending one", async () => {
+    const rejectedInput = buildApplication();
+    const rejectedApp = await submitApplication(rejectedInput, null, null);
+    await rejectApplication({ applicationId: rejectedApp.id, adminId: testAdminId, note: "Test rejection" });
+    await deleteApplication({ applicationId: rejectedApp.id, adminId: testAdminId });
+    expect(await db.membershipApplication.findUnique({ where: { id: rejectedApp.id } })).toBeNull();
+
+    const pendingInput = buildApplication();
+    const pendingApp = await submitApplication(pendingInput, null, null);
+    createdApplicationIds.push(pendingApp.id);
+    await expect(deleteApplication({ applicationId: pendingApp.id, adminId: testAdminId })).rejects.toThrow();
+    expect(await db.membershipApplication.findUnique({ where: { id: pendingApp.id } })).not.toBeNull();
   });
 
   afterAll(async () => {

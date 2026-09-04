@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, Trash2 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/Common";
+import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { listApplications } from "@/lib/services/membership-service";
+import { deleteApplicationAction } from "@/lib/actions/membership-actions";
 import { ApplicationStatus } from "@/generated/prisma/enums";
 
 export const metadata = { title: "Membership Applications" };
@@ -98,13 +100,22 @@ export default async function MembershipApplicationsPage({
                   <td className="px-5 py-3.5">
                     <StatusBadge status={app.status} />
                   </td>
-                  <td className="px-5 py-3.5 text-right">
+                  <td className="px-5 py-3.5 text-right whitespace-nowrap">
                     <Link
                       href={`/admin/membership-applications/${app.id}`}
-                      className="text-sm font-semibold text-primary-800 hover:text-accent-600"
+                      className="text-sm font-semibold text-primary-800 hover:text-accent-600 mr-3"
                     >
                       Review
                     </Link>
+                    {(app.status === ApplicationStatus.REJECTED || app.status === ApplicationStatus.SUSPENDED) && (
+                      <ConfirmButton
+                        action={deleteApplicationAction.bind(null, app.id)}
+                        confirmMessage={`Permanently delete this ${app.status.toLowerCase()} application from ${app.firstName} ${app.lastName}? This also frees up their index number and email for a new application.`}
+                        className="inline-flex items-center text-danger hover:text-danger align-middle"
+                      >
+                        <Trash2 size={15} />
+                      </ConfirmButton>
+                    )}
                   </td>
                 </tr>
               ))}

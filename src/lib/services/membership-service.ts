@@ -668,8 +668,19 @@ export async function deleteMember(params: { memberId: string; adminId: string; 
   const { memberId, adminId, note } = params;
   const member = await db.member.findUniqueOrThrow({ where: { id: memberId } });
 
-  await db.$transaction([
+  // Deleting only the member left its original application record behind
+  // (same indexNumber, a unique column) — from the database's point of
+  // view that "slot" was still taken, so the person couldn't submit a
+  // genuinely new application with the same index number even though
+  // their member account was gone. Removing the application too is what
+  // actually frees them up to reapply. Order matters: the member row
+  // references the application via a foreign key, so it must be deleted
+  // first.
+  const operations = [
     db.member.delete({ where: { id: memberId } }),
+    ...(member.applicationId
+      ? [db.membershipApplication.delete({ where: { id: member.applicationId } })]
+      : []),
     db.auditLog.create({
       data: {
         adminId,
@@ -681,6 +692,44 @@ export async function deleteMember(params: { memberId: string; adminId: string; 
           lastName: member.lastName,
           indexNumber: member.indexNumber,
           email: member.email,
+          applicationId: member.applicationId,
+        },
+        note: note || null,
+      },
+    }),
+  ];
+
+  await db.$transaction(operations);
+}
+
+/** Only rejected or suspended applications can be deleted this way — a
+ * pending/under-review application is still an open decision the admin
+ * needs to make, and an approved application is tied to a live member
+ * account (delete the member instead, via deleteMember, which also cleans
+ * up the underlying application). Restricting the status here prevents an
+ * admin from accidentally deleting an application that still matters. */
+export async function deleteApplication(params: { applicationId: string; adminId: string; note?: string }): Promise<void> {
+  const { applicationId, adminId, note } = params;
+  const application = await db.membershipApplication.findUniqueOrThrow({ where: { id: applicationId } });
+
+  if (application.status !== ApplicationStatus.REJECTED && application.status !== ApplicationStatus.SUSPENDED) {
+    throw new Error("Only rejected or suspended applications can be deleted.");
+  }
+
+  await db.$transaction([
+    db.membershipApplication.delete({ where: { id: applicationId } }),
+    db.auditLog.create({
+      data: {
+        adminId,
+        action: "DELETE_APPLICATION",
+        entityType: "MembershipApplication",
+        entityId: applicationId,
+        previousValue: {
+          firstName: application.firstName,
+          lastName: application.lastName,
+          indexNumber: application.indexNumber,
+          email: application.email,
+          status: application.status,
         },
         note: note || null,
       },
