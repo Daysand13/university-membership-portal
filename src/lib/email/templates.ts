@@ -160,6 +160,57 @@ export function profileUpdatedEmail(params: { firstName: string; changedFields: 
   };
 }
 
+export function alumniGraduationInviteEmail(params: { firstName: string; setPasswordUrl: string; brand: EmailBrand }) {
+  const { firstName, setPasswordUrl, brand } = params;
+  return {
+    subject: "Welcome to the Alumni Network",
+    html: baseLayout(
+      `
+      <p>Dear ${firstName},</p>
+      <p>Congratulations on your graduation! You have been automatically added to the ${brand.siteTitle} Alumni Network, and an alumni portal account has been created for you.</p>
+      <p>Please set a password for your new account to get started. This link will expire in 30 minutes.</p>
+      ${button(setPasswordUrl, "Set Your Alumni Password")}
+      <p style="margin-top:18px;">Through the Alumni Portal you will be able to connect with fellow graduates in the member directory, offer or seek mentorship, and stay informed about upcoming events and reunions.</p>
+      ${closing(brand)}
+    `,
+      brand,
+    ),
+  };
+}
+
+export function alumniWelcomeEmail(params: { firstName: string; brand: EmailBrand }) {
+  const { firstName, brand } = params;
+  return {
+    subject: "Welcome to the Alumni Network",
+    html: baseLayout(
+      `
+      <p>Dear ${firstName},</p>
+      <p>Thank you for registering with the ${brand.siteTitle} Alumni Network. Your account is now active.</p>
+      <p>You can now sign in to the Alumni Portal to browse the member directory, offer or seek mentorship, and stay informed about upcoming events and reunions.</p>
+      ${closing(brand)}
+    `,
+      brand,
+    ),
+  };
+}
+
+export function alumniPasswordResetEmail(params: { firstName: string; resetUrl: string; brand: EmailBrand }) {
+  const { firstName, resetUrl, brand } = params;
+  return {
+    subject: "Reset Your Alumni Portal Password",
+    html: baseLayout(
+      `
+      <p>Dear ${firstName},</p>
+      <p>We received a request to reset the password associated with your Alumni Portal account. Please use the button below to proceed. For your security, this link will expire in 30 minutes and may only be used once.</p>
+      ${button(resetUrl, "Reset Your Password")}
+      <p style="margin-top:18px;color:#5b6b7c;font-size:13px;">If you did not request this, no action is required — your password will remain unchanged.</p>
+      ${closing(brand)}
+    `,
+      brand,
+    ),
+  };
+}
+
 export function passwordResetEmail(params: { firstName: string; resetUrl: string; brand: EmailBrand }) {
   const { firstName, resetUrl, brand } = params;
   return {

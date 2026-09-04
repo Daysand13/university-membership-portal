@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ChevronLeft, User } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { MemberStatusControl } from "@/components/admin/MemberStatusControl";
+import { MarkGraduatedControl } from "@/components/admin/MarkGraduatedControl";
 import { db } from "@/lib/db";
 
 export const metadata = { title: "Member Details" };
@@ -19,7 +20,7 @@ function Field({ label, value }: { label: string; value: string | number | null 
 
 export default async function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const member = await db.member.findUnique({ where: { id } });
+  const member = await db.member.findUnique({ where: { id }, include: { alumniProfile: true } });
   if (!member) notFound();
 
   return (
@@ -59,6 +60,21 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
           <p className="text-xs text-warning bg-warning-light rounded-md px-3 py-2 mt-4 inline-block">
             This member has not yet changed their temporary password.
           </p>
+        )}
+      </div>
+
+      <div className="bg-white rounded-lg border border-line p-6 mb-6">
+        <h2 className="font-display font-bold text-base text-primary-950 mb-4">Graduation &amp; Alumni Status</h2>
+        {member.alumniProfile ? (
+          <p className="text-sm text-ink">
+            Graduated {member.graduatedAt ? new Date(member.graduatedAt).getFullYear() : ""} — an Alumni Portal
+            account was created for this member.{" "}
+            <Link href="/admin/alumni" className="font-semibold text-primary-800 hover:text-accent-600">
+              View in Alumni list
+            </Link>
+          </p>
+        ) : (
+          <MarkGraduatedControl memberId={member.id} defaultYear={member.expectedGraduationYear ?? new Date().getFullYear()} />
         )}
       </div>
 

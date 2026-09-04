@@ -14,6 +14,7 @@ import {
   Share2,
   Settings,
   ScrollText,
+  GraduationCap,
 } from "lucide-react";
 import { AdminRole } from "@/generated/prisma/enums";
 
@@ -53,6 +54,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
         roles: [AdminRole.MEMBERSHIP_OFFICER],
       },
       { href: "/admin/members", label: "Members", icon: Users, roles: [AdminRole.MEMBERSHIP_OFFICER] },
+      { href: "/admin/alumni", label: "Alumni", icon: GraduationCap, roles: [AdminRole.MEMBERSHIP_OFFICER] },
     ],
   },
   {

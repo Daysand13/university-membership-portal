@@ -1,4 +1,4 @@
-import { BookOpen, Vote, HandHeart, Users, CalendarDays } from "lucide-react";
+import { BookOpen, Vote, HandHeart, Users, CalendarDays, GraduationCap } from "lucide-react";
 import { Hero } from "@/components/home/Hero";
 import { CTACard } from "@/components/home/CTACard";
 import { NewsCard } from "@/components/news/NewsCard";
@@ -83,7 +83,7 @@ export default async function HomePage() {
             align="center"
             onDark
           />
-          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
             <CTACard
               icon={Users}
               title="Membership Portal"
@@ -111,6 +111,13 @@ export default async function HomePage() {
               description="Support the association's work with a contribution, large or small."
               href="/donate"
               linkLabel="See how to give"
+            />
+            <CTACard
+              icon={GraduationCap}
+              title="Alumni"
+              description="Connect with fellow graduates, find a mentor, and stay in touch."
+              href="/alumni"
+              linkLabel="Visit the alumni network"
             />
           </div>
         </div>

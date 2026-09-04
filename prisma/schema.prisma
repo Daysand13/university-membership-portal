@@ -161,6 +161,7 @@ model Member {
 
   membershipType MembershipType?
   status         MemberStatus @default(ACTIVE)
+  graduatedAt    DateTime?
 
   applicationId String?                 @unique
   application   MembershipApplication? @relation(fields: [applicationId], references: [id])
@@ -169,6 +170,7 @@ model Member {
   updatedAt DateTime @updatedAt
 
   passwordResetTokens PasswordResetToken[]
+  alumniProfile       AlumniProfile?
 
   @@index([status])
   @@map("members")
@@ -573,4 +575,60 @@ model EmailLog {
   @@index([status])
   @@index([entityType, entityId])
   @@map("email_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Alumni Network
+// ---------------------------------------------------------------------------
+
+enum AlumniStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model AlumniProfile {
+  id                String       @id @default(cuid())
+  fullName          String
+  email             String       @unique
+  phone             String
+  passwordHash      String?
+  mustSetPassword   Boolean      @default(false)
+  graduationYear    Int
+  programme         String
+  profession        String?
+  currentLocation   String?
+  profileImageUrl   String?
+  bio               String?
+  willingToMentor   Boolean      @default(false)
+  directoryVisible  Boolean      @default(true)
+  status            AlumniStatus @default(ACTIVE)
+
+  // Set when this profile was created automatically because an existing
+  // student member was marked as graduated, rather than through the
+  // self-serve registration form.
+  sourceMemberId String? @unique
+  sourceMember   Member? @relation(fields: [sourceMemberId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  passwordResetTokens AlumniPasswordResetToken[]
+
+  @@index([status])
+  @@index([willingToMentor])
+  @@index([directoryVisible])
+  @@map("alumni_profiles")
+}
+
+model AlumniPasswordResetToken {
+  id        String        @id @default(cuid())
+  tokenHash String        @unique
+  alumniId  String
+  alumni    AlumniProfile @relation(fields: [alumniId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  @@index([alumniId])
+  @@map("alumni_password_reset_tokens")
 }

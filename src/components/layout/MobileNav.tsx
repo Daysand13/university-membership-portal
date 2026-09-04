@@ -12,6 +12,7 @@ const PRIMARY_LINKS = [
   { href: "/about", label: "About Us" },
   { href: "/library", label: "Library" },
   { href: "/elections", label: "Election" },
+  { href: "/alumni", label: "Alumni" },
   { href: "/contact", label: "Contact Us" },
 ];
 
