@@ -31,9 +31,9 @@ test.describe("Membership enrollment", () => {
     await page.getByLabel(/Phone Number \/ WhatsApp/).fill("0244000000");
 
     await page.getByLabel("UEW Campus").selectOption({ label: "Winneba Main Campus" });
-    await page.getByLabel("Academic Department").selectOption({ label: "Department of Special Education" });
+    await page.getByLabel("Academic Department").selectOption({ label: "Special Education" });
     await page.getByLabel("Program of Study").selectOption({
-      label: "Bachelor of Education (B.Ed.) Special Education",
+      label: "Special Education",
     });
     await page.getByLabel(/Level \/ Year of Study/).selectOption({ label: "Level 200" });
     await page.getByLabel("Index Number").fill(`E2E/${unique}`);
@@ -46,7 +46,7 @@ test.describe("Membership enrollment", () => {
       mimeType: "image/jpeg",
       buffer: Buffer.from([0xff, 0xd8, 0xff, 0xdb]),
     });
-    await page.getByLabel(/Medical Report/).setInputFiles({
+    await page.getByLabel("Option B: PDF or Word file").setInputFiles({
       name: "medical.pdf",
       mimeType: "application/pdf",
       buffer: Buffer.from("%PDF-1.4 test"),

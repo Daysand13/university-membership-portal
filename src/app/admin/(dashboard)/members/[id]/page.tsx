@@ -86,7 +86,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
             <Field label="Phone" value={member.phone} />
             <Field label="Region" value={member.region} />
             <Field label="Residential Address" value={member.residentialAddress} />
-            <Field label="Emergency Contact" value={member.emergencyContactName} />
+            <Field label="Emergency Contact Name" value={member.emergencyContactName} />
             <Field label="Emergency Phone" value={member.emergencyContactPhone} />
           </dl>
         </section>

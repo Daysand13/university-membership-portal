@@ -1,84 +1,94 @@
 # Deploying this update
 
-One new migration this round:
+No database schema changes this round, but the database *connection*
+itself changed, plus new dependencies — so this deploy needs a bit more
+care than usual:
 
 ```bash
-npx prisma generate
-npx prisma migrate dev
+npm install
 git add .
-git commit -m "alumni network portal"
+git commit -m "fix server errors (Neon connection pooling), Android document upload, category/label/wording fixes"
 git push
 ```
 
-## What's in this round: the Alumni Network & Member Portal
+**No `npx prisma migrate dev` needed this round** — nothing about the
+database structure changed, only how the app connects to it.
 
-A full new module, built as its own account system (email + password login),
-separate from the student membership portal (index number + phone-password
-login), per your answer to my question — with an **automatic promotion
-path** so it doesn't feel like a second, disconnected system in practice.
+## Issue 2 — the server errors (read this one)
 
-### How the two account types connect
+**Root cause found and fixed.** The app was using a plain TCP connection
+pool to talk to Postgres. On Vercel, under real concurrent traffic, many
+separate serverless function instances can be running at once, and each
+one was opening its own real connection to your Neon database. Neon has a
+limited number of connections available — once that limit is hit, whoever's
+request lands on the unlucky instance gets a server error, while everyone
+else is unaffected. That's exactly the "some users can't access the site"
+pattern you described.
 
-- **Existing/future student members who graduate**: on a member's detail
-  page in the admin panel, there's now a "Mark as Graduated" button. Clicking
-  it creates their Alumni Portal account automatically (name, email, phone,
-  and programme carried over from their student record), and emails them a
-  link to set a password. They then sign in to the Alumni Portal with that
-  same email — not their old index number.
-- **Graduates from before this system existed**: they were never a student
-  member here, so there's nothing to promote — they register directly at
-  `/alumni` using the Register tab, with email + a password they choose
-  themselves.
+**The fix**: switched to Neon's own serverless driver, which is built
+specifically for this (many short-lived function instances) and is the
+officially recommended setup for Vercel + Neon + Prisma. It's used
+automatically in production (detected from your Neon connection string) —
+local development is unaffected and still works exactly as before.
 
-Both paths land in the same `AlumniProfile` table, and both use the same
-sign-in form — the only difference is who initiated the account.
+Along the way, I also found and fixed a second, related risk: a version
+mismatch between Prisma's core package and its database-adapter package
+that had crept in, which was silently breaking some error handling. All
+Prisma-related packages are now pinned to identical exact versions so this
+can't happen again on a future `npm install`.
 
-### Pages built (all from your structure)
+**This is the most important part of this update** — if the site was
+genuinely going down for some users before, this is very likely why.
 
-- `/alumni` — the landing page, with your exact intro copy and a client-side
-  Sign In / Register tab switcher (no page reload)
-- `/alumni/forgot-password` and `/alumni/reset-password` (the latter also
-  handles "set your initial password" after a graduation invite — same
-  underlying token mechanism)
-- `/alumni/dashboard` — greeting card, Edit Profile link, the three
-  quick-nav cards (Directory, Mentorship Board, Upcoming Events), Log Out
-- `/alumni/directory` — searchable; only shows alumni who've opted into
-  directory visibility (the consent checkbox from registration controls
-  this, and it's editable later)
-- `/alumni/mentorship` — the "simple" version you asked for: lists alumni
-  who've marked themselves willing to mentor, with a nudge to opt in if you
-  haven't. No matching/request workflow — that can be a later addition if
-  you want to go further.
-- `/alumni/profile` — edit personal/professional info, the directory and
-  mentorship toggles, and change password, all on one page
-- `/admin/alumni` — admin list, with search, an active/suspended toggle, and
-  delete (Super Admin only, same pattern as the existing member delete)
+## Issue 1 — Android file upload, second attempt
 
-### Navigation (item 6)
+The first fix (broadening the file type list) turned out to be
+insufficient — Android's "Photo Picker" mode restricts the chooser to
+Camera/Gallery only whenever an image type appears anywhere in a file
+input's accepted types, even mixed with PDF/Word types, on many real
+device/browser versions.
 
-- Alumni added to the hamburger menu
-- The homepage's 4-box quick-links section is now 5 (Membership Portal,
-  Resource Library, Elections, Donate, Alumni)
+**The real fix**: Medical Report is now two separate upload fields —
+"Option A: Photo of the document" and "Option B: PDF or Word file" — so
+neither one ever mixes image and document types. This reliably avoids the
+restrictive picker on every Android version, since the ambiguity that
+triggers it is gone entirely. The applicant just fills in whichever one
+matches what they have.
 
-### Automated tests
+## Issues 3, 4, 6 — quick fixes
 
-Two real end-to-end tests were added (run against the actual database, not
-mocked): self-registration → sign in, and the graduation-promotion flow
-(mark graduated → account created with no usable password yet → confirmed
-attempting to log in before setting one fails clearly). These will keep
-passing on every future change, catching regressions automatically.
+- "Hearing Impairment" renamed to "Deaf" in the Category of Special Needs
+  list. "Deafblindness" is unchanged, still in the list.
+- "Emergency Contact" relabeled to "Emergency Contact Name" on the two
+  admin detail pages (the form itself already said this correctly — only
+  the admin view had the old label).
+- Hall of Affiliation's placeholder now just says "Select…" instead of
+  "Select (optional)".
 
-## Scoped out of this round (worth knowing)
+## Issue 5 — shortened department & program names
 
-- **Photo upload on the alumni profile isn't wired up yet** — the field
-  exists in the database and displays if set (e.g. carried over from a
-  promoted member's existing photo), but self-service upload wasn't built
-  in this pass, to keep this round's scope manageable. Happy to add it next
-  if wanted — it would reuse the same upload component already used
-  elsewhere in the admin panel.
-- **"Upcoming Events & Reunions" reuses the site's existing Events page**
-  rather than a separate alumni-only events system — there was no
-  indication a separate events model was needed, and this avoids
-  duplicating content.
-- **Mentorship stays list-only**, per your answer — no request/matching
-  workflow.
+Applied consistently across all four lists (undergraduate departments,
+undergraduate programs, postgraduate departments, postgraduate programs):
+the "Department of", "Bachelor of X (B.X.)", "Master of X (M.X.)", "Ph.D.",
+"Diploma in", and similar prefixes are stripped, leaving just the subject —
+e.g. "Department of Accounting" → "Accounting", "Bachelor of Education
+(B.Ed.) Special Education" → "Special Education".
+
+**One judgment call worth knowing about**: on the postgraduate side,
+several different degree levels of the same subject existed as separate
+entries purely because of their prefix — e.g. "M.Ed. Basic Education",
+"M.Phil. Basic Education", and "Ph.D. Basic Education" were three different
+list entries. Stripping the prefix would have made all three show up as
+identical-looking "Basic Education" options in the same dropdown, which
+would look like a bug and could confuse applicants. Since the separate
+"Postgraduate Degree Category" field already captures which degree level
+someone is applying for, I removed these exact duplicates rather than
+leaving confusing repeats — 44 entries across the postgraduate program list
+were consolidated this way. The Postgraduate Degree Category dropdown
+itself was **not** shortened — it's a real degree-type selector where the
+full name (e.g. "Master of Philosophy (M.Phil.)") is exactly what should
+show.
+
+Existing submitted applications and members are completely unaffected —
+this only changes what shows in the dropdowns and what new submissions
+store going forward.

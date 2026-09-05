@@ -152,7 +152,7 @@ export default async function ReviewApplicationPage({ params }: { params: Promis
               <Field label="Residential Address" value={application.residentialAddress} />
               <Field label="Region" value={application.region} />
               <Field label="Membership Type" value={application.membershipType} />
-              <Field label="Emergency Contact" value={application.emergencyContactName} />
+              <Field label="Emergency Contact Name" value={application.emergencyContactName} />
               <Field label="Emergency Phone" value={application.emergencyContactPhone} />
             </dl>
           </section>

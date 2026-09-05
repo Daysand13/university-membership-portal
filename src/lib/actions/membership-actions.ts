@@ -42,12 +42,21 @@ export async function submitEnrollmentAction(
     specificSupportNeeds: formData.getAll("specificSupportNeeds"),
   };
   delete (candidate as Record<string, unknown>).profilePicture;
-  delete (candidate as Record<string, unknown>).medicalReport;
+  delete (candidate as Record<string, unknown>).medicalReportPhoto;
+  delete (candidate as Record<string, unknown>).medicalReportDocument;
   // medicalReportKey is validated as "present" via the schema but the real
-  // value comes from the uploaded file below, not the form field itself.
-  const medicalReportFile = formData.get("medicalReport");
-  (candidate as Record<string, unknown>).medicalReportKey =
-    medicalReportFile instanceof File && medicalReportFile.size > 0 ? "pending" : "";
+  // value comes from whichever of the two upload fields was actually used
+  // below, not the form field itself. Only one is expected to be filled —
+  // they're presented as alternative options, not both required.
+  const medicalReportPhoto = formData.get("medicalReportPhoto");
+  const medicalReportDocument = formData.get("medicalReportDocument");
+  const medicalReportFile =
+    medicalReportDocument instanceof File && medicalReportDocument.size > 0
+      ? medicalReportDocument
+      : medicalReportPhoto instanceof File && medicalReportPhoto.size > 0
+        ? medicalReportPhoto
+        : null;
+  (candidate as Record<string, unknown>).medicalReportKey = medicalReportFile ? "pending" : "";
 
   const parsed = enrollmentSchema.safeParse(candidate);
   if (!parsed.success) {

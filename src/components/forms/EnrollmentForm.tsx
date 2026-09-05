@@ -45,13 +45,6 @@ const GHANA_REGIONS = [
 
 const GENDER_LABELS: Record<string, string> = { MALE: "Male", FEMALE: "Female" };
 
-// Accepts common existing-file pickers as well as the camera on Android —
-// listing broad wildcard image/* (rather than only exact MIME types) is
-// what reliably makes Android's chooser offer "Files"/"Gallery" alongside
-// "Camera" instead of defaulting straight to the camera.
-const MEDICAL_REPORT_ACCEPT =
-  "image/*,application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx";
-
 // Every field the form collects, all controlled by React state. This is
 // deliberate: React automatically resets *uncontrolled* fields once a
 // useActionState action finishes — including when it finishes with a
@@ -291,13 +284,15 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
   const [state, formAction, isPending] = useActionState(submitEnrollmentAction, initialActionState);
   const formRef = useRef<HTMLFormElement>(null);
   const passportInputRef = useRef<HTMLInputElement>(null);
-  const medicalInputRef = useRef<HTMLInputElement>(null);
+  const medicalPhotoInputRef = useRef<HTMLInputElement>(null);
+  const medicalDocInputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<"form" | "review">("form");
   const [values, setValues] = useState<FormValues>(INITIAL_VALUES);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [medicalFileName, setMedicalFileName] = useState<string | null>(null);
   const [passportTooLarge, setPassportTooLarge] = useState(false);
   const [medicalTooLarge, setMedicalTooLarge] = useState(false);
+  const [medicalMissing, setMedicalMissing] = useState(false);
   const [filesClearedNotice, setFilesClearedNotice] = useState(false);
   const fe = state.fieldErrors ?? {};
 
@@ -357,6 +352,13 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
     if (!formEl) return;
     if (!formEl.checkValidity()) {
       formEl.reportValidity();
+      return;
+    }
+    const hasPhoto = (medicalPhotoInputRef.current?.files?.length ?? 0) > 0;
+    const hasDoc = (medicalDocInputRef.current?.files?.length ?? 0) > 0;
+    if (!hasPhoto && !hasDoc) {
+      setMedicalMissing(true);
+      medicalPhotoInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     setPhase("review");
@@ -511,7 +513,7 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
           <div>
             <Label htmlFor="hallOfAffiliation">Hall of Affiliation</Label>
             <select id="hallOfAffiliation" name="hallOfAffiliation" className={inputClasses} value={values.hallOfAffiliation} onChange={handleChange}>
-              <option value="">Select (optional)</option>
+              <option value="">Select…</option>
               {HALLS_OF_AFFILIATION.map((h) => (
                 <option key={h} value={h}>{h}</option>
               ))}
@@ -681,30 +683,68 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
             )}
             <FieldError messages={fe.profilePicture} />
           </div>
-          <div>
-            <Label htmlFor="medicalReport" required>Medical Report / Disability Assessment</Label>
-            <input
-              ref={medicalInputRef}
-              id="medicalReport"
-              name="medicalReport"
-              type="file"
-              required
-              accept={MEDICAL_REPORT_ACCEPT}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                setMedicalTooLarge(fileTooLarge(file, MAX_MEDICAL_REPORT_BYTES));
-                setMedicalFileName(file ? file.name : null);
-                if (file) setFilesClearedNotice(false);
-              }}
-              className="block w-full text-sm text-slate file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-sm file:font-semibold hover:file:bg-primary-100"
-            />
-            <p className="mt-1 text-xs text-slate-light">
-              Official medical report or verification document confirming your registration at the Resource
-              Center. PDF, Word document (.doc/.docx), JPG, or PNG, max 5MB. On your phone, you can choose an
-              existing file from Files/Drive/Gallery, not only the camera.
+          <div className="sm:col-span-2">
+            <Label htmlFor="medicalReportPhoto" required>Medical Report / Disability Assessment</Label>
+            <p className="text-xs text-slate-light mb-3">
+              Choose whichever matches what you have — a photo of the document, or a PDF/Word file. You only need
+              to fill in <strong>one</strong> of the two options below.
             </p>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="rounded-md border-2 border-line p-4">
+                <label htmlFor="medicalReportPhoto" className="block text-sm font-semibold text-ink mb-2">
+                  Option A: Photo of the document
+                </label>
+                <input
+                  ref={medicalPhotoInputRef}
+                  id="medicalReportPhoto"
+                  name="medicalReportPhoto"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    setMedicalTooLarge(fileTooLarge(file, MAX_MEDICAL_REPORT_BYTES));
+                    setMedicalFileName(file ? file.name : null);
+                    if (file) {
+                      setFilesClearedNotice(false);
+                      setMedicalMissing(false);
+                      if (medicalDocInputRef.current) medicalDocInputRef.current.value = "";
+                    }
+                  }}
+                  className="block w-full text-xs text-slate file:mr-2 file:py-1.5 file:px-2.5 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-xs file:font-semibold hover:file:bg-primary-100"
+                />
+                <p className="mt-1.5 text-xs text-slate-light">Uses your phone&apos;s camera or photo gallery. JPG or PNG.</p>
+              </div>
+              <div className="rounded-md border-2 border-line p-4">
+                <label htmlFor="medicalReportDocument" className="block text-sm font-semibold text-ink mb-2">
+                  Option B: PDF or Word file
+                </label>
+                <input
+                  ref={medicalDocInputRef}
+                  id="medicalReportDocument"
+                  name="medicalReportDocument"
+                  type="file"
+                  accept="application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    setMedicalTooLarge(fileTooLarge(file, MAX_MEDICAL_REPORT_BYTES));
+                    setMedicalFileName(file ? file.name : null);
+                    if (file) {
+                      setFilesClearedNotice(false);
+                      setMedicalMissing(false);
+                      if (medicalPhotoInputRef.current) medicalPhotoInputRef.current.value = "";
+                    }
+                  }}
+                  className="block w-full text-xs text-slate file:mr-2 file:py-1.5 file:px-2.5 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-xs file:font-semibold hover:file:bg-primary-100"
+                />
+                <p className="mt-1.5 text-xs text-slate-light">Opens your phone&apos;s Files or document picker. PDF, .doc, or .docx.</p>
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-slate-light">Max 5MB, whichever option you use.</p>
             {medicalTooLarge && (
               <p className="mt-1 text-xs text-danger">This file is over 5MB — please choose a smaller file.</p>
+            )}
+            {medicalMissing && (
+              <p className="mt-1 text-xs text-danger">Please provide your medical report using one of the two options above.</p>
             )}
             <FieldError messages={fe.medicalReportKey} />
           </div>
