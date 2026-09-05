@@ -33,7 +33,7 @@ test.describe("Membership enrollment", () => {
     await page.getByLabel("UEW Campus").selectOption({ label: "Winneba Main Campus" });
     await page.getByLabel("Academic Department").selectOption({ label: "Special Education" });
     await page.getByLabel("Program of Study").selectOption({
-      label: "Special Education",
+      label: "BEd Special Education",
     });
     await page.getByLabel(/Level \/ Year of Study/).selectOption({ label: "Level 200" });
     await page.getByLabel("Index Number").fill(`E2E/${unique}`);

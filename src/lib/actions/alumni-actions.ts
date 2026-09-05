@@ -37,7 +37,12 @@ export async function alumniForgotPasswordAction(
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
   const resetBaseUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/alumni/reset-password`;
-  await requestAlumniPasswordReset(parsed.data.email, resetBaseUrl);
+  try {
+    await requestAlumniPasswordReset(parsed.data.email, resetBaseUrl);
+  } catch (err) {
+    console.error("[alumni-forgot-password]", err);
+    return { error: "Something went wrong. Please try again." };
+  }
 
   // Same response whether or not the email exists — see service comment.
   return { success: true };
@@ -104,15 +109,20 @@ export async function updateAlumniProfileAction(
   const parsed = alumniProfileUpdateSchema.safeParse(candidate);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
-  await updateAlumniProfile(alumni.id, {
-    fullName: parsed.data.fullName,
-    phone: parsed.data.phone,
-    profession: parsed.data.profession || null,
-    currentLocation: parsed.data.currentLocation || null,
-    bio: parsed.data.bio || null,
-    willingToMentor: parsed.data.willingToMentor,
-    directoryVisible: parsed.data.directoryVisible,
-  });
+  try {
+    await updateAlumniProfile(alumni.id, {
+      fullName: parsed.data.fullName,
+      phone: parsed.data.phone,
+      profession: parsed.data.profession || null,
+      currentLocation: parsed.data.currentLocation || null,
+      bio: parsed.data.bio || null,
+      willingToMentor: parsed.data.willingToMentor,
+      directoryVisible: parsed.data.directoryVisible,
+    });
+  } catch (err) {
+    console.error("[update-alumni-profile]", err);
+    return { error: "Something went wrong saving your changes. Please try again." };
+  }
 
   revalidatePath("/alumni/dashboard");
   revalidatePath("/alumni/profile");

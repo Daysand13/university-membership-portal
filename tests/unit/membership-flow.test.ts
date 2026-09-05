@@ -31,7 +31,7 @@ function buildApplication(overrides: Partial<EnrollmentInput> = {}): EnrollmentI
     phone: "0244000000",
     email: `test-${unique}@example.com`,
     indexNumber: `TEST/${unique}`,
-    programme: "Special Education",
+    programme: "BEd Special Education",
     department: "Visual Impairment",
     academicDepartment: "Special Education",
     specificSupportNeeds: [],

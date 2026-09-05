@@ -12,7 +12,7 @@ const validEnrollment = {
   phone: "0244000000",
   email: "kojo@example.com",
   indexNumber: "UEW/EDU/24/0001",
-  programme: "Basic Education (Early Grade / Primary / JHS Options)",
+  programme: "BEd Basic Education (Early Grade / Primary / JHS Options)",
   department: "Visual Impairment",
   academicDepartment: "Basic Education",
   level: "Level 200",

@@ -279,7 +279,7 @@ async function main() {
         email: "kojo.sample@example.com",
         indexNumber: "SAMPLE/0001/24",
         applicationTrack: "UNDERGRADUATE",
-        programme: "Special Education",
+        programme: "BEd Special Education",
         department: "Visual Impairment",
         academicDepartment: "Special Education",
         hallOfAffiliation: "Ghartey Hall",

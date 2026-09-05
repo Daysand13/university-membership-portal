@@ -13,7 +13,12 @@ export async function submitContactMessageAction(
   const parsed = contactMessageSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
-  await submitContactMessage(parsed.data);
+  try {
+    await submitContactMessage(parsed.data);
+  } catch (err) {
+    console.error("[submit-contact-message]", err);
+    return { error: "Something went wrong sending your message. Please try again." };
+  }
   return { success: true };
 }
 

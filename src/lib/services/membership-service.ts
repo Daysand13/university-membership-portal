@@ -1,6 +1,7 @@
 import "server-only";
 import { randomBytes, createHash } from "node:crypto";
 import { db } from "@/lib/db";
+import { withDbRetry } from "@/lib/db-retry";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import {
   ApplicationStatus,
@@ -94,38 +95,40 @@ export async function submitApplication(
 ): Promise<MembershipApplication> {
   let application: MembershipApplication;
   try {
-    application = await db.membershipApplication.create({
-      data: {
-        firstName: input.firstName,
-        middleName: input.middleName || null,
-        lastName: input.lastName,
-        dateOfBirth: input.dateOfBirth,
-        gender: input.gender,
-        profileImageUrl,
-        medicalReportUrl,
-        phone: input.phone,
-        email: input.email,
-        indexNumber: input.indexNumber,
-        applicationTrack: input.track,
-        degreeCategory: input.degreeCategory || null,
-        programme: input.programme,
-        department: input.department,
-        academicDepartment: input.academicDepartment,
-        hallOfAffiliation: input.hallOfAffiliation || null,
-        specificSupportNeeds: input.specificSupportNeeds ?? [],
-        level: input.level,
-        campus: input.campus,
-        yearOfAdmission: input.yearOfAdmission,
-        expectedGraduationYear: input.expectedGraduationYear ?? null,
-        residentialAddress: input.residentialAddress,
-        region: input.region,
-        emergencyContactName: input.emergencyContactName,
-        emergencyContactPhone: input.emergencyContactPhone,
-        membershipType: input.membershipType,
-        agreedToTerms: input.agreedToTerms,
-        status: ApplicationStatus.PENDING,
-      },
-    });
+    application = await withDbRetry(() =>
+      db.membershipApplication.create({
+        data: {
+          firstName: input.firstName,
+          middleName: input.middleName || null,
+          lastName: input.lastName,
+          dateOfBirth: input.dateOfBirth,
+          gender: input.gender,
+          profileImageUrl,
+          medicalReportUrl,
+          phone: input.phone,
+          email: input.email,
+          indexNumber: input.indexNumber,
+          applicationTrack: input.track,
+          degreeCategory: input.degreeCategory || null,
+          programme: input.programme,
+          department: input.department,
+          academicDepartment: input.academicDepartment,
+          hallOfAffiliation: input.hallOfAffiliation || null,
+          specificSupportNeeds: input.specificSupportNeeds ?? [],
+          level: input.level,
+          campus: input.campus,
+          yearOfAdmission: input.yearOfAdmission,
+          expectedGraduationYear: input.expectedGraduationYear ?? null,
+          residentialAddress: input.residentialAddress,
+          region: input.region,
+          emergencyContactName: input.emergencyContactName,
+          emergencyContactPhone: input.emergencyContactPhone,
+          membershipType: input.membershipType,
+          agreedToTerms: input.agreedToTerms,
+          status: ApplicationStatus.PENDING,
+        },
+      }),
+    );
   } catch (err) {
     if (isUniqueConstraintError(err, "indexNumber")) throw new DuplicateIndexNumberError();
     throw err;

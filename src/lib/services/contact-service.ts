@@ -1,20 +1,23 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { withDbRetry } from "@/lib/db-retry";
 import type { ContactMessageInput } from "@/lib/validations/content";
 import { sendEmail } from "@/lib/email/client";
 import { adminNewContactMessageEmail } from "@/lib/email/templates";
 import { getSiteSettings } from "./content-service";
 
 export async function submitContactMessage(input: ContactMessageInput) {
-  const message = await db.contactMessage.create({
-    data: {
-      name: input.name,
-      email: input.email,
-      phone: input.phone || null,
-      subject: input.subject,
-      message: input.message,
-    },
-  });
+  const message = await withDbRetry(() =>
+    db.contactMessage.create({
+      data: {
+        name: input.name,
+        email: input.email,
+        phone: input.phone || null,
+        subject: input.subject,
+        message: input.message,
+      },
+    }),
+  );
 
   await db.notification.create({
     data: {

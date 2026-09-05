@@ -225,7 +225,12 @@ export async function forgotPasswordAction(
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
   const resetBaseUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/membership/reset-password`;
-  await requestPasswordReset(parsed.data.email, resetBaseUrl);
+  try {
+    await requestPasswordReset(parsed.data.email, resetBaseUrl);
+  } catch (err) {
+    console.error("[forgot-password]", err);
+    return { error: "Something went wrong. Please try again." };
+  }
 
   // Same response whether or not the email exists — see service comment.
   return { success: true };
@@ -262,13 +267,18 @@ export async function updateMemberProfileAction(
 
   if (!phone) return { fieldErrors: { phone: ["Phone number is required"] } };
 
-  await updateMemberProfile(member.id, {
-    phone,
-    residentialAddress,
-    region,
-    emergencyContactName,
-    emergencyContactPhone,
-  });
+  try {
+    await updateMemberProfile(member.id, {
+      phone,
+      residentialAddress,
+      region,
+      emergencyContactName,
+      emergencyContactPhone,
+    });
+  } catch (err) {
+    console.error("[update-member-profile]", err);
+    return { error: "Something went wrong saving your changes. Please try again." };
+  }
 
   revalidatePath("/membership/dashboard");
   return {};
