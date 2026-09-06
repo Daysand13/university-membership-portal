@@ -83,51 +83,61 @@ export async function submitEnrollmentAction(
   let profileImageUrl: string | null = null;
   const file = formData.get("profilePicture");
   if (file instanceof File && file.size > 0) {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    // Unauthenticated endpoint — never trust the browser-reported MIME type
-    // alone; sniff the actual bytes before accepting the file.
-    const sniffed = sniffImageMimeType(new Uint8Array(buffer));
-    const mimeType = sniffed ?? file.type;
-    const check = validateUploadRequest({
-      filename: file.name,
-      mimeType,
-      fileSize: file.size,
-      category: "image",
-      maxSizeBytes: MAX_PASSPORT_PICTURE_BYTES,
-    });
-    if (!check.ok) {
-      return { fieldErrors: { profilePicture: [check.error] } };
-    }
-    if (isR2Configured()) {
-      const objectKey = generateObjectKey("members", file.name, mimeType);
-      await uploadBuffer({ objectKey, contentType: mimeType, body: buffer });
-      profileImageUrl = buildPublicUrl(objectKey);
-    } else {
-      console.warn("[enroll] R2 not configured in this environment — profile picture not stored.");
+    try {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      // Unauthenticated endpoint — never trust the browser-reported MIME type
+      // alone; sniff the actual bytes before accepting the file.
+      const sniffed = sniffImageMimeType(new Uint8Array(buffer));
+      const mimeType = sniffed ?? file.type;
+      const check = validateUploadRequest({
+        filename: file.name,
+        mimeType,
+        fileSize: file.size,
+        category: "image",
+        maxSizeBytes: MAX_PASSPORT_PICTURE_BYTES,
+      });
+      if (!check.ok) {
+        return { fieldErrors: { profilePicture: [check.error] } };
+      }
+      if (isR2Configured()) {
+        const objectKey = generateObjectKey("members", file.name, mimeType);
+        await uploadBuffer({ objectKey, contentType: mimeType, body: buffer });
+        profileImageUrl = buildPublicUrl(objectKey);
+      } else {
+        console.warn("[enroll] R2 not configured in this environment — profile picture not stored.");
+      }
+    } catch (err) {
+      console.error("[enroll] passport picture upload failed", err);
+      return { fieldErrors: { profilePicture: ["Something went wrong uploading this file. Please try again."] } };
     }
   }
 
   let medicalReportUrl: string | null = null;
   if (medicalReportFile instanceof File && medicalReportFile.size > 0) {
-    const buffer = Buffer.from(await medicalReportFile.arrayBuffer());
-    const sniffed = sniffImageMimeType(new Uint8Array(buffer));
-    const mimeType = sniffed ?? medicalReportFile.type;
-    const check = validateUploadRequest({
-      filename: medicalReportFile.name,
-      mimeType,
-      fileSize: medicalReportFile.size,
-      category: "document",
-      maxSizeBytes: MAX_MEDICAL_REPORT_BYTES,
-    });
-    if (!check.ok) {
-      return { fieldErrors: { medicalReportKey: [check.error] } };
-    }
-    if (isR2Configured()) {
-      const objectKey = generateObjectKey("members", medicalReportFile.name, mimeType);
-      await uploadBuffer({ objectKey, contentType: mimeType, body: buffer });
-      medicalReportUrl = buildPublicUrl(objectKey);
-    } else {
-      console.warn("[enroll] R2 not configured in this environment — medical report not stored.");
+    try {
+      const buffer = Buffer.from(await medicalReportFile.arrayBuffer());
+      const sniffed = sniffImageMimeType(new Uint8Array(buffer));
+      const mimeType = sniffed ?? medicalReportFile.type;
+      const check = validateUploadRequest({
+        filename: medicalReportFile.name,
+        mimeType,
+        fileSize: medicalReportFile.size,
+        category: "document",
+        maxSizeBytes: MAX_MEDICAL_REPORT_BYTES,
+      });
+      if (!check.ok) {
+        return { fieldErrors: { medicalReportKey: [check.error] } };
+      }
+      if (isR2Configured()) {
+        const objectKey = generateObjectKey("members", medicalReportFile.name, mimeType);
+        await uploadBuffer({ objectKey, contentType: mimeType, body: buffer });
+        medicalReportUrl = buildPublicUrl(objectKey);
+      } else {
+        console.warn("[enroll] R2 not configured in this environment — medical report not stored.");
+      }
+    } catch (err) {
+      console.error("[enroll] medical report upload failed", err);
+      return { fieldErrors: { medicalReportKey: ["Something went wrong uploading this file. Please try again."] } };
     }
   }
 

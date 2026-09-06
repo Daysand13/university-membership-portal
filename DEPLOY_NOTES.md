@@ -1,73 +1,44 @@
 # Deploying this update
 
-One new migration this round:
+No database changes this round — just code:
 
 ```bash
-npx prisma generate
-npx prisma migrate dev
 git add .
-git commit -m "add rate limiting and accessible bot protection"
+git commit -m "fix server error on document upload, center success message on mobile"
 git push
 ```
 
-## What's in this round
+## Issue 1 — server error when choosing Option B (document)
 
-Following up on the security discussion — added the two things flagged as
-genuinely missing, in a way that doesn't ask anything of your members,
-including those using screen readers or other assistive technology.
+**Root cause**: Next.js has its own built-in limit on how large a Server
+Action's submission can be, separate from any limit your own code sets.
+That platform default is smaller than this app's own stated upload limits
+(2MB for the passport picture, 5MB for the medical report) — meaning a
+file your own validation would happily accept could get rejected by the
+platform itself before your code even had a chance to run, showing up as
+a generic server error instead of the friendly "file too large" message
+the form already has for that case.
 
-### Rate limiting
+This explains why it showed up specifically for **Option B** (PDF/Word
+document) rather than Option A (photo): a scanned or exported document is
+far more likely to land in that gap between the small platform default and
+your form's stated 5MB limit than a compressed phone camera photo usually
+is.
 
-Every sensitive or abusable action now has a limit on how often it can be
-attempted:
+**Fix**: explicitly raised that platform limit in `next.config.ts` to
+10MB, comfortably above both of your form's actual limits, so your own
+2MB/5MB rules are what actually governs this going forward — not a hidden
+default. Also added a safety net around both file-upload code paths
+(passport picture and medical report) so that if anything else
+unexpected ever goes wrong during an upload, the person sees a normal
+"something went wrong, please try again" message instead of the harsh
+generic server error page.
 
-- Logins (admin, student member, alumni) — limited both by IP address and
-  by the specific account being targeted, so someone can't brute-force a
-  known email/index number even by spreading attempts across many IPs.
-  Limits are deliberately generous on the IP side (e.g. 40 login attempts
-  per 10 minutes for members) since a campus network can have many
-  different real students behind the same shared IP.
-- Forgot-password requests — limited by IP and by the email being
-  targeted, so someone can't spam a specific person with reset-link
-  emails.
-- Contact form, enrollment applications, and alumni registration — limited
-  by IP to stop scripted spam, again set generously (30 enrollment
-  submissions/hour per IP) to comfortably allow a busy registration day on
-  a shared campus network.
+## Issue 2 — success message off-center on mobile
 
-This is backed by your existing database, not a new external service — no
-new account or signup needed.
-
-### Bot protection — no CAPTCHA, by design
-
-Given your point about visually impaired and Deaf members — this uses two
-signals that require **zero interaction from anyone, disabled or not**:
-
-1. A hidden field real visitors never see or reach (hidden from screen
-   readers too, via `aria-hidden` and being unreachable by keyboard tab
-   order) — simple bots that fill in every field on a page trip this
-   instantly.
-2. Timing — if a form is submitted less than 2 seconds after it loaded,
-   that's essentially certain to be a script, not a person reading and
-   filling in a form.
-
-Deliberately **not** using anything like Google reCAPTCHA or Cloudflare
-Turnstile, even their "invisible" versions — those score risk based on
-behavioral signals like mouse movement, and people using screen readers or
-switch-access devices often don't produce the "normal" patterns those
-systems expect, which can get real, legitimate visitors incorrectly
-flagged. The approach here can't do that, since it doesn't look at
-*how* anyone interacts at all.
-
-When something is flagged as a likely bot, the response pretends success
-(no error, nothing suspicious shown) while quietly not saving anything —
-this avoids teaching a bot exactly what tripped it, which would just
-invite it to adjust and try again.
-
-### Verified with real tests, not just by inspection
-
-Added 7 new automated tests confirming both features actually work as
-described (honeypot detection, timing detection, per-key rate limits, and
-that different limits don't interfere with each other) — these run as
-part of the existing test suite and will keep passing on every future
-change.
+The confirmation page after submitting an application only had fixed
+top/bottom spacing, not true vertical centering — on a tall phone screen
+with relatively short confirmation text, that left it sitting noticeably
+above center rather than in the middle of the screen. Fixed to genuinely
+center both horizontally and vertically, matching the pattern already
+used on the sign-in and password pages elsewhere in the app.
