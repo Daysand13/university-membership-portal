@@ -1,5 +1,7 @@
 "use server";
 
+import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
+
 import { revalidatePath } from "next/cache";
 import { requireAdminUser } from "@/lib/auth/admin";
 import { contactMessageSchema } from "@/lib/validations/content";
@@ -8,7 +10,7 @@ import { isLikelyBot } from "@/lib/bot-protection";
 import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import type { ActionState } from "./types";
 
-export async function submitContactMessageAction(
+async function submitContactMessageActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -32,14 +34,24 @@ export async function submitContactMessageAction(
   return { success: true };
 }
 
-export async function markMessageReadAction(id: string): Promise<void> {
+async function markMessageReadActionImpl(id: string): Promise<void> {
   await requireAdminUser();
   await markMessageRead(id);
   revalidatePath("/admin/contact-messages");
 }
 
-export async function archiveMessageAction(id: string): Promise<void> {
+async function archiveMessageActionImpl(id: string): Promise<void> {
   await requireAdminUser();
   await archiveMessage(id);
   revalidatePath("/admin/contact-messages");
 }
+
+// ---------------------------------------------------------------------------
+// Exported actions, each wrapped so an unexpected failure surfaces as a
+// friendly message instead of a raw server-error page. See
+// ./with-error-handling.ts for why this is done at the boundary.
+// ---------------------------------------------------------------------------
+
+export const submitContactMessageAction = withActionErrorHandling("submitContactMessageAction", submitContactMessageActionImpl);
+export const markMessageReadAction = withVoidActionErrorHandling("markMessageReadAction", markMessageReadActionImpl);
+export const archiveMessageAction = withVoidActionErrorHandling("archiveMessageAction", archiveMessageActionImpl);

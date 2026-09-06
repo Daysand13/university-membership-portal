@@ -1,5 +1,7 @@
 "use server";
 
+import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
+
 import { revalidatePath } from "next/cache";
 import { requireAdminRole, requireAdminUser } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
@@ -19,7 +21,7 @@ import {
 } from "@/lib/services/content-service";
 import type { ActionState } from "./types";
 
-export async function updateAboutAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+async function updateAboutActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdminRole(AdminRole.EDITOR);
   const parsed = aboutContentSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
@@ -35,7 +37,7 @@ export async function updateAboutAction(_prevState: ActionState, formData: FormD
   return {};
 }
 
-export async function updateDonateAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+async function updateDonateActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdminRole(AdminRole.EDITOR, AdminRole.SUPER_ADMIN);
   const parsed = donateContentSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
@@ -53,7 +55,7 @@ export async function updateDonateAction(_prevState: ActionState, formData: Form
   return {};
 }
 
-export async function createHeroSlideAction(formData: FormData): Promise<void> {
+async function createHeroSlideActionImpl(formData: FormData): Promise<void> {
   await requireAdminRole(AdminRole.EDITOR);
   const imageUrl = formData.get("imageUrl");
   const backgroundColor = formData.get("backgroundColor");
@@ -72,7 +74,7 @@ export async function createHeroSlideAction(formData: FormData): Promise<void> {
   revalidatePath("/admin/hero-slides");
 }
 
-export async function updateHeroSlideAction(id: string, formData: FormData): Promise<void> {
+async function updateHeroSlideActionImpl(id: string, formData: FormData): Promise<void> {
   await requireAdminRole(AdminRole.EDITOR);
   const imageUrl = formData.get("imageUrl");
   const backgroundColor = formData.get("backgroundColor");
@@ -91,7 +93,7 @@ export async function updateHeroSlideAction(id: string, formData: FormData): Pro
   revalidatePath("/admin/hero-slides");
 }
 
-export async function deleteHeroSlideAction(id: string): Promise<void> {
+async function deleteHeroSlideActionImpl(id: string): Promise<void> {
   await requireAdminRole(AdminRole.EDITOR);
   await deleteHeroSlide(id);
   revalidatePath("/");
@@ -99,7 +101,7 @@ export async function deleteHeroSlideAction(id: string): Promise<void> {
   revalidatePath("/admin/hero-slides");
 }
 
-export async function updateSiteSettingsAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+async function updateSiteSettingsActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdminRole(AdminRole.SUPER_ADMIN);
   const logoUrl = formData.get("logoUrl");
   const faviconUrl = formData.get("faviconUrl");
@@ -115,7 +117,7 @@ export async function updateSiteSettingsAction(_prevState: ActionState, formData
   return {};
 }
 
-export async function upsertSocialLinkAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+async function upsertSocialLinkActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdminUser();
   const parsed = socialLinkSchema.safeParse({
     id: formData.get("id") || undefined,
@@ -133,7 +135,7 @@ export async function upsertSocialLinkAction(_prevState: ActionState, formData: 
   return {};
 }
 
-export async function deleteSocialLinkAction(id: string): Promise<void> {
+async function deleteSocialLinkActionImpl(id: string): Promise<void> {
   await requireAdminUser();
   await deleteSocialLink(id);
   revalidatePath("/", "layout");
@@ -144,7 +146,7 @@ export async function deleteSocialLinkAction(id: string): Promise<void> {
 // Team Members (Executive Leadership + Our Patrons)
 // ---------------------------------------------------------------------------
 
-export async function createTeamMemberAction(formData: FormData): Promise<void> {
+async function createTeamMemberActionImpl(formData: FormData): Promise<void> {
   await requireAdminRole(AdminRole.EDITOR);
   const parsed = teamMemberSchema.safeParse({
     type: formData.get("type"),
@@ -165,7 +167,7 @@ export async function createTeamMemberAction(formData: FormData): Promise<void> 
   revalidatePath("/admin/team");
 }
 
-export async function updateTeamMemberAction(id: string, formData: FormData): Promise<void> {
+async function updateTeamMemberActionImpl(id: string, formData: FormData): Promise<void> {
   await requireAdminRole(AdminRole.EDITOR);
   const photoUrl = formData.get("photoUrl");
   await updateTeamMember(id, {
@@ -180,9 +182,27 @@ export async function updateTeamMemberAction(id: string, formData: FormData): Pr
   revalidatePath("/admin/team");
 }
 
-export async function deleteTeamMemberAction(id: string): Promise<void> {
+async function deleteTeamMemberActionImpl(id: string): Promise<void> {
   await requireAdminRole(AdminRole.EDITOR);
   await deleteTeamMember(id);
   revalidatePath("/about");
   revalidatePath("/admin/team");
 }
+
+// ---------------------------------------------------------------------------
+// Exported actions, each wrapped so an unexpected failure surfaces as a
+// friendly message instead of a raw server-error page. See
+// ./with-error-handling.ts for why this is done at the boundary.
+// ---------------------------------------------------------------------------
+
+export const updateAboutAction = withActionErrorHandling("updateAboutAction", updateAboutActionImpl);
+export const updateDonateAction = withActionErrorHandling("updateDonateAction", updateDonateActionImpl);
+export const createHeroSlideAction = withVoidActionErrorHandling("createHeroSlideAction", createHeroSlideActionImpl);
+export const updateHeroSlideAction = withVoidActionErrorHandling("updateHeroSlideAction", updateHeroSlideActionImpl);
+export const deleteHeroSlideAction = withVoidActionErrorHandling("deleteHeroSlideAction", deleteHeroSlideActionImpl);
+export const updateSiteSettingsAction = withActionErrorHandling("updateSiteSettingsAction", updateSiteSettingsActionImpl);
+export const upsertSocialLinkAction = withActionErrorHandling("upsertSocialLinkAction", upsertSocialLinkActionImpl);
+export const deleteSocialLinkAction = withVoidActionErrorHandling("deleteSocialLinkAction", deleteSocialLinkActionImpl);
+export const createTeamMemberAction = withVoidActionErrorHandling("createTeamMemberAction", createTeamMemberActionImpl);
+export const updateTeamMemberAction = withVoidActionErrorHandling("updateTeamMemberAction", updateTeamMemberActionImpl);
+export const deleteTeamMemberAction = withVoidActionErrorHandling("deleteTeamMemberAction", deleteTeamMemberActionImpl);

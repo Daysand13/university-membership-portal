@@ -1,5 +1,7 @@
 "use server";
 
+import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
+
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
@@ -30,7 +32,7 @@ import type { ActionState } from "./types";
 // Password management
 // ---------------------------------------------------------------------------
 
-export async function alumniForgotPasswordAction(
+async function alumniForgotPasswordActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -56,7 +58,7 @@ export async function alumniForgotPasswordAction(
   return { success: true };
 }
 
-export async function alumniSetPasswordAction(
+async function alumniSetPasswordActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -74,7 +76,7 @@ export async function alumniSetPasswordAction(
   redirect("/alumni?next=login&passwordSet=1");
 }
 
-export async function alumniChangePasswordAction(
+async function alumniChangePasswordActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -103,7 +105,7 @@ export async function alumniChangePasswordAction(
 // Profile
 // ---------------------------------------------------------------------------
 
-export async function updateAlumniProfileAction(
+async function updateAlumniProfileActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -143,7 +145,7 @@ export async function updateAlumniProfileAction(
 // Admin
 // ---------------------------------------------------------------------------
 
-export async function promoteMemberToAlumniAction(
+async function promoteMemberToAlumniActionImpl(
   memberId: string,
   graduationYear: number,
 ): Promise<{ error?: string }> {
@@ -164,15 +166,29 @@ export async function promoteMemberToAlumniAction(
   return {};
 }
 
-export async function setAlumniStatusAction(alumniId: string, status: "ACTIVE" | "SUSPENDED"): Promise<void> {
+async function setAlumniStatusActionImpl(alumniId: string, status: "ACTIVE" | "SUSPENDED"): Promise<void> {
   await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
   await setAlumniStatus({ alumniId, status: status as AlumniStatus });
   revalidatePath("/admin/alumni");
 }
 
-export async function deleteAlumniAction(alumniId: string): Promise<void> {
+async function deleteAlumniActionImpl(alumniId: string): Promise<void> {
   const admin = await requireAdminRole(AdminRole.SUPER_ADMIN);
   await deleteAlumni({ alumniId, adminId: admin.id });
   revalidatePath("/admin/alumni");
   redirect("/admin/alumni");
 }
+
+// ---------------------------------------------------------------------------
+// Exported actions, each wrapped so an unexpected failure surfaces as a
+// friendly message instead of a raw server-error page. See
+// ./with-error-handling.ts for why this is done at the boundary.
+// ---------------------------------------------------------------------------
+
+export const alumniForgotPasswordAction = withActionErrorHandling("alumniForgotPasswordAction", alumniForgotPasswordActionImpl);
+export const alumniSetPasswordAction = withActionErrorHandling("alumniSetPasswordAction", alumniSetPasswordActionImpl);
+export const alumniChangePasswordAction = withActionErrorHandling("alumniChangePasswordAction", alumniChangePasswordActionImpl);
+export const updateAlumniProfileAction = withActionErrorHandling("updateAlumniProfileAction", updateAlumniProfileActionImpl);
+export const promoteMemberToAlumniAction = withActionErrorHandling("promoteMemberToAlumniAction", promoteMemberToAlumniActionImpl);
+export const setAlumniStatusAction = withVoidActionErrorHandling("setAlumniStatusAction", setAlumniStatusActionImpl);
+export const deleteAlumniAction = withVoidActionErrorHandling("deleteAlumniAction", deleteAlumniActionImpl);

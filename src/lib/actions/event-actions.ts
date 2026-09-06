@@ -1,5 +1,7 @@
 "use server";
 
+import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdminRole } from "@/lib/auth/admin";
@@ -32,7 +34,7 @@ function parseEventForm(formData: FormData) {
   });
 }
 
-export async function createEventAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+async function createEventActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdminRole(AdminRole.EDITOR);
   const parsed = parseEventForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
@@ -50,7 +52,7 @@ export async function createEventAction(_prevState: ActionState, formData: FormD
   redirect("/admin/events");
 }
 
-export async function updateEventAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+async function updateEventActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdminRole(AdminRole.EDITOR);
   const parsed = parseEventForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
@@ -69,7 +71,7 @@ export async function updateEventAction(_prevState: ActionState, formData: FormD
   redirect("/admin/events");
 }
 
-export async function deleteEventAction(id: string): Promise<void> {
+async function deleteEventActionImpl(id: string): Promise<void> {
   await requireAdminRole(AdminRole.EDITOR);
   const event = await deleteEvent(id);
   const key = extractObjectKeyFromPublicUrl(event.imageUrl);
@@ -85,10 +87,21 @@ export async function deleteEventAction(id: string): Promise<void> {
   revalidatePath("/admin/events");
 }
 
-export async function setEventStatusAction(id: string, status: ContentStatus): Promise<void> {
+async function setEventStatusActionImpl(id: string, status: ContentStatus): Promise<void> {
   await requireAdminRole(AdminRole.EDITOR);
   await setEventStatus(id, status);
   revalidatePath("/events");
   revalidatePath("/");
   revalidatePath("/admin/events");
 }
+
+// ---------------------------------------------------------------------------
+// Exported actions, each wrapped so an unexpected failure surfaces as a
+// friendly message instead of a raw server-error page. See
+// ./with-error-handling.ts for why this is done at the boundary.
+// ---------------------------------------------------------------------------
+
+export const createEventAction = withActionErrorHandling("createEventAction", createEventActionImpl);
+export const updateEventAction = withActionErrorHandling("updateEventAction", updateEventActionImpl);
+export const deleteEventAction = withVoidActionErrorHandling("deleteEventAction", deleteEventActionImpl);
+export const setEventStatusAction = withVoidActionErrorHandling("setEventStatusAction", setEventStatusActionImpl);

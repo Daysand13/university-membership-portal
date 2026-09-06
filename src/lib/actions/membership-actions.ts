@@ -1,5 +1,7 @@
 "use server";
 
+import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
+
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { enrollmentSchema, applicationReviewSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, MAX_PASSPORT_PICTURE_BYTES, MAX_MEDICAL_REPORT_BYTES } from "@/lib/validations/membership";
@@ -33,7 +35,7 @@ import type { ActionState } from "./types";
 // Public enrollment
 // ---------------------------------------------------------------------------
 
-export async function submitEnrollmentAction(
+async function submitEnrollmentActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -59,21 +61,12 @@ export async function submitEnrollmentAction(
     specificSupportNeeds: formData.getAll("specificSupportNeeds"),
   };
   delete (candidate as Record<string, unknown>).profilePicture;
-  delete (candidate as Record<string, unknown>).medicalReportPhoto;
-  delete (candidate as Record<string, unknown>).medicalReportDocument;
-  // medicalReportKey is validated as "present" via the schema but the real
-  // value comes from whichever of the two upload fields was actually used
-  // below, not the form field itself. Only one is expected to be filled —
-  // they're presented as alternative options, not both required.
-  const medicalReportPhoto = formData.get("medicalReportPhoto");
-  const medicalReportDocument = formData.get("medicalReportDocument");
-  const medicalReportFile =
-    medicalReportDocument instanceof File && medicalReportDocument.size > 0
-      ? medicalReportDocument
-      : medicalReportPhoto instanceof File && medicalReportPhoto.size > 0
-        ? medicalReportPhoto
-        : null;
-  (candidate as Record<string, unknown>).medicalReportKey = medicalReportFile ? "pending" : "";
+  delete (candidate as Record<string, unknown>).medicalReport;
+  // medicalReportKey is validated as "present" via the schema, but the real
+  // value comes from the uploaded file below rather than the form field.
+  const medicalReportFile = formData.get("medicalReport");
+  (candidate as Record<string, unknown>).medicalReportKey =
+    medicalReportFile instanceof File && medicalReportFile.size > 0 ? "pending" : "";
 
   const parsed = enrollmentSchema.safeParse(candidate);
   if (!parsed.success) {
@@ -158,7 +151,7 @@ export async function submitEnrollmentAction(
 // Admin: application review
 // ---------------------------------------------------------------------------
 
-export async function reviewApplicationAction(
+async function reviewApplicationActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -218,7 +211,7 @@ export async function reviewApplicationAction(
 // Member: password lifecycle
 // ---------------------------------------------------------------------------
 
-export async function changeMemberPasswordAction(
+async function changeMemberPasswordActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -244,7 +237,7 @@ export async function changeMemberPasswordAction(
   redirect("/membership/dashboard?passwordChanged=1");
 }
 
-export async function forgotPasswordAction(
+async function forgotPasswordActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -272,7 +265,7 @@ export async function forgotPasswordAction(
   return { success: true };
 }
 
-export async function resetPasswordAction(
+async function resetPasswordActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -290,7 +283,7 @@ export async function resetPasswordAction(
   redirect("/membership/login?reset=1");
 }
 
-export async function updateMemberProfileAction(
+async function updateMemberProfileActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -324,7 +317,7 @@ export async function updateMemberProfileAction(
 // Admin: members
 // ---------------------------------------------------------------------------
 
-export async function setMemberStatusAction(memberId: string, status: "ACTIVE" | "SUSPENDED" | "INACTIVE") {
+async function setMemberStatusActionImpl(memberId: string, status: "ACTIVE" | "SUSPENDED" | "INACTIVE") {
   const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
   const { setMemberStatus } = await import("@/lib/services/membership-service");
   await setMemberStatus({ memberId, adminId: admin.id, status });
@@ -332,16 +325,32 @@ export async function setMemberStatusAction(memberId: string, status: "ACTIVE" |
   revalidatePath(`/admin/members/${memberId}`);
 }
 
-export async function deleteMemberAction(memberId: string): Promise<void> {
+async function deleteMemberActionImpl(memberId: string): Promise<void> {
   const admin = await requireAdminRole(AdminRole.SUPER_ADMIN);
   await deleteMember({ memberId, adminId: admin.id });
   revalidatePath("/admin/members");
   redirect("/admin/members");
 }
 
-export async function deleteApplicationAction(applicationId: string): Promise<void> {
+async function deleteApplicationActionImpl(applicationId: string): Promise<void> {
   const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
   await deleteApplication({ applicationId, adminId: admin.id });
   revalidatePath("/admin/membership-applications");
   redirect("/admin/membership-applications");
 }
+
+// ---------------------------------------------------------------------------
+// Exported actions, each wrapped so an unexpected failure surfaces as a
+// friendly message instead of a raw server-error page. See
+// ./with-error-handling.ts for why this is done at the boundary.
+// ---------------------------------------------------------------------------
+
+export const submitEnrollmentAction = withActionErrorHandling("submitEnrollmentAction", submitEnrollmentActionImpl);
+export const reviewApplicationAction = withActionErrorHandling("reviewApplicationAction", reviewApplicationActionImpl);
+export const changeMemberPasswordAction = withActionErrorHandling("changeMemberPasswordAction", changeMemberPasswordActionImpl);
+export const forgotPasswordAction = withActionErrorHandling("forgotPasswordAction", forgotPasswordActionImpl);
+export const resetPasswordAction = withActionErrorHandling("resetPasswordAction", resetPasswordActionImpl);
+export const updateMemberProfileAction = withActionErrorHandling("updateMemberProfileAction", updateMemberProfileActionImpl);
+export const deleteMemberAction = withVoidActionErrorHandling("deleteMemberAction", deleteMemberActionImpl);
+export const deleteApplicationAction = withVoidActionErrorHandling("deleteApplicationAction", deleteApplicationActionImpl);
+export const setMemberStatusAction = withVoidActionErrorHandling("setMemberStatusAction", setMemberStatusActionImpl);

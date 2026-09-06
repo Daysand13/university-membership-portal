@@ -1,5 +1,7 @@
 "use server";
 
+import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdminRole, requireAdminUser } from "@/lib/auth/admin";
@@ -30,7 +32,7 @@ function parseElectionForm(formData: FormData) {
   });
 }
 
-export async function createElectionAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+async function createElectionActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdminRole(AdminRole.ELECTION_OFFICER);
   const parsed = parseElectionForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
@@ -41,7 +43,7 @@ export async function createElectionAction(_prevState: ActionState, formData: Fo
   redirect(`/admin/elections/${election.id}`);
 }
 
-export async function updateElectionAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+async function updateElectionActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdminRole(AdminRole.ELECTION_OFFICER);
   const parsed = parseElectionForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
@@ -54,14 +56,14 @@ export async function updateElectionAction(_prevState: ActionState, formData: Fo
   return {};
 }
 
-export async function deleteElectionAction(id: string): Promise<void> {
+async function deleteElectionActionImpl(id: string): Promise<void> {
   await requireAdminRole(AdminRole.ELECTION_OFFICER);
   await deleteElection(id);
   revalidatePath("/elections");
   revalidatePath("/admin/elections");
 }
 
-export async function changeAdminPasswordAction(
+async function changeAdminPasswordActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -86,7 +88,7 @@ export async function changeAdminPasswordAction(
   return {};
 }
 
-export async function changeAdminEmailAction(
+async function changeAdminEmailActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -115,7 +117,7 @@ export async function changeAdminEmailAction(
   return {};
 }
 
-export async function updateAdminNameAction(
+async function updateAdminNameActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -127,3 +129,16 @@ export async function updateAdminNameAction(
   revalidatePath("/admin", "layout");
   return {};
 }
+
+// ---------------------------------------------------------------------------
+// Exported actions, each wrapped so an unexpected failure surfaces as a
+// friendly message instead of a raw server-error page. See
+// ./with-error-handling.ts for why this is done at the boundary.
+// ---------------------------------------------------------------------------
+
+export const createElectionAction = withActionErrorHandling("createElectionAction", createElectionActionImpl);
+export const updateElectionAction = withActionErrorHandling("updateElectionAction", updateElectionActionImpl);
+export const deleteElectionAction = withVoidActionErrorHandling("deleteElectionAction", deleteElectionActionImpl);
+export const changeAdminPasswordAction = withActionErrorHandling("changeAdminPasswordAction", changeAdminPasswordActionImpl);
+export const changeAdminEmailAction = withActionErrorHandling("changeAdminEmailAction", changeAdminEmailActionImpl);
+export const updateAdminNameAction = withActionErrorHandling("updateAdminNameAction", updateAdminNameActionImpl);

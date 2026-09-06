@@ -1,5 +1,7 @@
 "use server";
 
+import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
+
 import { redirect } from "next/navigation";
 import { adminLoginSchema } from "@/lib/validations/content";
 import { memberLoginSchema } from "@/lib/validations/membership";
@@ -21,7 +23,7 @@ import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limi
 import { isLikelyBot } from "@/lib/bot-protection";
 import type { ActionState } from "./types";
 
-export async function adminLoginAction(
+async function adminLoginActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -50,12 +52,12 @@ export async function adminLoginAction(
   redirect("/admin");
 }
 
-export async function adminLogoutAction(): Promise<void> {
+async function adminLogoutActionImpl(): Promise<void> {
   await destroyAdminSession();
   redirect("/admin/login");
 }
 
-export async function memberLoginAction(
+async function memberLoginActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -88,12 +90,12 @@ export async function memberLoginAction(
   redirect("/membership/dashboard");
 }
 
-export async function memberLogoutAction(): Promise<void> {
+async function memberLogoutActionImpl(): Promise<void> {
   await destroyMemberSession();
   redirect("/");
 }
 
-export async function alumniLoginAction(
+async function alumniLoginActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -132,12 +134,12 @@ export async function alumniLoginAction(
   redirect("/alumni/dashboard");
 }
 
-export async function alumniLogoutAction(): Promise<void> {
+async function alumniLogoutActionImpl(): Promise<void> {
   await destroyAlumniSession();
   redirect("/alumni");
 }
 
-export async function alumniRegisterAction(
+async function alumniRegisterActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -169,3 +171,17 @@ export async function alumniRegisterAction(
   await createAlumniSession(alumni);
   redirect("/alumni/dashboard");
 }
+
+// ---------------------------------------------------------------------------
+// Exported actions, each wrapped so an unexpected failure surfaces as a
+// friendly message instead of a raw server-error page. See
+// ./with-error-handling.ts for why this is done at the boundary.
+// ---------------------------------------------------------------------------
+
+export const adminLoginAction = withActionErrorHandling("adminLoginAction", adminLoginActionImpl);
+export const adminLogoutAction = withVoidActionErrorHandling("adminLogoutAction", adminLogoutActionImpl);
+export const memberLoginAction = withActionErrorHandling("memberLoginAction", memberLoginActionImpl);
+export const memberLogoutAction = withVoidActionErrorHandling("memberLogoutAction", memberLogoutActionImpl);
+export const alumniLoginAction = withActionErrorHandling("alumniLoginAction", alumniLoginActionImpl);
+export const alumniLogoutAction = withVoidActionErrorHandling("alumniLogoutAction", alumniLogoutActionImpl);
+export const alumniRegisterAction = withActionErrorHandling("alumniRegisterAction", alumniRegisterActionImpl);

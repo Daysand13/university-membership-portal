@@ -1,5 +1,7 @@
 "use server";
 
+import { withActionErrorHandling, withVoidActionErrorHandling, withTypedActionErrorHandling } from "./with-error-handling";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdminRole } from "@/lib/auth/admin";
@@ -28,7 +30,7 @@ function parseDocumentForm(formData: FormData) {
   });
 }
 
-export async function createDocumentAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+async function createDocumentActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdminRole(AdminRole.LIBRARIAN);
   const parsed = parseDocumentForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
@@ -56,7 +58,7 @@ export async function createDocumentAction(_prevState: ActionState, formData: Fo
   redirect("/admin/library");
 }
 
-export async function updateDocumentAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+async function updateDocumentActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdminRole(AdminRole.LIBRARIAN);
   const parsed = parseDocumentForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
@@ -69,7 +71,7 @@ export async function updateDocumentAction(_prevState: ActionState, formData: Fo
   return {};
 }
 
-export async function deleteDocumentAction(id: string): Promise<void> {
+async function deleteDocumentActionImpl(id: string): Promise<void> {
   await requireAdminRole(AdminRole.LIBRARIAN);
   await deleteDocument(id);
   revalidatePath("/library");
@@ -81,7 +83,7 @@ export async function deleteDocumentAction(id: string): Promise<void> {
  * public URL for public documents, or a short-lived signed URL (checked
  * against publish status) for private ones. Also records the download.
  */
-export async function getDocumentDownloadUrlAction(documentId: string): Promise<string> {
+async function getDocumentDownloadUrlActionImpl(documentId: string): Promise<string> {
   const document = await getPublishedDocument(documentId);
   if (!document) throw new Error("Document not found or not published.");
 
@@ -92,3 +94,14 @@ export async function getDocumentDownloadUrlAction(documentId: string): Promise<
   }
   return getPresignedDownloadUrl(document.r2ObjectKey, 300);
 }
+
+// ---------------------------------------------------------------------------
+// Exported actions, each wrapped so an unexpected failure surfaces as a
+// friendly message instead of a raw server-error page. See
+// ./with-error-handling.ts for why this is done at the boundary.
+// ---------------------------------------------------------------------------
+
+export const createDocumentAction = withActionErrorHandling("createDocumentAction", createDocumentActionImpl);
+export const updateDocumentAction = withActionErrorHandling("updateDocumentAction", updateDocumentActionImpl);
+export const deleteDocumentAction = withVoidActionErrorHandling("deleteDocumentAction", deleteDocumentActionImpl);
+export const getDocumentDownloadUrlAction = withTypedActionErrorHandling("getDocumentDownloadUrlAction", getDocumentDownloadUrlActionImpl);

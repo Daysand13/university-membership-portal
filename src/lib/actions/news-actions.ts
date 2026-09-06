@@ -1,5 +1,7 @@
 "use server";
 
+import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdminRole } from "@/lib/auth/admin";
@@ -29,7 +31,7 @@ function parseNewsForm(formData: FormData) {
   });
 }
 
-export async function createNewsAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+async function createNewsActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdminRole(AdminRole.EDITOR);
   const parsed = parseNewsForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
@@ -47,7 +49,7 @@ export async function createNewsAction(_prevState: ActionState, formData: FormDa
   redirect(`/admin/news/${article.id}`);
 }
 
-export async function updateNewsAction(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+async function updateNewsActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdminRole(AdminRole.EDITOR);
   const parsed = parseNewsForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
@@ -66,7 +68,7 @@ export async function updateNewsAction(_prevState: ActionState, formData: FormDa
   return {};
 }
 
-export async function deleteNewsAction(id: string): Promise<void> {
+async function deleteNewsActionImpl(id: string): Promise<void> {
   await requireAdminRole(AdminRole.EDITOR);
   const article = await deleteNews(id);
   const key = extractObjectKeyFromPublicUrl(article.coverImageUrl);
@@ -82,10 +84,21 @@ export async function deleteNewsAction(id: string): Promise<void> {
   revalidatePath("/admin/news");
 }
 
-export async function setNewsStatusAction(id: string, status: ContentStatus): Promise<void> {
+async function setNewsStatusActionImpl(id: string, status: ContentStatus): Promise<void> {
   await requireAdminRole(AdminRole.EDITOR);
   await setNewsStatus(id, status);
   revalidatePath("/news");
   revalidatePath("/");
   revalidatePath("/admin/news");
 }
+
+// ---------------------------------------------------------------------------
+// Exported actions, each wrapped so an unexpected failure surfaces as a
+// friendly message instead of a raw server-error page. See
+// ./with-error-handling.ts for why this is done at the boundary.
+// ---------------------------------------------------------------------------
+
+export const createNewsAction = withActionErrorHandling("createNewsAction", createNewsActionImpl);
+export const updateNewsAction = withActionErrorHandling("updateNewsAction", updateNewsActionImpl);
+export const deleteNewsAction = withVoidActionErrorHandling("deleteNewsAction", deleteNewsActionImpl);
+export const setNewsStatusAction = withVoidActionErrorHandling("setNewsStatusAction", setNewsStatusActionImpl);

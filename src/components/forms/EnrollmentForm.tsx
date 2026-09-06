@@ -285,8 +285,7 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
   const [state, formAction, isPending] = useActionState(submitEnrollmentAction, initialActionState);
   const formRef = useRef<HTMLFormElement>(null);
   const passportInputRef = useRef<HTMLInputElement>(null);
-  const medicalPhotoInputRef = useRef<HTMLInputElement>(null);
-  const medicalDocInputRef = useRef<HTMLInputElement>(null);
+  const medicalInputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<"form" | "review">("form");
   const [values, setValues] = useState<FormValues>(INITIAL_VALUES);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -355,11 +354,9 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
       formEl.reportValidity();
       return;
     }
-    const hasPhoto = (medicalPhotoInputRef.current?.files?.length ?? 0) > 0;
-    const hasDoc = (medicalDocInputRef.current?.files?.length ?? 0) > 0;
-    if (!hasPhoto && !hasDoc) {
+    if ((medicalInputRef.current?.files?.length ?? 0) === 0) {
       setMedicalMissing(true);
-      medicalPhotoInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      medicalInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     setPhase("review");
@@ -686,67 +683,34 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
             <FieldError messages={fe.profilePicture} />
           </div>
           <div className="sm:col-span-2">
-            <Label htmlFor="medicalReportPhoto" required>Medical Report / Disability Assessment</Label>
-            <p className="text-xs text-slate-light mb-3">
-              Choose whichever matches what you have — a photo of the document, or a PDF/Word file. You only need
-              to fill in <strong>one</strong> of the two options below.
+            <Label htmlFor="medicalReport" required>Medical Report / Disability Assessment</Label>
+            <input
+              ref={medicalInputRef}
+              id="medicalReport"
+              name="medicalReport"
+              type="file"
+              accept="image/*,application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                setMedicalTooLarge(fileTooLarge(file, MAX_MEDICAL_REPORT_BYTES));
+                setMedicalFileName(file ? file.name : null);
+                if (file) {
+                  setFilesClearedNotice(false);
+                  setMedicalMissing(false);
+                }
+              }}
+              className="block w-full text-sm text-slate file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-sm file:font-semibold hover:file:bg-primary-100"
+            />
+            <p className="mt-1.5 text-xs text-slate-light">
+              Upload a photo of your document, or a PDF/Word file — whichever you have. On your phone this opens
+              your full file browser, so you can take a new photo, pick an existing one from your gallery, or
+              choose a saved file from Downloads or Drive. Max 5MB.
             </p>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="rounded-md border-2 border-line p-4">
-                <label htmlFor="medicalReportPhoto" className="block text-sm font-semibold text-ink mb-2">
-                  Option A: Photo of the document
-                </label>
-                <input
-                  ref={medicalPhotoInputRef}
-                  id="medicalReportPhoto"
-                  name="medicalReportPhoto"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    setMedicalTooLarge(fileTooLarge(file, MAX_MEDICAL_REPORT_BYTES));
-                    setMedicalFileName(file ? file.name : null);
-                    if (file) {
-                      setFilesClearedNotice(false);
-                      setMedicalMissing(false);
-                      if (medicalDocInputRef.current) medicalDocInputRef.current.value = "";
-                    }
-                  }}
-                  className="block w-full text-xs text-slate file:mr-2 file:py-1.5 file:px-2.5 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-xs file:font-semibold hover:file:bg-primary-100"
-                />
-                <p className="mt-1.5 text-xs text-slate-light">Uses your phone&apos;s camera or photo gallery. JPG or PNG.</p>
-              </div>
-              <div className="rounded-md border-2 border-line p-4">
-                <label htmlFor="medicalReportDocument" className="block text-sm font-semibold text-ink mb-2">
-                  Option B: PDF or Word file
-                </label>
-                <input
-                  ref={medicalDocInputRef}
-                  id="medicalReportDocument"
-                  name="medicalReportDocument"
-                  type="file"
-                  accept="application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    setMedicalTooLarge(fileTooLarge(file, MAX_MEDICAL_REPORT_BYTES));
-                    setMedicalFileName(file ? file.name : null);
-                    if (file) {
-                      setFilesClearedNotice(false);
-                      setMedicalMissing(false);
-                      if (medicalPhotoInputRef.current) medicalPhotoInputRef.current.value = "";
-                    }
-                  }}
-                  className="block w-full text-xs text-slate file:mr-2 file:py-1.5 file:px-2.5 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-xs file:font-semibold hover:file:bg-primary-100"
-                />
-                <p className="mt-1.5 text-xs text-slate-light">Opens your phone&apos;s Files or document picker. PDF, .doc, or .docx.</p>
-              </div>
-            </div>
-            <p className="mt-2 text-xs text-slate-light">Max 5MB, whichever option you use.</p>
             {medicalTooLarge && (
               <p className="mt-1 text-xs text-danger">This file is over 5MB — please choose a smaller file.</p>
             )}
             {medicalMissing && (
-              <p className="mt-1 text-xs text-danger">Please provide your medical report using one of the two options above.</p>
+              <p className="mt-1 text-xs text-danger">Please attach your medical report before continuing.</p>
             )}
             <FieldError messages={fe.medicalReportKey} />
           </div>

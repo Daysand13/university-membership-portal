@@ -1,5 +1,7 @@
 "use server";
 
+import { withTypedActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
+
 import { revalidatePath } from "next/cache";
 import { requireAdminUser } from "@/lib/auth/admin";
 import {
@@ -22,7 +24,7 @@ export interface UploadTicket {
  * slide, about/donate imagery, logo, etc.) so file bytes never transit the
  * Next.js server for authenticated uploads.
  */
-export async function requestAdminImageUpload(input: {
+async function requestAdminImageUploadImpl(input: {
   filename: string;
   mimeType: string;
   fileSize: number;
@@ -32,7 +34,7 @@ export async function requestAdminImageUpload(input: {
   return requestImageUploadService(input);
 }
 
-export async function requestAdminDocumentUpload(input: {
+async function requestAdminDocumentUploadImpl(input: {
   filename: string;
   mimeType: string;
   fileSize: number;
@@ -44,7 +46,7 @@ export async function requestAdminDocumentUpload(input: {
 /** Records an upload in the shared Media Library (Admin > Media). Inline
  * entity image fields (news cover, etc.) don't need this — they just store
  * the resulting public URL directly on the owning record. */
-export async function confirmMediaLibraryUpload(input: {
+async function confirmMediaLibraryUploadImpl(input: {
   objectKey: string;
   mimeType: string;
   fileSize: number;
@@ -58,8 +60,19 @@ export async function confirmMediaLibraryUpload(input: {
   return media;
 }
 
-export async function deleteAdminMedia(id: string) {
+async function deleteAdminMediaImpl(id: string) {
   await requireAdminUser();
   await deleteMediaService(id);
   revalidatePath("/admin/media");
 }
+
+// ---------------------------------------------------------------------------
+// Exported actions, each wrapped so an unexpected failure surfaces as a
+// friendly message instead of a raw server-error page. See
+// ./with-error-handling.ts for why this is done at the boundary.
+// ---------------------------------------------------------------------------
+
+export const requestAdminImageUpload = withTypedActionErrorHandling("requestAdminImageUpload", requestAdminImageUploadImpl);
+export const requestAdminDocumentUpload = withTypedActionErrorHandling("requestAdminDocumentUpload", requestAdminDocumentUploadImpl);
+export const confirmMediaLibraryUpload = withTypedActionErrorHandling("confirmMediaLibraryUpload", confirmMediaLibraryUploadImpl);
+export const deleteAdminMedia = withVoidActionErrorHandling("deleteAdminMedia", deleteAdminMediaImpl);

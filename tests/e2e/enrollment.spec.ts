@@ -46,7 +46,7 @@ test.describe("Membership enrollment", () => {
       mimeType: "image/jpeg",
       buffer: Buffer.from([0xff, 0xd8, 0xff, 0xdb]),
     });
-    await page.getByLabel("Option B: PDF or Word file").setInputFiles({
+    await page.getByLabel(/Medical Report/).setInputFiles({
       name: "medical.pdf",
       mimeType: "application/pdf",
       buffer: Buffer.from("%PDF-1.4 test"),
