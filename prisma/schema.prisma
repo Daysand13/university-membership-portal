@@ -632,3 +632,24 @@ model AlumniPasswordResetToken {
   @@index([alumniId])
   @@map("alumni_password_reset_tokens")
 }
+
+// ---------------------------------------------------------------------------
+// Rate limiting
+// ---------------------------------------------------------------------------
+
+/** Each row is one attempt at something worth rate-limiting (a login try,
+ * a password reset request, a form submission). Checking a rate limit
+ * means counting recent rows for a given key; enforcing it means writing
+ * a new row after every attempt. Old rows are opportunistically cleaned up
+ * so this table doesn't grow unbounded. Backed by the database (rather
+ * than an external service like Redis) so it works correctly across
+ * Vercel's many separate serverless instances without asking for another
+ * account/signup. */
+model RateLimitAttempt {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+  @@map("rate_limit_attempts")
+}

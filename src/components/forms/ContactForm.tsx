@@ -6,6 +6,7 @@ import { submitContactMessageAction } from "@/lib/actions/contact-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
+import { BotProtectionFields } from "@/components/forms/BotProtectionFields";
 
 export function ContactForm() {
   const [state, formAction, isPending] = useActionState(submitContactMessageAction, initialActionState);
@@ -25,6 +26,7 @@ export function ContactForm() {
   return (
     <form action={formAction} className="space-y-5">
       <FormAlert message={state.error} />
+      <BotProtectionFields />
       <div className="grid sm:grid-cols-2 gap-5">
         <div>
           <Label htmlFor="name" required>

@@ -22,6 +22,8 @@ import {
 } from "@/lib/services/membership-service";
 import { requireAdminRole } from "@/lib/auth/admin";
 import { requireMember } from "@/lib/auth/member";
+import { isLikelyBot } from "@/lib/bot-protection";
+import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { ApplicationStatus, AdminRole } from "@/generated/prisma/client";
 import { uploadBuffer, generateObjectKey, buildPublicUrl, isR2Configured } from "@/lib/storage/r2";
 import { validateUploadRequest, sniffImageMimeType } from "@/lib/storage/validation";
@@ -35,6 +37,21 @@ export async function submitEnrollmentAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  // Silently redirect as if this succeeded for anything that looks
+  // automated — no error, no hint to a script that it was caught, and
+  // nothing gets saved or uploaded.
+  if (isLikelyBot(formData)) {
+    redirect("/membership/enroll/success");
+  }
+
+  const ip = await getClientIp();
+  // Set generously — a campus network can have many different students
+  // submitting from the same shared IP during a busy registration period,
+  // and this only needs to stop scripted spam, not a realistic burst of
+  // real people.
+  const limit = await checkRateLimit(`enroll:ip:${ip}`, { max: 30, windowSeconds: 3600 });
+  if (!limit.allowed) return { error: RATE_LIMIT_MESSAGE };
+
   const entries = Object.fromEntries(formData.entries());
   const candidate = {
     ...entries,
@@ -223,6 +240,15 @@ export async function forgotPasswordAction(
 ): Promise<ActionState> {
   const parsed = forgotPasswordSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  const ip = await getClientIp();
+  const [ipLimit, emailLimit] = await Promise.all([
+    checkRateLimit(`forgot-password:ip:${ip}`, { max: 10, windowSeconds: 600 }),
+    // Keyed on the submitted email specifically, so someone can't be
+    // repeatedly email-bombed with reset links from different IPs.
+    checkRateLimit(`forgot-password:email:${parsed.data.email}`, { max: 3, windowSeconds: 600 }),
+  ]);
+  if (!ipLimit.allowed || !emailLimit.allowed) return { error: RATE_LIMIT_MESSAGE };
 
   const resetBaseUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/membership/reset-password`;
   try {

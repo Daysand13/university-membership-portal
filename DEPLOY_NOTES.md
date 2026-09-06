@@ -1,85 +1,73 @@
 # Deploying this update
 
-No schema changes this round, but there IS a one-off data script to run.
-Order matters:
+One new migration this round:
 
 ```bash
+npx prisma generate
+npx prisma migrate dev
 git add .
-git commit -m "audit + fix unhandled server action errors, abbreviate program/degree names + migrate existing data"
+git commit -m "add rate limiting and accessible bot protection"
 git push
 ```
 
-Then, once deployed (or any time after — it's safe to run whenever, even
-before deploying), run the data migration from your local machine (same
-setup as running `npx prisma migrate dev` — it uses your local `.env`,
-which already points at the live database):
+## What's in this round
 
-```bash
-npx tsx prisma/migrate-programme-abbreviations.ts
-```
+Following up on the security discussion — added the two things flagged as
+genuinely missing, in a way that doesn't ask anything of your members,
+including those using screen readers or other assistive technology.
 
-This updates existing applications/members' stored program and degree
-values to the new abbreviated format (see Issue 2 below for why this is
-needed). **It's safe to run more than once** — it only touches rows that
-still have an old-format value, so running it twice does nothing the
-second time. It prints a summary of how many rows it changed.
+### Rate limiting
 
-## Issue 1 — server errors, continued
+Every sensitive or abusable action now has a limit on how often it can be
+attempted:
 
-Last round's fix (the database connection change) addressed one real
-cause. This round I did the audit you asked for — went through every
-server action in the app one by one, specifically looking for database
-calls with no error handling around them, since an uncaught error in a
-server action is exactly what produces the generic "server error, reload
-to try again" page.
+- Logins (admin, student member, alumni) — limited both by IP address and
+  by the specific account being targeted, so someone can't brute-force a
+  known email/index number even by spreading attempts across many IPs.
+  Limits are deliberately generous on the IP side (e.g. 40 login attempts
+  per 10 minutes for members) since a campus network can have many
+  different real students behind the same shared IP.
+- Forgot-password requests — limited by IP and by the email being
+  targeted, so someone can't spam a specific person with reset-link
+  emails.
+- Contact form, enrollment applications, and alumni registration — limited
+  by IP to stop scripted spam, again set generously (30 enrollment
+  submissions/hour per IP) to comfortably allow a busy registration day on
+  a shared campus network.
 
-**Found and fixed five of them**, all in public-facing forms anyone could
-trigger:
-- The Contact form
-- "Forgot password" for both student members and alumni
-- Profile updates for both student members and alumni
+This is backed by your existing database, not a new external service — no
+new account or signup needed.
 
-Each now catches unexpected errors and shows a friendly message instead of
-crashing the whole request. Two additional safety nets were added on top:
+### Bot protection — no CAPTCHA, by design
 
-- A proper error page (`error.tsx` / `global-error.tsx`) now catches
-  anything unexpected anywhere else in the app and shows a branded "Try
-  Again" screen instead of the raw browser error interstitial.
-- The two highest-traffic public submissions (membership enrollment and
-  the contact form) now automatically retry once if the database call
-  fails with what looks like a brief connection blip, rather than failing
-  the person's submission outright.
+Given your point about visually impaired and Deaf members — this uses two
+signals that require **zero interaction from anyone, disabled or not**:
 
-## Issue 2 — abbreviations, and a data-consistency note worth reading
+1. A hidden field real visitors never see or reach (hidden from screen
+   readers too, via `aria-hidden` and being unreachable by keyboard tab
+   order) — simple bots that fill in every field on a page trip this
+   instantly.
+2. Timing — if a form is submitted less than 2 seconds after it loaded,
+   that's essentially certain to be a script, not a person reading and
+   filling in a form.
 
-All program and degree names now use abbreviations consistently — e.g.
-"Bachelor of Education (B.Ed.) Special Education" → "BEd Special
-Education", "Master of Philosophy (M.Phil.)" → "MPhil". Applies to both
-undergraduate and postgraduate lists, and to the Postgraduate Degree
-Category selector itself.
+Deliberately **not** using anything like Google reCAPTCHA or Cloudflare
+Turnstile, even their "invisible" versions — those score risk based on
+behavioral signals like mouse movement, and people using screen readers or
+switch-access devices often don't produce the "normal" patterns those
+systems expect, which can get real, legitimate visitors incorrectly
+flagged. The approach here can't do that, since it doesn't look at
+*how* anyone interacts at all.
 
-**Why a migration script and not just new dropdown text**: your programme
-field went through three different formats over the last few rounds — the
-original full names, a briefly-shortened "bare subject name" version, and
-now this abbreviated version. Existing applications and members are still
-sitting in whichever format they were submitted in. The script maps all of
-that to the new format in one pass.
+When something is flagged as a likely bot, the response pretends success
+(no error, nothing suspicious shown) while quietly not saving anything —
+this avoids teaching a bot exactly what tripped it, which would just
+invite it to adjust and try again.
 
-**One thing worth knowing**: a couple of postgraduate program names
-briefly existed in that "bare" middle format with the degree level
-stripped out entirely (e.g. just "Basic Education" with no way to tell if
-it was the M.Ed., M.Phil., or Ph.D. version from the text alone). The
-script recovers the correct one using each row's own separately-stored
-"Degree Category" field, which was never touched by that earlier
-shortening — so this is fully accurate for postgraduate records. On the
-undergraduate side there's no equivalent field, and exactly one program
-name ("Early Childhood Education") has this same ambiguity between the
-Bachelor's and Diploma versions; the script defaults these to the
-Bachelor's version as the more common case. If you want to double-check
-this didn't miscategorize anyone, the script prints out the specific
-application/member IDs it had to make that judgment call for — search your
-admin panel for those.
+### Verified with real tests, not just by inspection
 
-Alumni who self-registered (rather than being promoted from a student
-member) are untouched by this script — their program name was always
-free text they typed themselves, never one of these controlled options.
+Added 7 new automated tests confirming both features actually work as
+described (honeypot detection, timing detection, per-key rate limits, and
+that different limits don't interfere with each other) — these run as
+part of the existing test suite and will keep passing on every future
+change.

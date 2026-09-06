@@ -7,6 +7,7 @@ import { alumniLoginAction, alumniRegisterAction } from "@/lib/actions/auth-acti
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
+import { BotProtectionFields } from "@/components/forms/BotProtectionFields";
 import { PASSWORD_REQUIREMENTS_MESSAGE } from "@/lib/auth/password";
 
 function SignInForm() {
@@ -67,6 +68,7 @@ function RegisterForm() {
   return (
     <form action={formAction} className="space-y-5">
       <FormAlert message={state.error} />
+      <BotProtectionFields />
 
       <div>
         <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-light mb-3">

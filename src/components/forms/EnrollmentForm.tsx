@@ -6,6 +6,7 @@ import { submitEnrollmentAction } from "@/lib/actions/membership-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
+import { BotProtectionFields } from "@/components/forms/BotProtectionFields";
 import {
   DISABILITY_CATEGORIES,
   SUPPORT_NEEDS,
@@ -392,6 +393,7 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
       >
         <FormAlert message={state.error} />
         <input type="hidden" name="track" value={track} />
+        <BotProtectionFields />
 
         {filesClearedNotice && (
           <div className="rounded-lg border border-danger bg-danger-light p-4 text-sm text-danger">

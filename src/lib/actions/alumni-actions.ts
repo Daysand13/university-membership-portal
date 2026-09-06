@@ -22,6 +22,7 @@ import {
 } from "@/lib/services/alumni-service";
 import { requireAlumni } from "@/lib/auth/alumni";
 import { requireAdminRole } from "@/lib/auth/admin";
+import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { AdminRole, AlumniStatus } from "@/generated/prisma/client";
 import type { ActionState } from "./types";
 
@@ -35,6 +36,13 @@ export async function alumniForgotPasswordAction(
 ): Promise<ActionState> {
   const parsed = alumniForgotPasswordSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  const ip = await getClientIp();
+  const [ipLimit, emailLimit] = await Promise.all([
+    checkRateLimit(`alumni-forgot-password:ip:${ip}`, { max: 10, windowSeconds: 600 }),
+    checkRateLimit(`alumni-forgot-password:email:${parsed.data.email}`, { max: 3, windowSeconds: 600 }),
+  ]);
+  if (!ipLimit.allowed || !emailLimit.allowed) return { error: RATE_LIMIT_MESSAGE };
 
   const resetBaseUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/alumni/reset-password`;
   try {

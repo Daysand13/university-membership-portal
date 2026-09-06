@@ -17,6 +17,8 @@ import {
 import { createAdminSession, destroyAdminSession } from "@/lib/auth/admin";
 import { createMemberSession, destroyMemberSession } from "@/lib/auth/member";
 import { createAlumniSession, createAlumniSessionNonPersistent, destroyAlumniSession } from "@/lib/auth/alumni";
+import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
+import { isLikelyBot } from "@/lib/bot-protection";
 import type { ActionState } from "./types";
 
 export async function adminLoginAction(
@@ -27,6 +29,13 @@ export async function adminLoginAction(
   if (!parsed.success) {
     return { fieldErrors: parsed.error.flatten().fieldErrors };
   }
+
+  const ip = await getClientIp();
+  const [ipLimit, emailLimit] = await Promise.all([
+    checkRateLimit(`admin-login:ip:${ip}`, { max: 15, windowSeconds: 600 }),
+    checkRateLimit(`admin-login:email:${parsed.data.email}`, { max: 8, windowSeconds: 600 }),
+  ]);
+  if (!ipLimit.allowed || !emailLimit.allowed) return { error: RATE_LIMIT_MESSAGE };
 
   let admin;
   try {
@@ -54,6 +63,15 @@ export async function memberLoginAction(
   if (!parsed.success) {
     return { fieldErrors: parsed.error.flatten().fieldErrors };
   }
+
+  const ip = await getClientIp();
+  const [ipLimit, indexLimit] = await Promise.all([
+    // Set generously — a campus network can have many different students
+    // logging in from the same shared IP at once.
+    checkRateLimit(`member-login:ip:${ip}`, { max: 40, windowSeconds: 600 }),
+    checkRateLimit(`member-login:index:${parsed.data.indexNumber}`, { max: 8, windowSeconds: 600 }),
+  ]);
+  if (!ipLimit.allowed || !indexLimit.allowed) return { error: RATE_LIMIT_MESSAGE };
 
   let member;
   try {
@@ -83,6 +101,13 @@ export async function alumniLoginAction(
   if (!parsed.success) {
     return { fieldErrors: parsed.error.flatten().fieldErrors };
   }
+
+  const ip = await getClientIp();
+  const [ipLimit, emailLimit] = await Promise.all([
+    checkRateLimit(`alumni-login:ip:${ip}`, { max: 20, windowSeconds: 600 }),
+    checkRateLimit(`alumni-login:email:${parsed.data.email}`, { max: 8, windowSeconds: 600 }),
+  ]);
+  if (!ipLimit.allowed || !emailLimit.allowed) return { error: RATE_LIMIT_MESSAGE };
 
   let alumni;
   try {
@@ -116,6 +141,13 @@ export async function alumniRegisterAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  // Silently pretend success for anything that looks automated.
+  if (isLikelyBot(formData)) redirect("/alumni?next=login");
+
+  const ip = await getClientIp();
+  const limit = await checkRateLimit(`alumni-register:ip:${ip}`, { max: 10, windowSeconds: 3600 });
+  if (!limit.allowed) return { error: RATE_LIMIT_MESSAGE };
+
   const entries = Object.fromEntries(formData.entries());
   const candidate = { ...entries, consent: entries.consent === "on" || entries.consent === "true" };
   const parsed = alumniRegisterSchema.safeParse(candidate);
