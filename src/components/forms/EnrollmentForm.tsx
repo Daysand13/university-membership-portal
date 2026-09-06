@@ -22,8 +22,10 @@ import {
   MEMBERSHIP_TYPE_LABELS,
   MAX_PASSPORT_PICTURE_BYTES,
   MAX_MEDICAL_REPORT_BYTES,
+  MAX_TOTAL_UPLOAD_BYTES,
   type ApplicationTrack,
 } from "@/lib/validations/membership";
+import { downscaleImage } from "@/lib/client/downscale-image";
 
 const GHANA_REGIONS = [
   "Ahafo",
@@ -130,8 +132,48 @@ function SectionCard({
   );
 }
 
-function fileTooLarge(file: File | undefined, maxBytes: number): boolean {
-  return !!file && file.size > maxBytes;
+// Targets for client-side re-encoding. Chosen so that two re-encoded photos
+// always land well inside MAX_TOTAL_UPLOAD_BYTES, while still leaving room for
+// a medical report that CANNOT be re-encoded — a PDF or Word document keeps
+// whatever size it arrived at.
+const PASSPORT_TARGET_BYTES = 1024 * 1024; // 1 MB
+const MEDICAL_IMAGE_TARGET_BYTES = 2.5 * 1024 * 1024; // 2.5 MB
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))}KB`;
+}
+
+/**
+ * Shrinks an image selection where possible and writes the result back into
+ * the file input, so the form submits the smaller file.
+ *
+ * Returns the size actually staged for upload — which is what the caller's
+ * guards are measured against, not the size the person originally picked.
+ */
+async function stageFileSelection(
+  input: HTMLInputElement | null,
+  file: File | undefined,
+  targetBytes: number,
+): Promise<number> {
+  if (!file) return 0;
+
+  const processed = await downscaleImage(file, { targetBytes });
+  if (processed === file) return file.size;
+
+  // Swapping the input's FileList is the only way to make a native form
+  // submission carry the re-encoded file. DataTransfer is the standard route
+  // and is widely supported, but if a browser refuses, fall back to the
+  // original selection rather than losing the file entirely — the size guards
+  // will then surface a clear message instead of a failed submission.
+  try {
+    const transfer = new DataTransfer();
+    transfer.items.add(processed);
+    if (input) input.files = transfer.files;
+    return processed.size;
+  } catch {
+    return file.size;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -290,11 +332,23 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
   const [values, setValues] = useState<FormValues>(INITIAL_VALUES);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [medicalFileName, setMedicalFileName] = useState<string | null>(null);
-  const [passportTooLarge, setPassportTooLarge] = useState(false);
-  const [medicalTooLarge, setMedicalTooLarge] = useState(false);
+  // Sizes are tracked in bytes rather than as booleans because the limit that
+  // actually matters is the COMBINED one: two files that each pass their own
+  // check can still add up to a request the platform refuses (see
+  // MAX_TOTAL_UPLOAD_BYTES). These record the size staged for upload, i.e.
+  // after any re-encoding, not the size originally selected.
+  const [passportBytes, setPassportBytes] = useState(0);
+  const [medicalBytes, setMedicalBytes] = useState(0);
+  const [processingFiles, setProcessingFiles] = useState(false);
   const [medicalMissing, setMedicalMissing] = useState(false);
   const [filesClearedNotice, setFilesClearedNotice] = useState(false);
   const fe = state.fieldErrors ?? {};
+
+  const passportTooLarge = passportBytes > MAX_PASSPORT_PICTURE_BYTES;
+  const medicalTooLarge = medicalBytes > MAX_MEDICAL_REPORT_BYTES;
+  const totalTooLarge =
+    !passportTooLarge && !medicalTooLarge && passportBytes + medicalBytes > MAX_TOTAL_UPLOAD_BYTES;
+  const uploadsBlocked = passportTooLarge || medicalTooLarge || totalTooLarge;
 
   const isPg = track === "POSTGRADUATE";
   const departmentOptions = isPg ? POSTGRAD_DEPARTMENTS : ACADEMIC_DEPARTMENTS;
@@ -320,6 +374,11 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
         setFilesClearedNotice(true);
         setPreviewUrl(null);
         setMedicalFileName(null);
+        // The inputs themselves have been emptied by React, so the recorded
+        // sizes have to go with them or the guards would keep blocking on
+        // files that are no longer attached.
+        setPassportBytes(0);
+        setMedicalBytes(0);
       }
     }
   }
@@ -357,6 +416,14 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
     if ((medicalInputRef.current?.files?.length ?? 0) === 0) {
       setMedicalMissing(true);
       medicalInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    // Oversized attachments used to reach the server action, where the
+    // platform rejected the whole request before any of our code ran — the
+    // person just got a generic error. Stopping here instead keeps the
+    // failure visible, specific, and fixable.
+    if (uploadsBlocked) {
+      passportInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     setPhase("review");
@@ -663,12 +730,35 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
                 name="profilePicture"
                 type="file"
                 required
-                accept="image/*"
-                onChange={(e) => {
+                // Concrete MIME types rather than the `image/*` wildcard, for
+                // the same reason as the medical report field below: on
+                // Chrome for Android a wildcard media type produces a
+                // restrictive media picker (Samsung's One UI offers only
+                // Camera and Photos), while an explicit list opens the full
+                // file browser. This list also matches what the server
+                // accepts (ALLOWED_IMAGE_TYPES), so a .heic straight off a
+                // phone is refused at the picker instead of after upload.
+                accept="image/jpeg,.jpg,.jpeg,image/png,.png,image/webp,.webp"
+                onChange={async (e) => {
                   const file = e.target.files?.[0];
-                  setPassportTooLarge(fileTooLarge(file, MAX_PASSPORT_PICTURE_BYTES));
-                  setPreviewUrl(file ? URL.createObjectURL(file) : null);
-                  if (file) setFilesClearedNotice(false);
+                  if (!file) {
+                    setPassportBytes(0);
+                    setPreviewUrl(null);
+                    return;
+                  }
+                  setFilesClearedNotice(false);
+                  setProcessingFiles(true);
+                  try {
+                    const staged = await stageFileSelection(
+                      passportInputRef.current,
+                      file,
+                      PASSPORT_TARGET_BYTES,
+                    );
+                    setPassportBytes(staged);
+                    setPreviewUrl(URL.createObjectURL(passportInputRef.current?.files?.[0] ?? file));
+                  } finally {
+                    setProcessingFiles(false);
+                  }
                 }}
                 className="block w-full text-sm text-slate file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-sm file:font-semibold hover:file:bg-primary-100"
               />
@@ -678,7 +768,9 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
               you can choose an existing photo or take a new one.
             </p>
             {passportTooLarge && (
-              <p className="mt-1 text-xs text-danger">This photo is over 2MB — please choose a smaller file.</p>
+              <p className="mt-1 text-xs text-danger">
+                This photo is {formatBytes(passportBytes)}, over the 2MB limit — please choose a smaller file.
+              </p>
             )}
             <FieldError messages={fe.profilePicture} />
           </div>
@@ -705,13 +797,28 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
               // wildcard let people pick formats like .webp or .heic that
               // the server would then reject after upload.
               accept="application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,.jpg,.jpeg,image/png,.png"
-              onChange={(e) => {
+              onChange={async (e) => {
                 const file = e.target.files?.[0];
-                setMedicalTooLarge(fileTooLarge(file, MAX_MEDICAL_REPORT_BYTES));
-                setMedicalFileName(file ? file.name : null);
-                if (file) {
-                  setFilesClearedNotice(false);
-                  setMedicalMissing(false);
+                if (!file) {
+                  setMedicalBytes(0);
+                  setMedicalFileName(null);
+                  return;
+                }
+                setFilesClearedNotice(false);
+                setMedicalMissing(false);
+                setProcessingFiles(true);
+                try {
+                  // A PDF or Word document comes back untouched; only a photo
+                  // of a report gets re-encoded.
+                  const staged = await stageFileSelection(
+                    medicalInputRef.current,
+                    file,
+                    MEDICAL_IMAGE_TARGET_BYTES,
+                  );
+                  setMedicalBytes(staged);
+                  setMedicalFileName(medicalInputRef.current?.files?.[0]?.name ?? file.name);
+                } finally {
+                  setProcessingFiles(false);
                 }
               }}
               className="block w-full text-sm text-slate file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-sm file:font-semibold hover:file:bg-primary-100"
@@ -722,13 +829,28 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
               — or choose a photo you&apos;ve already taken.
             </p>
             {medicalTooLarge && (
-              <p className="mt-1 text-xs text-danger">This file is over 5MB — please choose a smaller file.</p>
+              <p className="mt-1 text-xs text-danger">
+                This file is {formatBytes(medicalBytes)}, over the 5MB limit — please choose a smaller file.
+              </p>
             )}
             {medicalMissing && (
               <p className="mt-1 text-xs text-danger">Please attach your medical report before continuing.</p>
             )}
             <FieldError messages={fe.medicalReportKey} />
           </div>
+          {processingFiles && (
+            <p className="sm:col-span-2 text-xs text-slate-light">Preparing your attachments…</p>
+          )}
+          {/* The combined limit is the one that actually broke submissions:
+              two files that each pass their own check can still add up to a
+              request the server never receives. */}
+          {totalTooLarge && (
+            <p className="sm:col-span-2 text-xs text-danger">
+              Your two attachments come to {formatBytes(passportBytes + medicalBytes)} together, which is over
+              the {formatBytes(MAX_TOTAL_UPLOAD_BYTES)} limit for one submission. Please replace one with a
+              smaller file — a photo taken at lower resolution, or a PDF saved at a smaller size.
+            </p>
+          )}
         </SectionCard>
 
         <SectionCard step={6} title="Additional Information">
@@ -801,8 +923,14 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
           <FieldError messages={fe.agreedToTerms} />
         </div>
 
-        <Button type="button" onClick={handleReviewClick} size="lg" className="w-full">
-          Review Application
+        <Button
+          type="button"
+          onClick={handleReviewClick}
+          disabled={processingFiles}
+          size="lg"
+          className="w-full"
+        >
+          {processingFiles ? "Preparing attachments…" : "Review Application"}
         </Button>
       </form>
     </div>
