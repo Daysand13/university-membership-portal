@@ -134,29 +134,54 @@ export async function submitApplication(
     throw err;
   }
 
-  await db.notification.create({
-    data: {
-      type: "NEW_APPLICATION",
-      title: `New membership application from ${application.firstName} ${application.lastName}`,
-      link: `/admin/membership-applications/${application.id}`,
-    },
-  });
+  // ─────────────────────────────────────────────────────────────────────
+  // PAST THIS POINT THE APPLICATION IS SAVED. Nothing below may throw.
+  //
+  // Everything that follows is secondary (an admin notification row, a
+  // confirmation email). If any of it fails, the applicant's record still
+  // exists and is visible to admins — so reporting an error to the person
+  // would be actively wrong: they'd retry, hit the duplicate-index-number
+  // check, and conclude their application failed when it actually
+  // succeeded the first time. Each step is therefore isolated and
+  // best-effort, and failures are logged for follow-up instead.
+  // ─────────────────────────────────────────────────────────────────────
+  try {
+    await db.notification.create({
+      data: {
+        type: "NEW_APPLICATION",
+        title: `New membership application from ${application.firstName} ${application.lastName}`,
+        link: `/admin/membership-applications/${application.id}`,
+      },
+    });
+  } catch (err) {
+    console.error(`[enroll] application ${application.id} saved, but admin notification failed:`, err);
+  }
 
-  const brand = await getEmailBrand();
+  let brand;
+  try {
+    brand = await getEmailBrand();
+  } catch (err) {
+    console.error(`[enroll] application ${application.id} saved, but loading email branding failed:`, err);
+    brand = { siteTitle: "Membership Portal", logoUrl: null };
+  }
 
-  const { subject, html } = applicationReceivedEmail({
-    firstName: application.firstName,
-    indexNumber: application.indexNumber,
-    brand,
-  });
-  await sendEmail({
-    to: application.email,
-    subject,
-    html,
-    template: "application-received",
-    entityType: "MembershipApplication",
-    entityId: application.id,
-  });
+  try {
+    const { subject, html } = applicationReceivedEmail({
+      firstName: application.firstName,
+      indexNumber: application.indexNumber,
+      brand,
+    });
+    await sendEmail({
+      to: application.email,
+      subject,
+      html,
+      template: "application-received",
+      entityType: "MembershipApplication",
+      entityId: application.id,
+    });
+  } catch (err) {
+    console.error(`[enroll] application ${application.id} saved, but confirmation email failed:`, err);
+  }
 
   // Best-effort notify the membership team. Failure to notify never blocks
   // the applicant's confirmation — the application is already saved and

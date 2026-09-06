@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { db } from "@/lib/db";
 import type { SiteSettingsInput } from "@/lib/validations/content";
 import type { SocialPlatform, TeamMemberType } from "@/generated/prisma/client";
@@ -180,11 +181,33 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsInput = {
   mapEmbedUrl: "",
 };
 
-export async function getSiteSettings(): Promise<SiteSettingsInput> {
-  const record = await db.siteSetting.findUnique({ where: { key: SETTINGS_KEY } });
-  if (!record) return DEFAULT_SITE_SETTINGS;
-  return { ...DEFAULT_SITE_SETTINGS, ...(record.value as Partial<SiteSettingsInput>) };
-}
+/**
+ * Site branding, read during render by the root layout's metadata, the
+ * Header, the Footer, and several pages — i.e. several times per page
+ * load, on every single request.
+ *
+ * Two protections, both deliberate:
+ *
+ * 1. `cache()` deduplicates it to ONE query per request instead of three
+ *    or four identical ones, cutting database load on every page view.
+ *
+ * 2. A failure returns the built-in defaults rather than throwing. This
+ *    matters a lot: because the root layout calls this, an unhandled
+ *    failure here would take down EVERY page of the site with the generic
+ *    "we hit an unexpected error loading this page" boundary — not just
+ *    one feature. Degrading to default branding keeps the whole site
+ *    usable through a brief database problem.
+ */
+export const getSiteSettings = cache(async (): Promise<SiteSettingsInput> => {
+  try {
+    const record = await db.siteSetting.findUnique({ where: { key: SETTINGS_KEY } });
+    if (!record) return DEFAULT_SITE_SETTINGS;
+    return { ...DEFAULT_SITE_SETTINGS, ...(record.value as Partial<SiteSettingsInput>) };
+  } catch (err) {
+    console.error("[content] failed to load site settings — falling back to defaults:", err);
+    return DEFAULT_SITE_SETTINGS;
+  }
+});
 
 /** The subset of Site Settings the email templates need, so template call
  * sites don't have to know the full settings shape. */

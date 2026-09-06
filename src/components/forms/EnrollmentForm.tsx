@@ -689,7 +689,22 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
               id="medicalReport"
               name="medicalReport"
               type="file"
-              accept="image/*,application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
+              // Deliberately does NOT use the `image/*` wildcard here.
+              // Chrome on Android turns this list into a system intent, and
+              // a wildcard media type makes Android (Samsung's One UI in
+              // particular) treat this as a *media* picker — offering only
+              // Camera and "Photos & videos", with no way to reach a saved
+              // PDF in My Files or Drive. Listing concrete MIME types
+              // instead produces a document-picker intent that exposes the
+              // full file browser. Extensions are listed alongside each
+              // MIME type because some Android file providers match on one
+              // and some on the other.
+              //
+              // This also brings the field in line with what the server
+              // actually accepts (see ALLOWED_DOCUMENT_TYPES): the old
+              // wildcard let people pick formats like .webp or .heic that
+              // the server would then reject after upload.
+              accept="application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,.jpg,.jpeg,image/png,.png"
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 setMedicalTooLarge(fileTooLarge(file, MAX_MEDICAL_REPORT_BYTES));
@@ -702,9 +717,9 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
               className="block w-full text-sm text-slate file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-sm file:font-semibold hover:file:bg-primary-100"
             />
             <p className="mt-1.5 text-xs text-slate-light">
-              Upload a photo of your document, or a PDF/Word file — whichever you have. On your phone this opens
-              your full file browser, so you can take a new photo, pick an existing one from your gallery, or
-              choose a saved file from Downloads or Drive. Max 5MB.
+              Upload your medical report as a PDF, Word document, or a clear photo (JPG or PNG). Max 5MB. On a
+              phone this opens your file browser, so you can pick a saved file from My Files, Downloads or Drive
+              — or choose a photo you&apos;ve already taken.
             </p>
             {medicalTooLarge && (
               <p className="mt-1 text-xs text-danger">This file is over 5MB — please choose a smaller file.</p>

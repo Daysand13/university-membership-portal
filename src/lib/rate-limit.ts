@@ -42,20 +42,31 @@ export async function checkRateLimit(
 ): Promise<RateLimitResult> {
   const since = new Date(Date.now() - params.windowSeconds * 1000);
 
-  const [count] = await Promise.all([
-    db.rateLimitAttempt.count({ where: { key, createdAt: { gte: since } } }),
-    db.rateLimitAttempt.create({ data: { key } }),
-    // Opportunistic cleanup so this table never grows unbounded — cheap,
-    // and only actually deletes anything roughly once in a while.
-    Math.random() < 0.02
-      ? db.rateLimitAttempt.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } } })
-      : Promise.resolve(),
-  ]);
+  // FAIL OPEN, deliberately. Rate limiting is a protection against abuse,
+  // not a correctness requirement — so if the limiter itself can't reach
+  // the database, the right outcome is to let the request through and log
+  // it, NOT to block a legitimate applicant from enrolling. Failing closed
+  // here would mean any brief database problem takes the entire membership
+  // form offline, which is far worse than briefly not enforcing a limit.
+  try {
+    const [count] = await Promise.all([
+      db.rateLimitAttempt.count({ where: { key, createdAt: { gte: since } } }),
+      db.rateLimitAttempt.create({ data: { key } }),
+      // Opportunistic cleanup so this table never grows unbounded — cheap,
+      // and only actually deletes anything roughly once in a while.
+      Math.random() < 0.02
+        ? db.rateLimitAttempt.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } } })
+        : Promise.resolve(),
+    ]);
 
-  if (count >= params.max) {
-    return { allowed: false, retryAfterSeconds: params.windowSeconds };
+    if (count >= params.max) {
+      return { allowed: false, retryAfterSeconds: params.windowSeconds };
+    }
+    return { allowed: true };
+  } catch (err) {
+    console.error(`[rate-limit] check failed for key "${key}" — allowing request through:`, err);
+    return { allowed: true };
   }
-  return { allowed: true };
 }
 
 export const RATE_LIMIT_MESSAGE = "Too many attempts. Please wait a few minutes and try again.";
