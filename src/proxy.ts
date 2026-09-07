@@ -38,9 +38,21 @@ export async function proxy(request: NextRequest) {
   }
 
   if (pathname.startsWith("/membership/dashboard")) {
-    const ok = await hasValidSession(request, "member_session", "member");
+    // Either session gets you past this gate: the legacy member_session, or
+    // the unified user_session issued by /login. Both have to be accepted
+    // while the identity migration is in flight — checking only the legacy
+    // one would bounce every unified sign-in here, before the page that
+    // knows how to resolve it ever runs.
+    //
+    // Letting a user_session through is not a hole: this is an optimistic
+    // check by design (see above), and the dashboard layout's
+    // requireMember() is authoritative — it resolves the member from either
+    // session and enforces the MEMBER role against the database.
+    const ok =
+      (await hasValidSession(request, "member_session", "member")) ||
+      (await hasValidSession(request, "user_session", "user"));
     if (!ok) {
-      const loginUrl = new URL("/membership/login", request.url);
+      const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("next", pathname);
       return NextResponse.redirect(loginUrl);
     }

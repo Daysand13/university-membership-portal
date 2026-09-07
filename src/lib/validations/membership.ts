@@ -520,6 +520,17 @@ export const memberLoginSchema = z.object({
   password: z.string().trim().min(1, "Password is required"),
 });
 
+/**
+ * The unified gateway takes one identifier and works out what it is —
+ * students reach for an index number, alumni for an email, and someone who
+ * is both shouldn't have to think about which.
+ */
+export const unifiedLoginSchema = z.object({
+  identifier: z.string().trim().min(1, "Enter your index number or email address"),
+  password: z.string().trim().min(1, "Password is required"),
+  rememberMe: z.boolean().optional().default(false),
+});
+
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().trim().min(1, "Current password is required"),

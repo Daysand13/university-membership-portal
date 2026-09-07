@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { JWTPayload } from "jose";
 import { createSessionToken, verifySessionToken, SESSION_MAX_AGE_SECONDS } from "./session";
+import { getUserClaims } from "./user";
 import { db } from "@/lib/db";
 import { type Member } from "@/generated/prisma/client";
 
@@ -40,11 +41,36 @@ export async function getMemberClaims(): Promise<MemberClaims | null> {
   return payload;
 }
 
+/**
+ * Resolves the signed-in member from EITHER session cookie.
+ *
+ * The legacy member_session is checked first so anyone already signed in
+ * stays signed in, then the unified user_session is tried. Reading both is
+ * what makes the identity migration invisible: every page that calls this
+ * keeps working unchanged whichever way the person logged in, and no one is
+ * forced to re-authenticate on the day the new login ships.
+ *
+ * Once the legacy login is retired, the first branch is what goes.
+ */
 export const getCurrentMember = cache(async (): Promise<Member | null> => {
   const claims = await getMemberClaims();
-  if (!claims) return null;
-  const member = await db.member.findUnique({ where: { id: claims.sub } });
-  if (!member || member.status !== "ACTIVE") return null;
+  if (claims) {
+    const member = await db.member.findUnique({ where: { id: claims.sub } });
+    if (member && member.status === "ACTIVE") return member;
+  }
+
+  const userClaims = await getUserClaims();
+  if (!userClaims) return null;
+
+  const member = await db.member.findFirst({
+    where: {
+      userId: userClaims.sub,
+      status: "ACTIVE",
+      // Student access follows the MEMBER role, so it can be revoked (or
+      // granted, for dual status) without touching the member record.
+      user: { roles: { some: { role: "MEMBER" } } },
+    },
+  });
   return member;
 });
 

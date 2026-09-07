@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { JWTPayload } from "jose";
 import { createSessionToken, verifySessionToken, SESSION_MAX_AGE_SECONDS } from "./session";
+import { getUserClaims } from "./user";
 import { db } from "@/lib/db";
 import { type AlumniProfile } from "@/generated/prisma/client";
 
@@ -54,12 +55,29 @@ export async function getAlumniClaims(): Promise<AlumniClaims | null> {
   return payload;
 }
 
+/**
+ * Resolves the signed-in alumnus from EITHER session cookie — the legacy
+ * alumni_session first so existing sessions survive, then the unified
+ * user_session. Mirrors the dual-read in auth/member.ts; see the comment
+ * there for why both are read during the identity migration.
+ */
 export const getCurrentAlumni = cache(async (): Promise<AlumniProfile | null> => {
   const claims = await getAlumniClaims();
-  if (!claims) return null;
-  const alumni = await db.alumniProfile.findUnique({ where: { id: claims.sub } });
-  if (!alumni || alumni.status !== "ACTIVE") return null;
-  return alumni;
+  if (claims) {
+    const alumni = await db.alumniProfile.findUnique({ where: { id: claims.sub } });
+    if (alumni && alumni.status === "ACTIVE") return alumni;
+  }
+
+  const userClaims = await getUserClaims();
+  if (!userClaims) return null;
+
+  return db.alumniProfile.findFirst({
+    where: {
+      userId: userClaims.sub,
+      status: "ACTIVE",
+      user: { roles: { some: { role: "ALUMNI" } } },
+    },
+  });
 });
 
 export async function requireAlumni(): Promise<AlumniProfile> {
