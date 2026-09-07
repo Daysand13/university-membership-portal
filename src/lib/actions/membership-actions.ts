@@ -1,10 +1,10 @@
 "use server";
 
-import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
+import { withActionErrorHandling, withVoidActionErrorHandling, withTypedActionErrorHandling } from "./with-error-handling";
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { enrollmentSchema, applicationReviewSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, MAX_PASSPORT_PICTURE_BYTES, MAX_MEDICAL_REPORT_BYTES } from "@/lib/validations/membership";
+import { enrollmentSchema, applicationReviewSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from "@/lib/validations/membership";
 import {
   submitApplication,
   approveApplication,
@@ -27,8 +27,14 @@ import { requireMember } from "@/lib/auth/member";
 import { isLikelyBot } from "@/lib/bot-protection";
 import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { ApplicationStatus, AdminRole } from "@/generated/prisma/client";
-import { uploadBuffer, generateObjectKey, buildPublicUrl, isR2Configured } from "@/lib/storage/r2";
-import { validateUploadRequest, sniffImageMimeType } from "@/lib/storage/validation";
+import { isR2Configured } from "@/lib/storage/r2";
+import {
+  requestEnrollmentUpload,
+  adoptEnrollmentUpload,
+  EnrollmentUploadError,
+  type EnrollmentUploadKind,
+  type EnrollmentUploadTicket,
+} from "@/lib/services/enrollment-upload-service";
 import type { ActionState } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -55,83 +61,56 @@ async function submitEnrollmentActionImpl(
   if (!limit.allowed) return { error: RATE_LIMIT_MESSAGE };
 
   const entries = Object.fromEntries(formData.entries());
+  // File bytes no longer travel with this request. The browser uploaded them
+  // straight to R2; what arrives here is a signed ticket naming the object.
+  // That's what keeps this request far below Vercel's 4.5MB body cap, which
+  // used to reject oversized submissions before this function ever ran.
+  const passportToken = typeof entries.profilePictureToken === "string" ? entries.profilePictureToken : "";
+  const medicalToken = typeof entries.medicalReportToken === "string" ? entries.medicalReportToken : "";
+
   const candidate = {
     ...entries,
     agreedToTerms: entries.agreedToTerms === "on" || entries.agreedToTerms === "true",
     specificSupportNeeds: formData.getAll("specificSupportNeeds"),
   };
-  delete (candidate as Record<string, unknown>).profilePicture;
-  delete (candidate as Record<string, unknown>).medicalReport;
-  // medicalReportKey is validated as "present" via the schema, but the real
-  // value comes from the uploaded file below rather than the form field.
-  const medicalReportFile = formData.get("medicalReport");
+  delete (candidate as Record<string, unknown>).profilePictureToken;
+  delete (candidate as Record<string, unknown>).medicalReportToken;
+  // medicalReportKey exists so the schema can enforce "a medical report was
+  // attached"; the real value is resolved from the ticket below. Where R2
+  // isn't configured at all (local development) uploads are skipped entirely,
+  // so requiring a ticket there would make the form impossible to submit.
   (candidate as Record<string, unknown>).medicalReportKey =
-    medicalReportFile instanceof File && medicalReportFile.size > 0 ? "pending" : "";
+    medicalToken || !isR2Configured() ? "pending" : "";
 
   const parsed = enrollmentSchema.safeParse(candidate);
   if (!parsed.success) {
     return { fieldErrors: parsed.error.flatten().fieldErrors };
   }
 
+  // Verify each upload against what was actually authorised: the object has
+  // to exist, be within its size limit, and carry magic bytes matching the
+  // Content-Type pinned into its presigned URL. Anything that doesn't match
+  // is deleted rather than saved — see enrollment-upload-service.ts for why
+  // that check is what replaces "the bytes passed through our server".
   let profileImageUrl: string | null = null;
-  const file = formData.get("profilePicture");
-  if (file instanceof File && file.size > 0) {
-    try {
-      const buffer = Buffer.from(await file.arrayBuffer());
-      // Unauthenticated endpoint — never trust the browser-reported MIME type
-      // alone; sniff the actual bytes before accepting the file.
-      const sniffed = sniffImageMimeType(new Uint8Array(buffer));
-      const mimeType = sniffed ?? file.type;
-      const check = validateUploadRequest({
-        filename: file.name,
-        mimeType,
-        fileSize: file.size,
-        category: "image",
-        maxSizeBytes: MAX_PASSPORT_PICTURE_BYTES,
-      });
-      if (!check.ok) {
-        return { fieldErrors: { profilePicture: [check.error] } };
-      }
-      if (isR2Configured()) {
-        const objectKey = generateObjectKey("members", file.name, mimeType);
-        await uploadBuffer({ objectKey, contentType: mimeType, body: buffer });
-        profileImageUrl = buildPublicUrl(objectKey);
-      } else {
-        console.warn("[enroll] R2 not configured in this environment — profile picture not stored.");
-      }
-    } catch (err) {
-      console.error("[enroll] passport picture upload failed", err);
-      return { fieldErrors: { profilePicture: ["Something went wrong uploading this file. Please try again."] } };
+  let medicalReportUrl: string | null = null;
+
+  try {
+    profileImageUrl = await adoptEnrollmentUpload("passport", passportToken);
+  } catch (err) {
+    if (err instanceof EnrollmentUploadError) {
+      return { fieldErrors: { profilePicture: [err.message] } };
     }
+    throw err;
   }
 
-  let medicalReportUrl: string | null = null;
-  if (medicalReportFile instanceof File && medicalReportFile.size > 0) {
-    try {
-      const buffer = Buffer.from(await medicalReportFile.arrayBuffer());
-      const sniffed = sniffImageMimeType(new Uint8Array(buffer));
-      const mimeType = sniffed ?? medicalReportFile.type;
-      const check = validateUploadRequest({
-        filename: medicalReportFile.name,
-        mimeType,
-        fileSize: medicalReportFile.size,
-        category: "document",
-        maxSizeBytes: MAX_MEDICAL_REPORT_BYTES,
-      });
-      if (!check.ok) {
-        return { fieldErrors: { medicalReportKey: [check.error] } };
-      }
-      if (isR2Configured()) {
-        const objectKey = generateObjectKey("members", medicalReportFile.name, mimeType);
-        await uploadBuffer({ objectKey, contentType: mimeType, body: buffer });
-        medicalReportUrl = buildPublicUrl(objectKey);
-      } else {
-        console.warn("[enroll] R2 not configured in this environment — medical report not stored.");
-      }
-    } catch (err) {
-      console.error("[enroll] medical report upload failed", err);
-      return { fieldErrors: { medicalReportKey: ["Something went wrong uploading this file. Please try again."] } };
+  try {
+    medicalReportUrl = await adoptEnrollmentUpload("medical", medicalToken);
+  } catch (err) {
+    if (err instanceof EnrollmentUploadError) {
+      return { fieldErrors: { medicalReportKey: [err.message] } };
     }
+    throw err;
   }
 
   try {
@@ -145,6 +124,28 @@ async function submitEnrollmentActionImpl(
   }
 
   redirect("/membership/enroll/success");
+}
+
+/**
+ * Issues a short-lived, signed ticket the enrollment form uses to upload a
+ * file straight to R2. Deliberately unauthenticated — the people using it
+ * haven't got accounts yet — so the rate limit below is what stops it being
+ * treated as free file hosting, alongside the size/type checks and the
+ * post-upload verification done at submission time.
+ */
+async function requestEnrollmentUploadActionImpl(input: {
+  kind: EnrollmentUploadKind;
+  filename: string;
+  mimeType: string;
+  fileSize: number;
+}): Promise<EnrollmentUploadTicket> {
+  const ip = await getClientIp();
+  // Two files per application plus room to change your mind, on a network
+  // where a whole campus can share one address.
+  const limit = await checkRateLimit(`enroll-upload:ip:${ip}`, { max: 60, windowSeconds: 3600 });
+  if (!limit.allowed) return { ok: false, error: RATE_LIMIT_MESSAGE };
+
+  return requestEnrollmentUpload(input);
 }
 
 // ---------------------------------------------------------------------------
@@ -346,6 +347,7 @@ async function deleteApplicationActionImpl(applicationId: string): Promise<void>
 // ---------------------------------------------------------------------------
 
 export const submitEnrollmentAction = withActionErrorHandling("submitEnrollmentAction", submitEnrollmentActionImpl);
+export const requestEnrollmentUploadAction = withTypedActionErrorHandling("requestEnrollmentUploadAction", requestEnrollmentUploadActionImpl);
 export const reviewApplicationAction = withActionErrorHandling("reviewApplicationAction", reviewApplicationActionImpl);
 export const changeMemberPasswordAction = withActionErrorHandling("changeMemberPasswordAction", changeMemberPasswordActionImpl);
 export const forgotPasswordAction = withActionErrorHandling("forgotPasswordAction", forgotPasswordActionImpl);

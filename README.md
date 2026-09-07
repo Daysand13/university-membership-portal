@@ -224,8 +224,9 @@ R2 is the only object-storage provider used — no AWS S3 dependency.
    - Attach a custom domain to the bucket (recommended for production —
      R2 → your bucket → Settings → Custom Domains).
    Set `R2_PUBLIC_URL` to whichever base URL you use (no trailing slash).
-5. **CORS.** Because admin uploads go browser → R2 directly (presigned
-   PUT), the bucket needs a CORS policy allowing your app's origin:
+5. **CORS.** Admin uploads *and* the public enrollment form both go browser →
+   R2 directly (presigned PUT), so the bucket needs a CORS policy listing
+   every origin the app is served from:
 
    ```json
    [
@@ -239,6 +240,17 @@ R2 is the only object-storage provider used — no AWS S3 dependency.
    ```
 
    Set this under R2 → your bucket → Settings → CORS Policy.
+
+   Note that this list is exact-match: an origin that isn't in it has its
+   uploads blocked by the browser *before the request is sent*, which surfaces
+   in the UI as "that file didn't finish uploading" and is indistinguishable
+   from a dropped connection without opening the console. Vercel preview
+   deployments are served from their own hostnames, so uploads will fail on a
+   preview until you add that preview's origin here — use the deployment's
+   stable branch alias (`…-git-<branch>-<team>.vercel.app`, from
+   `vercel inspect <url>`) rather than the per-commit URL, which changes on
+   every push. This is a preview-only artifact and does not indicate a problem
+   with production.
 6. **Private files.** Documents marked "not public" in the library admin
    never get a stored public URL — downloads are served through a
    short-lived signed URL generated on request

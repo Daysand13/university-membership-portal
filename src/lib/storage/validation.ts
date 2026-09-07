@@ -156,3 +156,70 @@ export function validateUploadRequest(params: {
 
   return { ok: true };
 }
+
+/**
+ * Magic-byte sniff for the document formats we accept.
+ *
+ * Counterpart to sniffImageMimeType, and needed for the same reason: once
+ * enrollment uploads go straight from the browser to R2, the server never
+ * sees the bytes in transit, so the only trustworthy statement about what a
+ * file *is* comes from reading it back out of storage. The browser-reported
+ * Content-Type is a claim, not evidence.
+ *
+ * Returns a family rather than an exact type for container formats — a .docx,
+ * .xlsx, .pptx and .zip are all ZIP archives and indistinguishable this
+ * cheaply, so they share "application/zip". Callers should treat a match as
+ * "the bytes are consistent with the declared type", not as an exact identity.
+ */
+export function sniffDocumentMimeType(bytes: Uint8Array): string | null {
+  if (bytes.length >= 5 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) {
+    return "application/pdf"; // %PDF
+  }
+  if (bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && (bytes[2] === 0x03 || bytes[2] === 0x05 || bytes[2] === 0x07)) {
+    return "application/zip"; // PK.. — docx/xlsx/pptx/zip
+  }
+  // D0 CF 11 E0 A1 B1 1A E1 — the OLE compound file header shared by the
+  // pre-2007 Office formats (.doc/.xls/.ppt).
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0 &&
+    bytes[4] === 0xa1 && bytes[5] === 0xb1 && bytes[6] === 0x1a && bytes[7] === 0xe1
+  ) {
+    return "application/msword";
+  }
+  return null;
+}
+
+/** ZIP- and OLE-based Office types that a container sniff can legitimately back. */
+const ZIP_BACKED_TYPES = new Set([
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/zip",
+]);
+
+const OLE_BACKED_TYPES = new Set([
+  "application/msword",
+  "application/vnd.ms-excel",
+  "application/vnd.ms-powerpoint",
+]);
+
+/**
+ * True when the bytes on disk are consistent with `declaredType`.
+ *
+ * Images must sniff to exactly the declared type. Documents may sniff to
+ * their container family (see sniffDocumentMimeType). Anything that sniffs to
+ * nothing recognisable is rejected outright, which is the point: it means we
+ * could not confirm the file is what it claims to be.
+ */
+export function bytesMatchDeclaredType(bytes: Uint8Array, declaredType: string): boolean {
+  const image = sniffImageMimeType(bytes);
+  if (image) return image === declaredType;
+
+  const doc = sniffDocumentMimeType(bytes);
+  if (!doc) return false;
+  if (doc === declaredType) return true;
+  if (doc === "application/zip") return ZIP_BACKED_TYPES.has(declaredType);
+  if (doc === "application/msword") return OLE_BACKED_TYPES.has(declaredType);
+  return false;
+}

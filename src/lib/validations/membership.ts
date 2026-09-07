@@ -327,23 +327,6 @@ export const MEMBERSHIP_TYPE_LABELS: Record<MembershipType, string> = {
 export const MAX_PASSPORT_PICTURE_BYTES = 2 * 1024 * 1024; // 2 MB
 export const MAX_MEDICAL_REPORT_BYTES = 5 * 1024 * 1024; // 5 MB
 
-/**
- * Ceiling on the *combined* size of everything the enrollment form posts in
- * one Server Action request.
- *
- * Vercel rejects a Function request body over 4.5MB with `413
- * FUNCTION_PAYLOAD_TOO_LARGE` at the edge, before the function runs — so the
- * failure is invisible to server-side error handling and produces a generic
- * error with no log line (see the comment in next.config.ts).
- *
- * The per-field limits above are each individually under that cap, but their
- * sum is not: a 1.5MB passport photo plus a 3.2MB photo of a medical report
- * is two perfectly "valid" files and a dead submission. This constant is what
- * the form actually enforces, with headroom left for the text fields and
- * multipart framing that share the same body.
- */
-export const MAX_TOTAL_UPLOAD_BYTES = 4 * 1024 * 1024; // 4 MB
-
 // A single schema handles both tracks: which list of departments/programmes/
 // levels is valid (and whether a degree category is required) depends on
 // the `track` field itself, checked in superRefine below.
