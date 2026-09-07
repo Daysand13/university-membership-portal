@@ -520,6 +520,46 @@ export const memberLoginSchema = z.object({
   password: z.string().trim().min(1, "Password is required"),
 });
 
+// ---------------------------------------------------------------------------
+// Admin superpower panel
+// ---------------------------------------------------------------------------
+
+export const pushToAlumniArchiveSchema = z.object({
+  userId: z.string().min(1),
+  graduationYear: z.coerce
+    .number()
+    .int()
+    .min(1980)
+    .max(new Date().getFullYear() + 10),
+});
+
+export const grantDualStatusSchema = z.object({
+  userId: z.string().min(1),
+  role: z.enum(["MEMBER", "ALUMNI"]),
+  graduationYear: z.coerce
+    .number()
+    .int()
+    .min(1980)
+    .max(new Date().getFullYear() + 10)
+    .optional(),
+});
+
+export const newEnrollmentCycleSchema = z.object({
+  userId: z.string().min(1),
+  indexNumber: z.string().trim().min(3, "Index number is required").max(50),
+  applicationTrack: z.enum(APPLICATION_TRACKS).optional().or(z.literal("")),
+  programme: z.string().trim().min(1, "Programme is required").max(200),
+  academicDepartment: z.string().trim().max(150).optional().or(z.literal("")),
+  level: z.string().trim().min(1, "Level is required").max(50),
+  campus: z.string().trim().min(1, "Campus is required").max(100),
+  department: z.string().trim().min(1, "Category of special needs is required").max(150),
+  yearOfAdmission: z.coerce
+    .number()
+    .int()
+    .min(2000)
+    .max(new Date().getFullYear() + 1),
+});
+
 /**
  * The unified gateway takes one identifier and works out what it is —
  * students reach for an index number, alumni for an email, and someone who

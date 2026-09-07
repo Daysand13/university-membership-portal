@@ -156,9 +156,32 @@ export async function promoteMemberToAlumni(params: {
             directoryVisible: true,
             status: AlumniStatus.ACTIVE,
             sourceMemberId: member.id,
+            userId: member.userId,
           },
         }),
   ]);
+
+  // Keep the unified identity model in step. Graduating through this control
+  // and graduating through the admin panel's Push to Alumni Archive have to
+  // leave the same result behind — otherwise the two models drift, and the
+  // person's standing depends on which button someone happened to press.
+  if (member.userId) {
+    const userId = member.userId;
+    await db.$transaction([
+      db.alumniProfile.update({ where: { id: alumni.id }, data: { userId } }),
+      db.studentEnrollment.updateMany({
+        where: { userId, status: "ACTIVE" },
+        data: { status: "GRADUATED", graduatedAt: new Date() },
+      }),
+      db.userRole.upsert({
+        where: { userId_role: { userId, role: "ALUMNI" } },
+        update: {},
+        create: { userId, role: "ALUMNI" },
+      }),
+      // Student standing ends at graduation; the alumni side takes over.
+      db.userRole.deleteMany({ where: { userId, role: "MEMBER" } }),
+    ]);
+  }
 
   // A returning alumnus re-graduating already has a working password and
   // doesn't need a new invite — only send one the first time this profile

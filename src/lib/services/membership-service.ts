@@ -499,12 +499,76 @@ export async function approveApplication(params: {
     // came FROM an existing alumnus — link the brand-new Member back to
     // that same AlumniProfile so they can log into both portals, in the
     // same transaction as creating it.
+    let alumnusUserId: string | null = null;
     if (application.submittedByAlumniId) {
-      await tx.alumniProfile.update({
+      const alumnus = await tx.alumniProfile.update({
         where: { id: application.submittedByAlumniId },
         data: { sourceMemberId: createdMember.id },
       });
+      alumnusUserId = alumnus.userId;
     }
+
+    // Provision the unified identity alongside the member record. Without
+    // this, anyone approved from here would exist only in the legacy tables
+    // and simply wouldn't be able to use /login — the new account would look
+    // fine in the admin UI and fail at the one moment that matters.
+    //
+    // A returning alumnus already HAS a user, so they gain a role and a new
+    // enrollment rather than a second identity.
+    const existingUser =
+      alumnusUserId
+        ? await tx.user.findUnique({ where: { id: alumnusUserId } })
+        : await tx.user.findUnique({ where: { email: createdMember.email } });
+
+    const identityUser =
+      existingUser ??
+      (await tx.user.create({
+        data: {
+          email: createdMember.email,
+          passwordHash: createdMember.passwordHash,
+          firstName: createdMember.firstName,
+          middleName: createdMember.middleName,
+          lastName: createdMember.lastName,
+          phone: createdMember.phone,
+          mustChangePassword: createdMember.mustChangePassword,
+        },
+      }));
+
+    await tx.member.update({ where: { id: createdMember.id }, data: { userId: identityUser.id } });
+
+    await tx.userRole.upsert({
+      where: { userId_role: { userId: identityUser.id, role: "MEMBER" } },
+      update: {},
+      create: { userId: identityUser.id, role: "MEMBER" },
+    });
+
+    // Close any earlier cycle so "current studies" stays unambiguous, then
+    // record this one under its own index number.
+    await tx.studentEnrollment.updateMany({
+      where: { userId: identityUser.id, status: "ACTIVE" },
+      data: { status: "GRADUATED", graduatedAt: new Date() },
+    });
+
+    await tx.studentEnrollment.create({
+      data: {
+        userId: identityUser.id,
+        indexNumber: createdMember.indexNumber,
+        applicationTrack: createdMember.applicationTrack,
+        degreeCategory: createdMember.degreeCategory,
+        programme: createdMember.programme,
+        academicDepartment: createdMember.academicDepartment,
+        level: createdMember.level,
+        campus: createdMember.campus,
+        hallOfAffiliation: createdMember.hallOfAffiliation,
+        yearOfAdmission: createdMember.yearOfAdmission,
+        expectedGraduationYear: createdMember.expectedGraduationYear,
+        department: createdMember.department,
+        specificSupportNeeds: createdMember.specificSupportNeeds,
+        membershipType: createdMember.membershipType,
+        status: "ACTIVE",
+        applicationId: application.id,
+      },
+    });
 
     await tx.membershipApplication.update({
       where: { id: applicationId },
