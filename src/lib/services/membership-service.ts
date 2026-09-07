@@ -25,11 +25,20 @@ import {
   adminNewApplicationNotificationEmail,
 } from "@/lib/email/templates";
 import type { EnrollmentInput, MemberAdminEditInput } from "@/lib/validations/membership";
+import { formatFullName } from "@/lib/format";
 
 export class DuplicateIndexNumberError extends Error {
   constructor() {
     super("An application or member already exists with this index number.");
     this.name = "DuplicateIndexNumberError";
+  }
+}
+export class ApplicationAlreadyApprovedError extends Error {
+  constructor() {
+    super(
+      "This application was already approved and has an active member account. Its status can't be changed from here — manage the member directly instead.",
+    );
+    this.name = "ApplicationAlreadyApprovedError";
   }
 }
 export class DuplicateEmailError extends Error {
@@ -256,10 +265,49 @@ export async function approveApplication(params: {
 }): Promise<Member> {
   const { applicationId, adminId, note, loginUrl } = params;
 
-  const application = await db.membershipApplication.findUnique({ where: { id: applicationId } });
+  const application = await db.membershipApplication.findUnique({
+    where: { id: applicationId },
+    include: { member: true },
+  });
   if (!application) throw new Error("Application not found.");
   if (application.status === ApplicationStatus.APPROVED) {
     throw new Error("This application has already been approved.");
+  }
+
+  // Reconciliation path: a Member row already exists for this application
+  // (created by an earlier approval) even though its status has since
+  // drifted away from APPROVED — the exact corrupted state
+  // ApplicationAlreadyApprovedError now prevents going forward, but which
+  // could already exist in the data from before that guard was added.
+  // Treat this as correcting the application's status to match reality,
+  // NOT as a fresh approval: creating a second Member would collide with
+  // the existing one on indexNumber (the "already exists" error this is
+  // fixing), and re-sending a temporary password would reset the login of
+  // someone who may have already changed it.
+  if (application.member) {
+    await db.$transaction(async (tx) => {
+      await tx.membershipApplication.update({
+        where: { id: applicationId },
+        data: {
+          status: ApplicationStatus.APPROVED,
+          reviewedById: adminId,
+          reviewedAt: new Date(),
+          adminNote: note || null,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          adminId,
+          action: "RECONCILE_APPLICATION_STATUS",
+          entityType: "MembershipApplication",
+          entityId: applicationId,
+          previousValue: { status: application.status },
+          newValue: { status: "APPROVED", memberId: application.member!.id },
+          note: note || "Status corrected to match an existing member account — no new account was created.",
+        },
+      });
+    });
+    return application.member;
   }
 
   // The temporary password is the applicant's phone number, normalized to
@@ -411,6 +459,16 @@ export async function requestApplicationChanges(params: {
 }): Promise<MembershipApplication> {
   const { applicationId, adminId, note } = params;
   const previous = await db.membershipApplication.findUniqueOrThrow({ where: { id: applicationId } });
+  // An approved application already has a live Member account tied to its
+  // index number. Moving its status back to UNDER_REVIEW here wouldn't
+  // touch that Member row at all — the person keeps logging in normally —
+  // but it WOULD make the admin UI say "under review" for an account that
+  // already exists, and a later re-approval attempt would then collide with
+  // that same Member row on indexNumber and fail with a confusing
+  // "already exists" error. See ApplicationAlreadyApprovedError.
+  if (previous.status === ApplicationStatus.APPROVED) {
+    throw new ApplicationAlreadyApprovedError();
+  }
 
   const application = await db.membershipApplication.update({
     where: { id: applicationId },
@@ -459,6 +517,12 @@ export async function setApplicationStatus(params: {
 }): Promise<MembershipApplication> {
   const { applicationId, adminId, status, note } = params;
   const previous = await db.membershipApplication.findUniqueOrThrow({ where: { id: applicationId } });
+  // Same reasoning as requestApplicationChanges above — this covers the
+  // UNDER_REVIEW and SUSPEND admin actions, both of which must not be
+  // applied to an application that's already produced a Member account.
+  if (previous.status === ApplicationStatus.APPROVED) {
+    throw new ApplicationAlreadyApprovedError();
+  }
 
   const application = await db.membershipApplication.update({
     where: { id: applicationId },
@@ -627,6 +691,13 @@ export interface MemberListFilter {
 function buildMemberWhere(filter?: MemberListFilter): Prisma.MemberWhereInput {
   const where: Prisma.MemberWhereInput = {};
   const and: Prisma.MemberWhereInput[] = [];
+
+  // A graduated member gets an AlumniProfile (see promoteMemberToAlumni) and
+  // moves to the Alumni admin pages — the Members list is meant to show
+  // current students, so once that promotion has happened the person should
+  // no longer appear here at all, not even as a still-technically-a-Member
+  // row. Their record itself is untouched; this only affects this listing.
+  and.push({ alumniProfile: null });
 
   if (filter?.search) {
     and.push({
@@ -809,7 +880,10 @@ export async function updateMemberAdmin(params: {
   updates: MemberAdminEditInput;
 }): Promise<Member> {
   const { memberId, adminId, updates } = params;
-  const before = await db.member.findUniqueOrThrow({ where: { id: memberId } });
+  const before = await db.member.findUniqueOrThrow({
+    where: { id: memberId },
+    include: { alumniProfile: true },
+  });
 
   const data = {
     indexNumber: updates.indexNumber,
@@ -840,9 +914,35 @@ export async function updateMemberAdmin(params: {
 
   let updated: Member;
   try {
-    updated = await db.member.update({ where: { id: memberId }, data });
+    // A graduated member's AlumniProfile was copied from their Member row
+    // once, at promotion time (see promoteMemberToAlumni), and nothing kept
+    // the two in sync after that — so without this, correcting a graduated
+    // member's name here would leave the alumni directory and admin alumni
+    // list showing the old, wrong details forever. Updating both together in
+    // one transaction keeps them from being able to drift apart again.
+    if (before.alumniProfile) {
+      const profileId = before.alumniProfile.id;
+      [updated] = await db.$transaction([
+        db.member.update({ where: { id: memberId }, data }),
+        db.alumniProfile.update({
+          where: { id: profileId },
+          data: {
+            fullName: formatFullName(updates.firstName, updates.middleName, updates.lastName),
+            email: updates.email,
+            phone: updates.phone,
+            programme: updates.programme,
+          },
+        }),
+      ]);
+    } else {
+      updated = await db.member.update({ where: { id: memberId }, data });
+    }
   } catch (err) {
     if (isUniqueConstraintError(err, "indexNumber")) throw new DuplicateIndexNumberError();
+    // Covers both a collision on Member.email and, for a graduated member,
+    // AlumniProfile.email — both fields are literally named "email", so
+    // there's no way to tell which table's constraint fired from the error
+    // alone, but the message is accurate either way.
     if (isUniqueConstraintError(err, "email")) throw new DuplicateEmailError();
     throw err;
   }

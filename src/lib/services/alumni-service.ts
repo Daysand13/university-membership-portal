@@ -2,7 +2,7 @@ import "server-only";
 import { randomBytes, createHash } from "node:crypto";
 import { db } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
-import { type AlumniProfile, AlumniStatus } from "@/generated/prisma/client";
+import { type AlumniProfile, AlumniStatus, Prisma } from "@/generated/prisma/client";
 import { sendEmail } from "@/lib/email/client";
 import { getEmailBrand } from "@/lib/services/content-service";
 import { alumniGraduationInviteEmail, alumniWelcomeEmail, alumniPasswordResetEmail } from "@/lib/email/templates";
@@ -268,7 +268,16 @@ export async function listMentors() {
 // Admin management
 // ---------------------------------------------------------------------------
 
-export async function listAlumniForAdmin(filter?: { search?: string }) {
+export const ALUMNI_SORT_FIELDS = ["name", "graduationYear", "joined"] as const;
+export type AlumniSortField = (typeof ALUMNI_SORT_FIELDS)[number];
+
+const ALUMNI_ORDER_BY: Record<AlumniSortField, Prisma.AlumniProfileOrderByWithRelationInput> = {
+  name: { fullName: "asc" },
+  graduationYear: { graduationYear: "desc" },
+  joined: { createdAt: "desc" },
+};
+
+export async function listAlumniForAdmin(filter?: { search?: string; sort?: AlumniSortField }) {
   return db.alumniProfile.findMany({
     where: filter?.search
       ? {
@@ -279,7 +288,7 @@ export async function listAlumniForAdmin(filter?: { search?: string }) {
           ],
         }
       : {},
-    orderBy: { createdAt: "desc" },
+    orderBy: ALUMNI_ORDER_BY[filter?.sort ?? "joined"],
   });
 }
 

@@ -68,6 +68,7 @@ export const HALLS_OF_AFFILIATION = [
 
 export const ACADEMIC_DEPARTMENTS = [
   "Accounting",
+  "African and Liberal Studies",
   "Agricultural Science Education",
   "Akan-Nzema Education",
   "Applied Finance and Policy Management",
@@ -173,6 +174,7 @@ export const POSTGRAD_DEGREE_CATEGORIES = [
 
 export const POSTGRAD_DEPARTMENTS = [
   "Accounting",
+  "African and Liberal Studies",
   "Akan-Nzema Education",
   "Applied Finance and Policy Management",
   "Applied Linguistics",

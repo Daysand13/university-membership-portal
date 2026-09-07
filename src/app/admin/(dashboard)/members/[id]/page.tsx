@@ -6,6 +6,7 @@ import { MemberStatusControl } from "@/components/admin/MemberStatusControl";
 import { MarkGraduatedControl } from "@/components/admin/MarkGraduatedControl";
 import { EditMemberForm } from "@/components/admin/EditMemberForm";
 import { db } from "@/lib/db";
+import { formatFullName } from "@/lib/format";
 
 export const metadata = { title: "Member Details" };
 export const dynamic = "force-dynamic";
@@ -38,7 +39,9 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
             )}
           </a>
           <div>
-            <h1 className="font-display font-bold text-2xl text-primary-950">{member.firstName} {member.lastName}</h1>
+            <h1 className="font-display font-bold text-2xl text-primary-950">
+              {formatFullName(member.firstName, member.middleName, member.lastName)}
+            </h1>
             <p className="text-sm text-slate font-data">{member.indexNumber}</p>
           </div>
         </div>

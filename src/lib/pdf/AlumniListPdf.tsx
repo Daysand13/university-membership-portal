@@ -1,7 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import type { Member } from "@/generated/prisma/client";
-import { MEMBERSHIP_TYPE_LABELS } from "@/lib/validations/membership";
-import { formatFullName } from "@/lib/format";
+import type { AlumniProfile } from "@/generated/prisma/client";
 
 const styles = StyleSheet.create({
   page: { padding: 28, fontSize: 8, fontFamily: "Helvetica" },
@@ -29,26 +27,25 @@ const styles = StyleSheet.create({
 
 // Relative column widths, summing to 100.
 const COLS = [
-  { key: "name", label: "Name", width: 15 },
-  { key: "index", label: "Index Number", width: 12 },
-  { key: "gender", label: "Gender", width: 7 },
-  { key: "department", label: "Academic Department", width: 20 },
-  { key: "programme", label: "Programme", width: 20 },
-  { key: "level", label: "Level", width: 8 },
-  { key: "membershipType", label: "Membership Type", width: 9 },
-  { key: "joined", label: "Joined", width: 9 },
+  { key: "name", label: "Name", width: 18 },
+  { key: "email", label: "Email", width: 20 },
+  { key: "programme", label: "Programme", width: 22 },
+  { key: "classOf", label: "Class of", width: 8 },
+  { key: "source", label: "Source", width: 12 },
+  { key: "status", label: "Status", width: 8 },
+  { key: "joined", label: "Joined", width: 12 },
 ] as const;
 
 function formatDate(date: Date): string {
   return new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "short", year: "numeric" }).format(date);
 }
 
-export function MemberListPdf({
-  members,
+export function AlumniListPdf({
+  alumni,
   siteTitle,
   filterSummary,
 }: {
-  members: Member[];
+  alumni: AlumniProfile[];
   siteTitle: string;
   filterSummary: string;
 }) {
@@ -56,7 +53,7 @@ export function MemberListPdf({
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
         <Text style={styles.title}>{siteTitle}</Text>
-        <Text style={styles.subtitle}>Member List — {members.length} member{members.length === 1 ? "" : "s"}</Text>
+        <Text style={styles.subtitle}>Alumni List — {alumni.length} alumnus{alumni.length === 1 ? "" : "es"}</Text>
         <Text style={styles.filterLine}>{filterSummary}</Text>
 
         <View style={styles.table}>
@@ -68,20 +65,17 @@ export function MemberListPdf({
             ))}
           </View>
 
-          {members.map((member, i) => (
-            <View key={member.id} style={[styles.row, i % 2 === 1 ? styles.rowAlt : {}]} wrap={false}>
-              <Text style={[styles.cell, { width: `${COLS[0].width}%` }]}>
-                {formatFullName(member.firstName, member.middleName, member.lastName)}
+          {alumni.map((a, i) => (
+            <View key={a.id} style={[styles.row, i % 2 === 1 ? styles.rowAlt : {}]} wrap={false}>
+              <Text style={[styles.cell, { width: `${COLS[0].width}%` }]}>{a.fullName}</Text>
+              <Text style={[styles.cell, { width: `${COLS[1].width}%` }]}>{a.email}</Text>
+              <Text style={[styles.cell, { width: `${COLS[2].width}%` }]}>{a.programme}</Text>
+              <Text style={[styles.cell, { width: `${COLS[3].width}%` }]}>{a.graduationYear}</Text>
+              <Text style={[styles.cell, { width: `${COLS[4].width}%` }]}>
+                {a.sourceMemberId ? "Graduated member" : "Self-registered"}
               </Text>
-              <Text style={[styles.cell, { width: `${COLS[1].width}%` }]}>{member.indexNumber}</Text>
-              <Text style={[styles.cell, { width: `${COLS[2].width}%` }]}>{member.gender ?? "—"}</Text>
-              <Text style={[styles.cell, { width: `${COLS[3].width}%` }]}>{member.academicDepartment ?? "—"}</Text>
-              <Text style={[styles.cell, { width: `${COLS[4].width}%` }]}>{member.programme}</Text>
-              <Text style={[styles.cell, { width: `${COLS[5].width}%` }]}>{member.level}</Text>
-              <Text style={[styles.cell, { width: `${COLS[6].width}%` }]}>
-                {member.membershipType ? MEMBERSHIP_TYPE_LABELS[member.membershipType] : "—"}
-              </Text>
-              <Text style={[styles.cell, { width: `${COLS[7].width}%` }]}>{formatDate(member.createdAt)}</Text>
+              <Text style={[styles.cell, { width: `${COLS[5].width}%` }]}>{a.status}</Text>
+              <Text style={[styles.cell, { width: `${COLS[6].width}%` }]}>{formatDate(a.createdAt)}</Text>
             </View>
           ))}
         </View>

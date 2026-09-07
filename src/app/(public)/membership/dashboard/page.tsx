@@ -2,6 +2,7 @@ import { User, GraduationCap, Mail, MapPin, ShieldCheck } from "lucide-react";
 import { requireMember } from "@/lib/auth/member";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { MemberProfileForm } from "@/components/forms/MemberProfileForm";
+import { formatFullName } from "@/lib/format";
 
 function formatDate(date: Date | null): string {
   if (!date) return "—";
@@ -30,7 +31,7 @@ export default async function MemberDashboardPage() {
             )}
           </a>
           <h2 className="mt-4 font-display font-bold text-lg text-primary-950">
-            {member.firstName} {member.lastName}
+            {formatFullName(member.firstName, member.middleName, member.lastName)}
           </h2>
           <p className="text-sm text-slate font-data">{member.indexNumber}</p>
           <div className="mt-3">

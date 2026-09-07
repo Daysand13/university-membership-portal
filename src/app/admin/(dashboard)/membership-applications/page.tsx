@@ -6,6 +6,7 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { listApplications } from "@/lib/services/membership-service";
 import { deleteApplicationAction } from "@/lib/actions/membership-actions";
 import { ApplicationStatus } from "@/generated/prisma/enums";
+import { formatFullName } from "@/lib/format";
 
 export const metadata = { title: "Membership Applications" };
 export const dynamic = "force-dynamic";
@@ -90,7 +91,7 @@ export default async function MembershipApplicationsPage({
                 <tr key={app.id} className="hover:bg-surface-muted/60">
                   <td className="px-5 py-3.5">
                     <p className="font-medium text-primary-950">
-                      {app.firstName} {app.lastName}
+                      {formatFullName(app.firstName, app.middleName, app.lastName)}
                     </p>
                     <p className="text-xs text-slate-light">{app.email}</p>
                   </td>

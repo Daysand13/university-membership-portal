@@ -44,7 +44,11 @@ export async function getDashboardCounts() {
     activeElections,
     newMessages,
   ] = await Promise.all([
-    db.member.count(),
+    // Matches what /admin/members itself shows: a graduated member moves to
+    // the Alumni pages and is no longer counted here (see buildMemberWhere
+    // in membership-service.ts) — otherwise this stat card and the page it
+    // links to would disagree with each other.
+    db.member.count({ where: { alumniProfile: null } }),
     db.membershipApplication.count({ where: { status: "PENDING" } }),
     db.membershipApplication.count({ where: { status: "APPROVED" } }),
     db.news.count(),

@@ -4,6 +4,7 @@ import { ChevronLeft, User, Mail, GraduationCap, MapPin, ShieldAlert } from "luc
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ApplicationReviewPanel } from "@/components/admin/ApplicationReviewPanel";
 import { getApplicationById } from "@/lib/services/membership-service";
+import { formatFullName } from "@/lib/format";
 
 export const metadata = { title: "Review Application" };
 export const dynamic = "force-dynamic";
@@ -51,7 +52,7 @@ export default async function ReviewApplicationPage({ params }: { params: Promis
           </a>
           <div>
             <h1 className="font-display font-bold text-2xl text-primary-950">
-              {application.firstName} {application.middleName} {application.lastName}
+              {formatFullName(application.firstName, application.middleName, application.lastName)}
             </h1>
             <p className="text-sm text-slate font-data">{application.indexNumber}</p>
           </div>

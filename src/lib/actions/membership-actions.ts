@@ -20,6 +20,7 @@ import {
   deleteApplication,
   DuplicateIndexNumberError,
   DuplicateEmailError,
+  ApplicationAlreadyApprovedError,
   InvalidCredentialsError,
   InvalidOrExpiredTokenError,
 } from "@/lib/services/membership-service";
@@ -196,7 +197,11 @@ async function reviewApplicationActionImpl(
         break;
     }
   } catch (err) {
-    if (err instanceof DuplicateEmailError || err instanceof DuplicateIndexNumberError) {
+    if (
+      err instanceof DuplicateEmailError ||
+      err instanceof DuplicateIndexNumberError ||
+      err instanceof ApplicationAlreadyApprovedError
+    ) {
       return { error: err.message };
     }
     console.error("[review-application]", err);
@@ -361,6 +366,12 @@ async function updateMemberAdminActionImpl(
 
   revalidatePath("/admin/members");
   revalidatePath(`/admin/members/${memberId}`);
+  // A graduated member's edits also land on their AlumniProfile (see
+  // updateMemberAdmin) — harmless to revalidate these even when the member
+  // isn't graduated, since an unaffected page just re-renders with the same
+  // data.
+  revalidatePath("/admin/alumni");
+  revalidatePath("/alumni/directory");
   return { success: true };
 }
 

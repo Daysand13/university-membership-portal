@@ -7,6 +7,7 @@ import { listMembers, getMemberFilterOptions } from "@/lib/services/membership-s
 import { deleteMemberAction } from "@/lib/actions/membership-actions";
 import { getCurrentAdmin } from "@/lib/auth/admin";
 import { MEMBERSHIP_TYPE_LABELS } from "@/lib/validations/membership";
+import { formatFullName } from "@/lib/format";
 
 export const metadata = { title: "Members" };
 export const dynamic = "force-dynamic";
@@ -160,7 +161,9 @@ export default async function AdminMembersPage({ searchParams }: { searchParams:
               {members.map((member) => (
                 <tr key={member.id} className="hover:bg-surface-muted/60">
                   <td className="px-5 py-3.5">
-                    <p className="font-medium text-primary-950">{member.firstName} {member.lastName}</p>
+                    <p className="font-medium text-primary-950">
+                      {formatFullName(member.firstName, member.middleName, member.lastName)}
+                    </p>
                     <p className="text-xs text-slate-light">{member.email}</p>
                   </td>
                   <td className="px-5 py-3.5 font-data text-xs text-ink">{member.indexNumber}</td>
@@ -179,7 +182,7 @@ export default async function AdminMembersPage({ searchParams }: { searchParams:
                     {canDelete && (
                       <ConfirmButton
                         action={deleteMemberAction.bind(null, member.id)}
-                        confirmMessage={`Permanently delete ${member.firstName} ${member.lastName}? This cannot be undone.`}
+                        confirmMessage={`Permanently delete ${formatFullName(member.firstName, member.middleName, member.lastName)}? This cannot be undone.`}
                         className="inline-flex items-center text-danger hover:text-danger align-middle"
                       >
                         <Trash2 size={15} />
