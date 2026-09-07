@@ -1,5 +1,12 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { AlumniProfile } from "@/generated/prisma/client";
+import { describeAlumniSource } from "@/lib/services/alumni-service";
+
+const SOURCE_LABELS = {
+  "graduated-member": "Graduated member",
+  "currently-enrolled": "Currently a member too",
+  "self-registered": "Self-registered",
+} as const;
 
 const styles = StyleSheet.create({
   page: { padding: 28, fontSize: 8, fontFamily: "Helvetica" },
@@ -45,7 +52,7 @@ export function AlumniListPdf({
   siteTitle,
   filterSummary,
 }: {
-  alumni: AlumniProfile[];
+  alumni: (AlumniProfile & { sourceMember: { graduatedAt: Date | null } | null })[];
   siteTitle: string;
   filterSummary: string;
 }) {
@@ -72,7 +79,7 @@ export function AlumniListPdf({
               <Text style={[styles.cell, { width: `${COLS[2].width}%` }]}>{a.programme}</Text>
               <Text style={[styles.cell, { width: `${COLS[3].width}%` }]}>{a.graduationYear}</Text>
               <Text style={[styles.cell, { width: `${COLS[4].width}%` }]}>
-                {a.sourceMemberId ? "Graduated member" : "Self-registered"}
+                {SOURCE_LABELS[describeAlumniSource(a)]}
               </Text>
               <Text style={[styles.cell, { width: `${COLS[5].width}%` }]}>{a.status}</Text>
               <Text style={[styles.cell, { width: `${COLS[6].width}%` }]}>{formatDate(a.createdAt)}</Text>

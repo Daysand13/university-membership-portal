@@ -1,7 +1,7 @@
 import { GraduationCap, Trash2, FileDown, Users, UserCheck, Heart } from "lucide-react";
 import { EmptyState } from "@/components/ui/Common";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { listAlumniForAdmin, ALUMNI_SORT_FIELDS, type AlumniSortField } from "@/lib/services/alumni-service";
+import { listAlumniForAdmin, ALUMNI_SORT_FIELDS, describeAlumniSource, type AlumniSortField } from "@/lib/services/alumni-service";
 import { setAlumniStatusAction, deleteAlumniAction } from "@/lib/actions/alumni-actions";
 import { getCurrentAdmin } from "@/lib/auth/admin";
 
@@ -124,7 +124,11 @@ export default async function AdminAlumniPage({
                   <td className="px-5 py-3.5 text-slate">{a.programme}</td>
                   <td className="px-5 py-3.5 text-slate">{a.graduationYear}</td>
                   <td className="px-5 py-3.5 text-xs text-slate-light">
-                    {a.sourceMemberId ? "Graduated member" : "Self-registered"}
+                    {
+                      { "graduated-member": "Graduated member", "currently-enrolled": "Currently a member too", "self-registered": "Self-registered" }[
+                        describeAlumniSource(a)
+                      ]
+                    }
                   </td>
                   <td className="px-5 py-3.5">
                     <form action={setAlumniStatusAction.bind(null, a.id, a.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE")}>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { User, Search, Users, CalendarDays, LogOut, Pencil, KeyRound } from "lucide-react";
+import { User, Search, Users, CalendarDays, LogOut, Pencil, KeyRound, GraduationCap } from "lucide-react";
 import { requireAlumni } from "@/lib/auth/alumni";
 import { alumniLogoutAction } from "@/lib/actions/auth-actions";
 
@@ -100,6 +100,12 @@ export default async function AlumniDashboardPage({
             icon={CalendarDays}
             title="Upcoming Events & Reunions"
             description="See what's happening across the association."
+          />
+          <QuickNavLink
+            href="/alumni/further-studies"
+            icon={GraduationCap}
+            title="Continue Your Studies"
+            description="Furthering your education at UEW? Apply to become a member again."
           />
         </div>
 

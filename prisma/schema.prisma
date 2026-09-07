@@ -219,6 +219,14 @@ model MembershipApplication {
   reviewedAt   DateTime?
   adminNote    String?
 
+  // Set only when an alumnus submitted this application to become a current
+  // member again (see AlumniProfile.furtherStudiesApplications) — null for
+  // every ordinary first-time enrollment. On approval, the resulting Member
+  // gets linked back to this same AlumniProfile, so they can log into both
+  // portals.
+  submittedByAlumniId String?
+  submittedByAlumni   AlumniProfile? @relation(fields: [submittedByAlumniId], references: [id])
+
   submittedAt DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -603,11 +611,19 @@ model AlumniProfile {
   directoryVisible  Boolean      @default(true)
   status            AlumniStatus @default(ACTIVE)
 
-  // Set when this profile was created automatically because an existing
-  // student member was marked as graduated, rather than through the
-  // self-serve registration form.
+  // The Member row this alumni is currently also linked to, if any — either
+  // set automatically because this profile was created FROM a graduating
+  // student (see promoteMemberToAlumni), or set later when a self-registered
+  // alumnus submits a further-studies application that gets approved (see
+  // submitFurtherStudiesApplication / approveApplication). Either way it
+  // means "this person can currently log into both the member and alumni
+  // portals" — there is at most one CURRENT such Member at a time, though an
+  // alumnus may have completed (and left linked here as history) more than
+  // one enrollment across their lifetime.
   sourceMemberId String? @unique
   sourceMember   Member? @relation(fields: [sourceMemberId], references: [id])
+
+  furtherStudiesApplications MembershipApplication[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

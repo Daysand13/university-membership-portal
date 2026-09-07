@@ -9,6 +9,7 @@ import {
   Prisma,
   type Member,
   type MembershipApplication,
+  type AlumniProfile,
   type Gender,
   type MembershipType,
   type ApplicationTrack,
@@ -24,7 +25,7 @@ import {
   profileUpdatedEmail,
   adminNewApplicationNotificationEmail,
 } from "@/lib/email/templates";
-import type { EnrollmentInput, MemberAdminEditInput } from "@/lib/validations/membership";
+import type { EnrollmentInput, MemberAdminEditInput, AlumniFurtherStudiesInput } from "@/lib/validations/membership";
 import { formatFullName } from "@/lib/format";
 
 export class DuplicateIndexNumberError extends Error {
@@ -227,6 +228,135 @@ export async function submitApplication(
   return application;
 }
 
+/**
+ * An alumnus applying to become a current member again. Structurally almost
+ * identical to submitApplication above — same PENDING queue, same admin
+ * review, same emails — but the personal-identification fields (name,
+ * email, phone) come from the submitting AlumniProfile rather than being
+ * re-collected, and the application is tagged with submittedByAlumniId so
+ * that approveApplication knows to link the resulting Member back to this
+ * same alumnus once it's approved.
+ */
+export async function submitFurtherStudiesApplication(
+  alumni: AlumniProfile,
+  input: AlumniFurtherStudiesInput,
+  profileImageUrl: string | null,
+  medicalReportUrl: string | null,
+): Promise<MembershipApplication> {
+  let application: MembershipApplication;
+  try {
+    application = await withDbRetry(() =>
+      db.membershipApplication.create({
+        data: {
+          firstName: input.firstName,
+          middleName: input.middleName || null,
+          lastName: input.lastName,
+          dateOfBirth: input.dateOfBirth,
+          gender: input.gender,
+          profileImageUrl: profileImageUrl ?? alumni.profileImageUrl,
+          medicalReportUrl,
+          phone: alumni.phone,
+          email: alumni.email,
+          indexNumber: input.indexNumber,
+          applicationTrack: input.track,
+          degreeCategory: input.degreeCategory || null,
+          programme: input.programme,
+          department: input.department,
+          academicDepartment: input.academicDepartment,
+          hallOfAffiliation: input.hallOfAffiliation || null,
+          specificSupportNeeds: input.specificSupportNeeds ?? [],
+          level: input.level,
+          campus: input.campus,
+          yearOfAdmission: input.yearOfAdmission,
+          expectedGraduationYear: input.expectedGraduationYear ?? null,
+          residentialAddress: input.residentialAddress,
+          region: input.region,
+          emergencyContactName: input.emergencyContactName,
+          emergencyContactPhone: input.emergencyContactPhone,
+          membershipType: input.membershipType,
+          agreedToTerms: input.agreedToTerms,
+          status: ApplicationStatus.PENDING,
+          submittedByAlumniId: alumni.id,
+        },
+      }),
+    );
+  } catch (err) {
+    if (isUniqueConstraintError(err, "indexNumber")) throw new DuplicateIndexNumberError();
+    throw err;
+  }
+
+  // Same reasoning as submitApplication: past this point the application is
+  // saved, so nothing below may throw or block the confirmation.
+  try {
+    await db.notification.create({
+      data: {
+        type: "NEW_APPLICATION",
+        title: `Further-studies application from alumnus ${alumni.fullName}`,
+        link: `/admin/membership-applications/${application.id}`,
+      },
+    });
+  } catch (err) {
+    console.error(`[further-studies] application ${application.id} saved, but admin notification failed:`, err);
+  }
+
+  let brand;
+  try {
+    brand = await getEmailBrand();
+  } catch (err) {
+    console.error(`[further-studies] application ${application.id} saved, but loading email branding failed:`, err);
+    brand = { siteTitle: "Membership Portal", logoUrl: null };
+  }
+
+  try {
+    const { subject, html } = applicationReceivedEmail({
+      firstName: application.firstName,
+      indexNumber: application.indexNumber,
+      brand,
+    });
+    await sendEmail({
+      to: application.email,
+      subject,
+      html,
+      template: "application-received",
+      entityType: "MembershipApplication",
+      entityId: application.id,
+    });
+  } catch (err) {
+    console.error(`[further-studies] application ${application.id} saved, but confirmation email failed:`, err);
+  }
+
+  try {
+    const notifyRecipients = await db.adminUser.findMany({
+      where: { isActive: true, role: { in: ["SUPER_ADMIN", "MEMBERSHIP_OFFICER"] } },
+      select: { email: true },
+      take: 10,
+    });
+    const reviewUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/admin/membership-applications/${application.id}`;
+    const notice = adminNewApplicationNotificationEmail({
+      applicantName: `${application.firstName} ${application.lastName} (alumnus)`,
+      indexNumber: application.indexNumber,
+      reviewUrl,
+      brand,
+    });
+    await Promise.all(
+      notifyRecipients.map((admin) =>
+        sendEmail({
+          to: admin.email,
+          subject: notice.subject,
+          html: notice.html,
+          template: "admin-new-application-notification",
+          entityType: "MembershipApplication",
+          entityId: application.id,
+        }),
+      ),
+    );
+  } catch (err) {
+    console.error("[further-studies] failed to notify admins of new application:", err);
+  }
+
+  return application;
+}
+
 export async function listApplications(filter?: { status?: ApplicationStatus; search?: string }) {
   return db.membershipApplication.findMany({
     where: {
@@ -249,7 +379,11 @@ export async function listApplications(filter?: { status?: ApplicationStatus; se
 export async function getApplicationById(id: string) {
   return db.membershipApplication.findUnique({
     where: { id },
-    include: { reviewedBy: { select: { name: true, email: true } }, member: true },
+    include: {
+      reviewedBy: { select: { name: true, email: true } },
+      member: true,
+      submittedByAlumni: { select: { id: true, fullName: true, email: true } },
+    },
   });
 }
 
@@ -359,6 +493,17 @@ export async function approveApplication(params: {
       if (isUniqueConstraintError(err, "email")) throw new DuplicateEmailError();
       if (isUniqueConstraintError(err, "indexNumber")) throw new DuplicateIndexNumberError();
       throw err;
+    }
+
+    // A further-studies application (see submitFurtherStudiesApplication)
+    // came FROM an existing alumnus — link the brand-new Member back to
+    // that same AlumniProfile so they can log into both portals, in the
+    // same transaction as creating it.
+    if (application.submittedByAlumniId) {
+      await tx.alumniProfile.update({
+        where: { id: application.submittedByAlumniId },
+        data: { sourceMemberId: createdMember.id },
+      });
     }
 
     await tx.membershipApplication.update({

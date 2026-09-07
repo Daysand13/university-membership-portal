@@ -427,6 +427,94 @@ export const enrollmentSchema = z
 
 export type EnrollmentInput = z.infer<typeof enrollmentSchema>;
 
+/**
+ * An alumnus submitting a NEW academic enrollment to become a current member
+ * again — narrower than enrollmentSchema because their name, email, phone,
+ * date of birth and gender already live on their AlumniProfile and aren't
+ * re-collected here.
+ *
+ * Document attachments are handled the same way as enrollmentSchema
+ * (profileImageKey/medicalReportKey carry a signed R2 upload ticket, not a
+ * file), but are OPTIONAL at this schema level — whether they're actually
+ * required depends on whether this particular alumnus was ever physically
+ * verified at the Resource Center before (true for someone who graduated
+ * from a real Member account; not necessarily true for someone who
+ * self-registered as alumni and never held a Member account), which this
+ * schema has no way to know. That check happens in the action layer, which
+ * does have the submitting alumnus's record on hand.
+ */
+export const alumniFurtherStudiesSchema = z
+  .object({
+    track: z.enum(APPLICATION_TRACKS),
+    membershipType: z.enum(MembershipType, { message: "Select a membership type" }),
+
+    // AlumniProfile only ever stored a single fullName string and never
+    // collected a date of birth or gender at all — unlike email/phone,
+    // there's no reliable value to carry over, so all four are asked for
+    // explicitly. The form pre-fills first/middle/last name with a
+    // best-effort split of the profile's fullName, but the person can
+    // correct it before submitting, which is more accurate than guessing
+    // silently on the server and leaving a wrong split for an admin to
+    // catch later.
+    firstName: z.string().trim().min(1, "First name is required").max(100),
+    middleName: z.string().trim().max(100).optional().or(z.literal("")),
+    lastName: z.string().trim().min(1, "Surname is required").max(100),
+    dateOfBirth: z.coerce.date({ message: "Enter a valid date of birth" }),
+    gender: z.enum(["MALE", "FEMALE"], { message: "Select a gender" }),
+
+    campus: z.enum(CAMPUSES, { message: "Select a campus" }),
+    hallOfAffiliation: z.enum(HALLS_OF_AFFILIATION).optional().or(z.literal("")),
+    degreeCategory: z.string().trim().optional().or(z.literal("")),
+    academicDepartment: z.string().trim().min(1, "Select your academic department"),
+    programme: z.string().trim().min(1, "Select your program of study"),
+    level: z.string().trim().min(1, "Select your level"),
+    indexNumber: z.string().trim().min(3, "Index number is required").max(50),
+    yearOfAdmission: z.coerce
+      .number()
+      .int()
+      .min(2000)
+      .max(new Date().getFullYear() + 1),
+    expectedGraduationYear: z.coerce.number().int().min(2000).max(2100).optional(),
+
+    department: z.enum(DISABILITY_CATEGORIES, {
+      message: "Select a category of special needs",
+    }),
+    specificSupportNeeds: z.array(z.enum(SUPPORT_NEEDS)).optional().default([]),
+
+    profileImageKey: z.string().optional(),
+    medicalReportKey: z.string().optional(),
+
+    residentialAddress: z.string().trim().min(1, "Residential address is required").max(300),
+    region: z.string().trim().min(1, "Region is required").max(100),
+    emergencyContactName: z.string().trim().min(1, "Emergency contact name is required").max(150),
+    emergencyContactPhone: z.string().trim().regex(phoneRegex, "Enter a valid phone number"),
+
+    agreedToTerms: z.literal(true, {
+      message: "You must confirm the details above and accept the terms to continue",
+    }),
+  })
+  .superRefine((data, ctx) => {
+    const isPg = data.track === "POSTGRADUATE";
+    const validDepartments = isPg ? POSTGRAD_DEPARTMENTS : ACADEMIC_DEPARTMENTS;
+    const validProgrammes = isPg ? POSTGRAD_PROGRAMS : PROGRAMS_OF_STUDY;
+    const validLevels = isPg ? POSTGRAD_LEVELS : LEVELS;
+
+    if (!(validDepartments as readonly string[]).includes(data.academicDepartment)) {
+      ctx.addIssue({ code: "custom", path: ["academicDepartment"], message: "Select a valid academic department" });
+    }
+    if (!(validProgrammes as readonly string[]).includes(data.programme)) {
+      ctx.addIssue({ code: "custom", path: ["programme"], message: "Select a valid program of study" });
+    }
+    if (!(validLevels as readonly string[]).includes(data.level)) {
+      ctx.addIssue({ code: "custom", path: ["level"], message: "Select a valid level" });
+    }
+    if (isPg && !(POSTGRAD_DEGREE_CATEGORIES as readonly string[]).includes(data.degreeCategory ?? "")) {
+      ctx.addIssue({ code: "custom", path: ["degreeCategory"], message: "Select your postgraduate degree category" });
+    }
+  });
+
+export type AlumniFurtherStudiesInput = z.infer<typeof alumniFurtherStudiesSchema>;
+
 export const memberLoginSchema = z.object({
   indexNumber: z.string().trim().min(1, "Index number is required"),
   password: z.string().trim().min(1, "Password is required"),

@@ -7,6 +7,7 @@ import { sendEmail } from "@/lib/email/client";
 import { getEmailBrand } from "@/lib/services/content-service";
 import { alumniGraduationInviteEmail, alumniWelcomeEmail, alumniPasswordResetEmail } from "@/lib/email/templates";
 import type { AlumniRegisterInput } from "@/lib/validations/alumni";
+import { formatFullName } from "@/lib/format";
 
 export class DuplicateAlumniEmailError extends Error {
   constructor() {
@@ -43,7 +44,18 @@ export class InvalidOrExpiredAlumniTokenError extends Error {
   }
 }
 
+// A "forgot password" link resets an account that's already in active use —
+// kept short deliberately, so a stale link sitting in an old inbox can't be
+// used to hijack a working login much later.
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+// The graduation invite is different: it's the FIRST password this alumnus
+// ever sets, for an account nobody is using yet, sent to someone who may not
+// see their email again for weeks. 30 minutes was routinely expiring before
+// people found the message. Generous rather than unlimited — an invite link
+// that never expires is a permanent standing credential to a brand-new
+// account if that one email is ever compromised or forwarded on.
+const GRADUATION_INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 // ---------------------------------------------------------------------------
 // Registration (self-serve, for graduates who were never a student member
@@ -105,45 +117,73 @@ export async function promoteMemberToAlumni(params: {
   }
 
   const existingByEmail = await db.alumniProfile.findUnique({ where: { email: member.email } });
-  if (existingByEmail) throw new DuplicateAlumniEmailError();
+
+  // A person can go through this twice: graduate, later re-enroll via the
+  // alumni "continue your studies" flow (which links this same
+  // AlumniProfile to their new Member via sourceMemberId — see
+  // approveApplication), then graduate again. That's not a duplicate
+  // account, it's the same alumnus's profile catching up to their second
+  // graduation — refresh it in place instead of erroring. Any OTHER
+  // existing profile with this email (not linked to the member currently
+  // being promoted) is a genuine, unexpected duplicate and still blocked.
+  if (existingByEmail && existingByEmail.sourceMemberId !== member.id) {
+    throw new DuplicateAlumniEmailError();
+  }
 
   const [, alumni] = await db.$transaction([
     db.member.update({ where: { id: memberId }, data: { graduatedAt: new Date() } }),
-    db.alumniProfile.create({
-      data: {
-        fullName: `${member.firstName} ${member.lastName}`,
-        email: member.email,
-        phone: member.phone,
-        profileImageUrl: member.profileImageUrl,
-        graduationYear,
-        programme: member.programme,
-        mustSetPassword: true,
-        directoryVisible: true,
-        status: AlumniStatus.ACTIVE,
-        sourceMemberId: member.id,
-      },
-    }),
+    existingByEmail
+      ? db.alumniProfile.update({
+          where: { id: existingByEmail.id },
+          data: {
+            fullName: formatFullName(member.firstName, member.middleName, member.lastName),
+            phone: member.phone,
+            profileImageUrl: member.profileImageUrl,
+            graduationYear,
+            programme: member.programme,
+            status: AlumniStatus.ACTIVE,
+          },
+        })
+      : db.alumniProfile.create({
+          data: {
+            fullName: formatFullName(member.firstName, member.middleName, member.lastName),
+            email: member.email,
+            phone: member.phone,
+            profileImageUrl: member.profileImageUrl,
+            graduationYear,
+            programme: member.programme,
+            mustSetPassword: true,
+            directoryVisible: true,
+            status: AlumniStatus.ACTIVE,
+            sourceMemberId: member.id,
+          },
+        }),
   ]);
 
-  const rawToken = randomBytes(32).toString("hex");
-  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
-  await db.alumniPasswordResetToken.create({
-    data: { tokenHash, alumniId: alumni.id, expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS) },
-  });
+  // A returning alumnus re-graduating already has a working password and
+  // doesn't need a new invite — only send one the first time this profile
+  // is created.
+  if (!existingByEmail) {
+    const rawToken = randomBytes(32).toString("hex");
+    const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+    await db.alumniPasswordResetToken.create({
+      data: { tokenHash, alumniId: alumni.id, expiresAt: new Date(Date.now() + GRADUATION_INVITE_TTL_MS) },
+    });
 
-  const { subject, html } = alumniGraduationInviteEmail({
-    firstName: member.firstName,
-    setPasswordUrl: `${inviteBaseUrl}?token=${rawToken}`,
-    brand: await getEmailBrand(),
-  });
-  await sendEmail({
-    to: alumni.email,
-    subject,
-    html,
-    template: "alumni-graduation-invite",
-    entityType: "AlumniProfile",
-    entityId: alumni.id,
-  });
+    const { subject, html } = alumniGraduationInviteEmail({
+      firstName: member.firstName,
+      setPasswordUrl: `${inviteBaseUrl}?token=${rawToken}`,
+      brand: await getEmailBrand(),
+    });
+    await sendEmail({
+      to: alumni.email,
+      subject,
+      html,
+      template: "alumni-graduation-invite",
+      entityType: "AlumniProfile",
+      entityId: alumni.id,
+    });
+  }
 
   return alumni;
 }
@@ -288,8 +328,26 @@ export async function listAlumniForAdmin(filter?: { search?: string; sort?: Alum
           ],
         }
       : {},
+    // sourceMember.graduatedAt is what tells "graduated FROM this link" apart
+    // from "currently ALSO a member via this link" — see describeAlumniSource.
+    include: { sourceMember: { select: { graduatedAt: true } } },
     orderBy: ALUMNI_ORDER_BY[filter?.sort ?? "joined"],
   });
+}
+
+export type AlumniSource = "graduated-member" | "currently-enrolled" | "self-registered";
+
+/**
+ * sourceMemberId alone can no longer tell "this profile was created by a
+ * graduating member" apart from "this alumnus later re-enrolled and is
+ * currently also a member" — both set the same field (see
+ * AlumniProfile.sourceMemberId in the schema). The member's own
+ * graduatedAt is what actually distinguishes them: set for the classic
+ * graduation case, null while a further-studies member is still active.
+ */
+export function describeAlumniSource(alumni: { sourceMember: { graduatedAt: Date | null } | null }): AlumniSource {
+  if (!alumni.sourceMember) return "self-registered";
+  return alumni.sourceMember.graduatedAt ? "graduated-member" : "currently-enrolled";
 }
 
 export async function setAlumniStatus(params: { alumniId: string; status: AlumniStatus }): Promise<AlumniProfile> {

@@ -60,6 +60,14 @@ export default async function ReviewApplicationPage({ params }: { params: Promis
         <StatusBadge status={application.status} />
       </div>
 
+      {application.submittedByAlumni && (
+        <div className="rounded-lg border border-accent-300 bg-accent-50 p-4 mb-6 text-sm text-primary-950">
+          Submitted by an existing alumnus — <strong>{application.submittedByAlumni.fullName}</strong> (
+          {application.submittedByAlumni.email}) — applying to become a current member again. Approving this will
+          link the new member account back to that Alumni Portal login.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <section className="bg-white rounded-lg border border-line p-6">

@@ -51,7 +51,7 @@ export default async function AdminDashboardPage() {
         />
         <StatCard
           icon={CheckCircle2}
-          label="Approved Members"
+          label="Approved Applications"
           value={counts.approvedApplications}
           href="/admin/membership-applications?status=APPROVED"
         />
