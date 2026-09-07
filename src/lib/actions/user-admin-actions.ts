@@ -1,6 +1,6 @@
 "use server";
 
-import { withActionErrorHandling } from "./with-error-handling";
+import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
 
 import { revalidatePath } from "next/cache";
 import {
@@ -12,6 +12,7 @@ import {
   pushToAlumniArchive,
   grantDualStatus,
   approveNewEnrollmentCycle,
+  deleteUserAccount,
   UserAdminError,
 } from "@/lib/services/user-admin-service";
 import { requireAdminRole } from "@/lib/auth/admin";
@@ -115,6 +116,24 @@ async function approveNewEnrollmentCycleActionImpl(
   revalidateStandingViews(parsed.data.userId);
   return { success: true };
 }
+
+/**
+ * The most destructive of the four, so it's the one action here without a
+ * form to fill in first — just the userId a ConfirmButton passes straight
+ * through, same pattern as deleteMemberAction. Gated a tier above the other
+ * three: correcting someone's standing is membership-officer work, but
+ * removing them from the identity system outright is not.
+ */
+async function deleteUserAccountActionImpl(userId: string): Promise<void> {
+  const admin = await requireAdminRole(AdminRole.SUPER_ADMIN);
+  await deleteUserAccount({ userId, adminId: admin.id });
+  revalidateStandingViews(userId);
+}
+
+export const deleteUserAccountAction = withVoidActionErrorHandling(
+  "deleteUserAccountAction",
+  deleteUserAccountActionImpl,
+);
 
 export const pushToAlumniArchiveAction = withActionErrorHandling(
   "pushToAlumniArchiveAction",

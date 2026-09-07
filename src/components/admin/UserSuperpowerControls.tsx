@@ -1,15 +1,17 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Loader2, GraduationCap, ShieldPlus, BookPlus, X, CheckCircle2 } from "lucide-react";
+import { Loader2, GraduationCap, ShieldPlus, BookPlus, Trash2, X, CheckCircle2 } from "lucide-react";
 import {
   pushToAlumniArchiveAction,
   grantDualStatusAction,
   approveNewEnrollmentCycleAction,
+  deleteUserAccountAction,
 } from "@/lib/actions/user-admin-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
+import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import {
   CAMPUSES,
   DISABILITY_CATEGORIES,
@@ -58,7 +60,7 @@ function ActionButton({
   );
 }
 
-export function UserSuperpowerControls({ target }: { target: SuperpowerTarget }) {
+export function UserSuperpowerControls({ target, canDelete }: { target: SuperpowerTarget; canDelete: boolean }) {
   const [panel, setPanel] = useState<Panel>(null);
 
   const isAlumni = target.roles.includes("ALUMNI");
@@ -87,6 +89,15 @@ export function UserSuperpowerControls({ target }: { target: SuperpowerTarget })
           label="Approve New Enrollment Cycle"
           onClick={() => setPanel(panel === "cycle" ? null : "cycle")}
         />
+        {canDelete && (
+          <ConfirmButton
+            action={() => deleteUserAccountAction(target.userId)}
+            confirmMessage={`Permanently remove ${target.name} (${target.email}) from the identity system?\n\nThis deletes their member and/or alumni record, every enrollment cycle, and their login. If they also have an admin account, that admin login is NOT deleted — only detached from this identity record.\n\nThis cannot be undone.`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-danger/30 bg-white px-3 py-1.5 text-xs font-semibold text-danger hover:bg-danger-light"
+          >
+            <Trash2 size={14} /> Delete Account
+          </ConfirmButton>
+        )}
       </div>
 
       {panel && (

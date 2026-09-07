@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/ui/Common";
 import { listUsersForMatrix } from "@/lib/services/user-admin-service";
 import { UserSuperpowerControls } from "@/components/admin/UserSuperpowerControls";
 import { formatFullName } from "@/lib/format";
+import { getCurrentAdmin } from "@/lib/auth/admin";
 import type { UserRoleName } from "@/generated/prisma/enums";
 
 export const metadata = { title: "User Status Matrix" };
@@ -40,7 +41,11 @@ export default async function UserMatrixPage({
     ? (sp.role as UserRoleName)
     : undefined;
 
-  const users = await listUsersForMatrix({ search: sp.q, role });
+  const [users, currentAdmin] = await Promise.all([
+    listUsersForMatrix({ search: sp.q, role }),
+    getCurrentAdmin(),
+  ]);
+  const canDelete = currentAdmin?.role === "SUPER_ADMIN";
 
   const dualCount = users.filter(
     (u) => u.roles.some((r) => r.role === "MEMBER") && u.roles.some((r) => r.role === "ALUMNI"),
@@ -163,6 +168,7 @@ export default async function UserMatrixPage({
                     currentIndexNumber: activeCycle?.indexNumber ?? u.member?.indexNumber ?? null,
                     hasMemberRecord: Boolean(u.member),
                   }}
+                  canDelete={canDelete}
                 />
               </div>
             );

@@ -515,10 +515,23 @@ export async function approveApplication(params: {
     //
     // A returning alumnus already HAS a user, so they gain a role and a new
     // enrollment rather than a second identity.
-    const existingUser =
-      alumnusUserId
-        ? await tx.user.findUnique({ where: { id: alumnusUserId } })
-        : await tx.user.findUnique({ where: { email: createdMember.email } });
+    //
+    // The admin login is deliberately walled off from this system (see
+    // proxy.ts and auth/user.ts: admin auth never reads the unified tables,
+    // by design) — but this lookup is a plain email match, and an admin's
+    // own email is still just an email. It once matched an admin's existing
+    // User row, silently attaching a Member and an ACTIVE enrollment to that
+    // admin's identity — real production data this had to be cleaned up by
+    // hand. An email that belongs to an admin login is therefore refused
+    // outright rather than merged into, the same way a genuine duplicate
+    // email is refused below.
+    const existingUser = alumnusUserId
+      ? await tx.user.findUnique({ where: { id: alumnusUserId }, include: { adminUser: true } })
+      : await tx.user.findUnique({ where: { email: createdMember.email }, include: { adminUser: true } });
+
+    if (existingUser?.adminUser) {
+      throw new DuplicateEmailError();
+    }
 
     const identityUser =
       existingUser ??

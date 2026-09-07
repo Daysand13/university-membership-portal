@@ -5,6 +5,8 @@ import { sendEmail } from "@/lib/email/client";
 import { getEmailBrand } from "@/lib/services/content-service";
 import { alumniGraduationInviteEmail } from "@/lib/email/templates";
 import { formatFullName } from "@/lib/format";
+import { deleteMember } from "@/lib/services/membership-service";
+import { deleteAlumni } from "@/lib/services/alumni-service";
 import { Prisma, type UserRoleName } from "@/generated/prisma/client";
 
 /**
@@ -399,4 +401,72 @@ export async function approveNewEnrollmentCycle(params: {
       },
     });
   });
+}
+
+/**
+ * Removes a person's presence from the unified identity model entirely —
+ * their User row, every role, and every enrollment cycle.
+ *
+ * Exists for exactly the situation that motivated it: an admin's own
+ * account got a stray Member and StudentEnrollment attached (see the fix in
+ * approveApplication for how), and deleting the Member through the ordinary
+ * tool didn't touch the identity-layer rows left behind — they kept
+ * appearing in the matrix with no way to remove them.
+ *
+ * If a real Member or AlumniProfile is still attached, this delegates to
+ * the existing, already-audited deleteMember / deleteAlumni rather than
+ * reimplementing that logic — this is "remove someone from the identity
+ * system," not a second, cruder path to the same deletions those already
+ * do carefully (freeing their index number, deciding what happens to their
+ * application, sending no surprise emails).
+ *
+ * An admin login (AdminUser) is deliberately left alone. Deleting the User
+ * row only detaches it — the FK is ON DELETE SET NULL — because admin auth
+ * never reads these tables to begin with (see proxy.ts). Removing someone's
+ * ADMIN role or admin account is a separate, more sensitive action with its
+ * own tooling, and doesn't belong behind a matrix cleanup button.
+ */
+export async function deleteUserAccount(params: { userId: string; adminId: string }) {
+  const { userId, adminId } = params;
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    include: { member: true, alumniProfile: true, adminUser: true, roles: true, enrollments: true },
+  });
+  if (!user) throw new UserAdminError("That account no longer exists.");
+
+  const summary = {
+    email: user.email,
+    roles: user.roles.map((r) => r.role),
+    hadMember: Boolean(user.member),
+    hadAlumniProfile: Boolean(user.alumniProfile),
+    stillHasAdminLogin: Boolean(user.adminUser),
+    enrollments: user.enrollments.map((e) => e.indexNumber),
+  };
+
+  if (user.member) {
+    await deleteMember({ memberId: user.member.id, adminId, note: "Removed via Delete Account in the user matrix." });
+  }
+  if (user.alumniProfile) {
+    await deleteAlumni({
+      alumniId: user.alumniProfile.id,
+      adminId,
+      note: "Removed via Delete Account in the user matrix.",
+    });
+  }
+
+  await db.$transaction([
+    db.studentEnrollment.deleteMany({ where: { userId } }),
+    db.userRole.deleteMany({ where: { userId } }),
+    db.user.delete({ where: { id: userId } }),
+    db.auditLog.create({
+      data: {
+        adminId,
+        action: "DELETE_USER_ACCOUNT",
+        entityType: "User",
+        entityId: userId,
+        previousValue: summary as Prisma.InputJsonValue,
+      },
+    }),
+  ]);
 }
