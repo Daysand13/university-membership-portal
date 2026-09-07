@@ -24,7 +24,7 @@ import {
   profileUpdatedEmail,
   adminNewApplicationNotificationEmail,
 } from "@/lib/email/templates";
-import type { EnrollmentInput } from "@/lib/validations/membership";
+import type { EnrollmentInput, MemberAdminEditInput } from "@/lib/validations/membership";
 
 export class DuplicateIndexNumberError extends Error {
   constructor() {
@@ -784,4 +784,97 @@ export async function setMemberStatus(params: {
     },
   });
   return member;
+}
+
+/**
+ * Admin correction of an existing member's own record — index number, name,
+ * contact and academic details, everything memberAdminEditSchema covers.
+ *
+ * Separate from updateMemberProfile above: that one is the member's own
+ * self-service update (a handful of contact fields, from their own
+ * dashboard). This is the admin-side equivalent for fields a member can't
+ * touch themselves — most importantly the index number, which occasionally
+ * needs correcting after a typo at enrollment, and which staying wrong is
+ * far more disruptive than a slow admin workflow to fix it.
+ *
+ * Does not touch status or graduatedAt — MemberStatusControl and
+ * MarkGraduatedControl already own those, each with their own audit action
+ * name, and folding them in here would blur that history. Does not touch
+ * profileImageUrl or medicalReportUrl either: there is no admin re-upload
+ * path yet, so those stay whatever the member's own application set them to.
+ */
+export async function updateMemberAdmin(params: {
+  memberId: string;
+  adminId: string;
+  updates: MemberAdminEditInput;
+}): Promise<Member> {
+  const { memberId, adminId, updates } = params;
+  const before = await db.member.findUniqueOrThrow({ where: { id: memberId } });
+
+  const data = {
+    indexNumber: updates.indexNumber,
+    firstName: updates.firstName,
+    middleName: updates.middleName || null,
+    lastName: updates.lastName,
+    email: updates.email,
+    phone: updates.phone,
+    dateOfBirth: updates.dateOfBirth instanceof Date ? updates.dateOfBirth : null,
+    gender: updates.gender || null,
+    membershipType: updates.membershipType || null,
+    applicationTrack: updates.applicationTrack || null,
+    campus: updates.campus,
+    hallOfAffiliation: updates.hallOfAffiliation || null,
+    degreeCategory: updates.degreeCategory || null,
+    academicDepartment: updates.academicDepartment || null,
+    programme: updates.programme,
+    level: updates.level,
+    yearOfAdmission: updates.yearOfAdmission,
+    expectedGraduationYear: updates.expectedGraduationYear ?? null,
+    department: updates.department,
+    specificSupportNeeds: updates.specificSupportNeeds ?? [],
+    residentialAddress: updates.residentialAddress || null,
+    region: updates.region || null,
+    emergencyContactName: updates.emergencyContactName || null,
+    emergencyContactPhone: updates.emergencyContactPhone || null,
+  };
+
+  let updated: Member;
+  try {
+    updated = await db.member.update({ where: { id: memberId }, data });
+  } catch (err) {
+    if (isUniqueConstraintError(err, "indexNumber")) throw new DuplicateIndexNumberError();
+    if (isUniqueConstraintError(err, "email")) throw new DuplicateEmailError();
+    throw err;
+  }
+
+  // Only fields that actually changed go into the audit log, so a correction
+  // to one field doesn't bury it under twenty unchanged ones.
+  const beforeRaw = before as unknown as Record<string, unknown>;
+  const updatedRaw = updated as unknown as Record<string, unknown>;
+  const previousValue: Record<string, unknown> = {};
+  const newValue: Record<string, unknown> = {};
+  for (const key of Object.keys(data)) {
+    const beforeVal = beforeRaw[key];
+    const afterVal = updatedRaw[key];
+    const normalize = (v: unknown) => (v instanceof Date ? v.toISOString() : v);
+    if (JSON.stringify(normalize(beforeVal)) !== JSON.stringify(normalize(afterVal))) {
+      previousValue[key] = normalize(beforeVal);
+      newValue[key] = normalize(afterVal);
+    }
+  }
+
+  if (Object.keys(newValue).length > 0) {
+    await db.auditLog.create({
+      data: {
+        adminId,
+        action: "UPDATE_MEMBER_PROFILE_ADMIN",
+        entityType: "Member",
+        entityId: memberId,
+        previousValue: previousValue as Prisma.InputJsonValue,
+        newValue: newValue as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  return updated;
 }

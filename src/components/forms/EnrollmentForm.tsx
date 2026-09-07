@@ -22,28 +22,10 @@ import {
   MEMBERSHIP_TYPE_LABELS,
   MAX_PASSPORT_PICTURE_BYTES,
   MAX_MEDICAL_REPORT_BYTES,
+  GHANA_REGIONS,
   type ApplicationTrack,
 } from "@/lib/validations/membership";
 import { downscaleImage } from "@/lib/client/downscale-image";
-
-const GHANA_REGIONS = [
-  "Ahafo",
-  "Ashanti",
-  "Bono",
-  "Bono East",
-  "Central",
-  "Eastern",
-  "Greater Accra",
-  "North East",
-  "Northern",
-  "Oti",
-  "Savannah",
-  "Upper East",
-  "Upper West",
-  "Volta",
-  "Western",
-  "Western North",
-];
 
 const GENDER_LABELS: Record<string, string> = { MALE: "Male", FEMALE: "Female" };
 
@@ -1031,6 +1013,15 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
             </span>
           </label>
           <FieldError messages={fe.agreedToTerms} />
+        </div>
+
+        <div className="rounded-lg border border-accent-300 bg-accent-50 p-4 flex gap-3">
+          <AlertCircle size={18} className="text-accent-600 shrink-0 mt-0.5" />
+          <p className="text-sm text-primary-950 leading-relaxed">
+            Please critically review every section of this form before you continue. You&apos;ll see a full
+            summary on the next screen, but it&apos;s much easier to correct a mistake now than after your
+            application has been submitted for review.
+          </p>
         </div>
 
         <Button

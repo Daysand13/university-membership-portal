@@ -4,19 +4,11 @@ import { ChevronLeft, User } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { MemberStatusControl } from "@/components/admin/MemberStatusControl";
 import { MarkGraduatedControl } from "@/components/admin/MarkGraduatedControl";
+import { EditMemberForm } from "@/components/admin/EditMemberForm";
 import { db } from "@/lib/db";
 
 export const metadata = { title: "Member Details" };
 export const dynamic = "force-dynamic";
-
-function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
-  return (
-    <div>
-      <dt className="text-xs text-slate-light uppercase tracking-wide">{label}</dt>
-      <dd className="text-sm text-ink mt-0.5">{value || "—"}</dd>
-    </div>
-  );
-}
 
 export default async function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -78,78 +70,38 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <section className="bg-white rounded-lg border border-line p-6">
-          <h2 className="font-display font-bold text-base text-primary-950 mb-4">Contact</h2>
-          <dl className="grid grid-cols-2 gap-4">
-            <Field label="Email" value={member.email} />
-            <Field label="Phone" value={member.phone} />
-            <Field label="Region" value={member.region} />
-            <Field label="Residential Address" value={member.residentialAddress} />
-            <Field label="Emergency Contact Name" value={member.emergencyContactName} />
-            <Field label="Emergency Phone" value={member.emergencyContactPhone} />
-          </dl>
-        </section>
-        <section className="bg-white rounded-lg border border-line p-6">
-          <h2 className="font-display font-bold text-base text-primary-950 mb-4">Academic</h2>
-          <dl className="grid grid-cols-2 gap-4">
-            <Field label="Membership Type" value={member.membershipType} />
-            <Field label="Study Level (Track)" value={member.applicationTrack} />
-            <Field label="Postgraduate Degree Category" value={member.degreeCategory} />
-            <Field label="Academic Department" value={member.academicDepartment} />
-            <Field label="Programme" value={member.programme} />
-            <Field label="Level" value={member.level} />
-            <Field label="Campus" value={member.campus} />
-            <Field label="Hall of Affiliation" value={member.hallOfAffiliation} />
-          </dl>
-        </section>
-        <section className="bg-white rounded-lg border border-line p-6">
-          <h2 className="font-display font-bold text-base text-primary-950 mb-4">Category of Special Needs</h2>
-          <dl className="grid grid-cols-2 gap-4">
-            <Field label="Category" value={member.department} />
-          </dl>
-          {member.specificSupportNeeds.length > 0 && (
-            <div className="mt-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate mb-2">
-                Specific Support Needed
-              </p>
-              <ul className="list-disc list-inside text-sm text-ink space-y-1">
-                {member.specificSupportNeeds.map((need) => (
-                  <li key={need}>{need}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
-        <section className="bg-white rounded-lg border border-line p-6">
-          <h2 className="font-display font-bold text-base text-primary-950 mb-4">Medical Report</h2>
-          {member.medicalReportUrl ? (
+      <div className="mb-6">
+        <EditMemberForm member={member} />
+      </div>
+
+      <div className="bg-white rounded-lg border border-line p-6">
+        <h2 className="font-display font-bold text-base text-primary-950 mb-4">Medical Report</h2>
+        {member.medicalReportUrl ? (
+          <a
+            href={member.medicalReportUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary-800 font-medium hover:text-accent-600 underline"
+          >
+            View uploaded medical report
+          </a>
+        ) : (
+          <p className="text-sm text-slate-light">No medical report on file.</p>
+        )}
+        <div className="mt-3">
+          {member.profileImageUrl ? (
             <a
-              href={member.medicalReportUrl}
+              href={member.profileImageUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-primary-800 font-medium hover:text-accent-600 underline"
             >
-              View uploaded medical report
+              View passport picture
             </a>
           ) : (
-            <p className="text-sm text-slate-light">No medical report on file.</p>
+            <p className="text-sm text-slate-light">No passport picture on file.</p>
           )}
-          <div className="mt-3">
-            {member.profileImageUrl ? (
-              <a
-                href={member.profileImageUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-primary-800 font-medium hover:text-accent-600 underline"
-              >
-                View passport picture
-              </a>
-            ) : (
-              <p className="text-sm text-slate-light">No passport picture on file.</p>
-            )}
-          </div>
-        </section>
+        </div>
       </div>
     </div>
   );

@@ -34,6 +34,25 @@ export const SUPPORT_NEEDS = [
 
 export const CAMPUSES = ["Winneba Main Campus", "Ejumako Campus"] as const;
 
+export const GHANA_REGIONS = [
+  "Ahafo",
+  "Ashanti",
+  "Bono",
+  "Bono East",
+  "Central",
+  "Eastern",
+  "Greater Accra",
+  "North East",
+  "Northern",
+  "Oti",
+  "Savannah",
+  "Upper East",
+  "Upper West",
+  "Volta",
+  "Western",
+  "Western North",
+] as const;
+
 export const HALLS_OF_AFFILIATION = [
   "Ghartey Hall",
   "GUSSS Hall",
@@ -202,6 +221,7 @@ export const POSTGRAD_DEPARTMENTS = [
 ] as const;
 
 export const POSTGRAD_PROGRAMS = [
+  "BA Journalism and Media Studies",
   "EdD Social Studies Education",
   "Exec. Masters Human Rights, Conflict and Peace Studies",
   "MA Art Education",
@@ -441,3 +461,50 @@ export const applicationReviewSchema = z.object({
   action: z.enum(["APPROVE", "REJECT", "UNDER_REVIEW", "SUSPEND", "REQUEST_CHANGES"]),
   adminNote: z.string().max(1000).optional().or(z.literal("")),
 });
+
+/**
+ * Fields an admin can correct on an existing member's record — everything a
+ * data-entry mistake or a life change (marriage, transfer, a mistyped index
+ * number at enrollment) could reasonably need fixed, short of the two things
+ * that already have their own dedicated, audited controls (account status,
+ * marking graduated) and the two file attachments (no admin re-upload path
+ * exists yet).
+ *
+ * Deliberately looser than enrollmentSchema: this edits a record that
+ * already passed that validation once, an admin is doing the editing, and
+ * several fields here are nullable in the database in a way a first-time
+ * application's fields are not. Values are still checked for shape (email
+ * format, phone pattern) — just not re-forced through every one-time-only
+ * enrollment rule.
+ */
+export const memberAdminEditSchema = z.object({
+  indexNumber: z.string().trim().min(3, "Index number is required").max(50),
+  firstName: z.string().trim().min(1, "First name is required").max(100),
+  middleName: z.string().trim().max(100).optional().or(z.literal("")),
+  lastName: z.string().trim().min(1, "Surname is required").max(100),
+  email: z.string().trim().toLowerCase().email("Enter a valid email address"),
+  phone: z.string().trim().regex(phoneRegex, "Enter a valid phone / WhatsApp number"),
+  dateOfBirth: z.coerce.date().optional().or(z.literal("")),
+  gender: z.enum(["MALE", "FEMALE"]).optional().or(z.literal("")),
+  membershipType: z.enum(MembershipType).optional().or(z.literal("")),
+
+  applicationTrack: z.enum(APPLICATION_TRACKS).optional().or(z.literal("")),
+  campus: z.string().trim().min(1, "Select a campus").max(100),
+  hallOfAffiliation: z.string().trim().max(100).optional().or(z.literal("")),
+  degreeCategory: z.string().trim().max(50).optional().or(z.literal("")),
+  academicDepartment: z.string().trim().max(150).optional().or(z.literal("")),
+  programme: z.string().trim().min(1, "Programme is required").max(200),
+  level: z.string().trim().min(1, "Level is required").max(50),
+  yearOfAdmission: z.coerce.number().int().min(2000).max(new Date().getFullYear() + 1),
+  expectedGraduationYear: z.coerce.number().int().min(2000).max(2100).optional(),
+
+  department: z.string().trim().min(1, "Select a category of special needs").max(150),
+  specificSupportNeeds: z.array(z.string()).optional().default([]),
+
+  residentialAddress: z.string().trim().max(300).optional().or(z.literal("")),
+  region: z.string().trim().max(100).optional().or(z.literal("")),
+  emergencyContactName: z.string().trim().max(150).optional().or(z.literal("")),
+  emergencyContactPhone: z.string().trim().regex(phoneRegex, "Enter a valid phone number").optional().or(z.literal("")),
+});
+
+export type MemberAdminEditInput = z.infer<typeof memberAdminEditSchema>;

@@ -4,7 +4,7 @@ import { withActionErrorHandling, withVoidActionErrorHandling, withTypedActionEr
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { enrollmentSchema, applicationReviewSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from "@/lib/validations/membership";
+import { enrollmentSchema, applicationReviewSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, memberAdminEditSchema } from "@/lib/validations/membership";
 import {
   submitApplication,
   approveApplication,
@@ -15,6 +15,7 @@ import {
   requestPasswordReset,
   resetPasswordWithToken,
   updateMemberProfile,
+  updateMemberAdmin,
   deleteMember,
   deleteApplication,
   DuplicateIndexNumberError,
@@ -326,6 +327,43 @@ async function setMemberStatusActionImpl(memberId: string, status: "ACTIVE" | "S
   revalidatePath(`/admin/members/${memberId}`);
 }
 
+async function updateMemberAdminActionImpl(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+
+  const memberId = String(formData.get("memberId") ?? "");
+  if (!memberId) return { error: "Missing member." };
+
+  const entries = Object.fromEntries(formData.entries());
+  const candidate = {
+    ...entries,
+    specificSupportNeeds: formData.getAll("specificSupportNeeds"),
+  };
+  const parsed = memberAdminEditSchema.safeParse(candidate);
+  if (!parsed.success) {
+    return { fieldErrors: parsed.error.flatten().fieldErrors };
+  }
+
+  try {
+    await updateMemberAdmin({ memberId, adminId: admin.id, updates: parsed.data });
+  } catch (err) {
+    if (err instanceof DuplicateIndexNumberError) {
+      return { fieldErrors: { indexNumber: [err.message] } };
+    }
+    if (err instanceof DuplicateEmailError) {
+      return { fieldErrors: { email: [err.message] } };
+    }
+    console.error("[update-member-admin]", err);
+    return { error: "Something went wrong saving these changes. Please try again." };
+  }
+
+  revalidatePath("/admin/members");
+  revalidatePath(`/admin/members/${memberId}`);
+  return { success: true };
+}
+
 async function deleteMemberActionImpl(memberId: string): Promise<void> {
   const admin = await requireAdminRole(AdminRole.SUPER_ADMIN);
   await deleteMember({ memberId, adminId: admin.id });
@@ -353,6 +391,7 @@ export const changeMemberPasswordAction = withActionErrorHandling("changeMemberP
 export const forgotPasswordAction = withActionErrorHandling("forgotPasswordAction", forgotPasswordActionImpl);
 export const resetPasswordAction = withActionErrorHandling("resetPasswordAction", resetPasswordActionImpl);
 export const updateMemberProfileAction = withActionErrorHandling("updateMemberProfileAction", updateMemberProfileActionImpl);
+export const updateMemberAdminAction = withActionErrorHandling("updateMemberAdminAction", updateMemberAdminActionImpl);
 export const deleteMemberAction = withVoidActionErrorHandling("deleteMemberAction", deleteMemberActionImpl);
 export const deleteApplicationAction = withVoidActionErrorHandling("deleteApplicationAction", deleteApplicationActionImpl);
 export const setMemberStatusAction = withVoidActionErrorHandling("setMemberStatusAction", setMemberStatusActionImpl);
