@@ -2,7 +2,6 @@ import Link from "next/link";
 import {
   Users,
   ClipboardList,
-  CheckCircle2,
   Newspaper,
   CalendarDays,
   CalendarCheck2,
@@ -48,12 +47,6 @@ export default async function AdminDashboardPage() {
           value={counts.pendingApplications}
           href="/admin/membership-applications?status=PENDING"
           accent={counts.pendingApplications > 0}
-        />
-        <StatCard
-          icon={CheckCircle2}
-          label="Approved Applications"
-          value={counts.approvedApplications}
-          href="/admin/membership-applications?status=APPROVED"
         />
         <StatCard icon={Newspaper} label="News Articles" value={counts.newsCount} href="/admin/news" />
         <StatCard

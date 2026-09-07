@@ -11,11 +11,17 @@ import { formatFullName } from "@/lib/format";
 export const metadata = { title: "Membership Applications" };
 export const dynamic = "force-dynamic";
 
+// No "Approved" tab: an approved application already has its own life as a
+// Member, managed from /admin/members — surfacing it here too, forever,
+// read as a second copy of the same account rather than what it actually
+// is (the immutable original-submission record). The rows themselves are
+// untouched and still reachable — via "All", via search, or by following a
+// Member's original-application link — this only removes the shortcut that
+// made them look like part of the day-to-day review queue.
 const STATUS_TABS: { value: ApplicationStatus | ""; label: string }[] = [
   { value: "", label: "All" },
   { value: ApplicationStatus.PENDING, label: "Pending" },
   { value: ApplicationStatus.UNDER_REVIEW, label: "Under Review" },
-  { value: ApplicationStatus.APPROVED, label: "Approved" },
   { value: ApplicationStatus.REJECTED, label: "Rejected" },
   { value: ApplicationStatus.SUSPENDED, label: "Suspended" },
 ];

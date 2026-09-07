@@ -36,7 +36,6 @@ export async function getDashboardCounts() {
   const [
     totalMembers,
     pendingApplications,
-    approvedApplications,
     newsCount,
     upcomingEvents,
     pastEvents,
@@ -50,7 +49,6 @@ export async function getDashboardCounts() {
     // links to would disagree with each other.
     db.member.count({ where: { alumniProfile: null } }),
     db.membershipApplication.count({ where: { status: "PENDING" } }),
-    db.membershipApplication.count({ where: { status: "APPROVED" } }),
     db.news.count(),
     db.event.count({ where: { status: "PUBLISHED", endDate: { gte: new Date() } } }),
     db.event.count({ where: { status: "PUBLISHED", endDate: { lt: new Date() } } }),
@@ -62,7 +60,6 @@ export async function getDashboardCounts() {
   return {
     totalMembers,
     pendingApplications,
-    approvedApplications,
     newsCount,
     upcomingEvents,
     pastEvents,
