@@ -214,8 +214,27 @@ async function prepareAndUpload(
       headers: { "Content-Type": mimeType },
       body: prepared,
     });
-    if (!response.ok) throw new Error(`upload responded ${response.status}`);
-  } catch {
+    if (!response.ok) {
+      // Storage answered and refused: an expired URL or a signature mismatch,
+      // not a connectivity problem. Worth separating, because the person
+      // retrying won't help and the log line says why.
+      const detail = await response.text().catch(() => "");
+      console.error("[enroll-upload] storage rejected the upload", response.status, detail.slice(0, 300));
+      return { status: "error", message: "We couldn't save that file. Please try attaching it again." };
+    }
+  } catch (err) {
+    // fetch() rejects rather than returning a response when the request never
+    // completed at all — genuinely offline, or blocked by the browser before
+    // it was sent. In practice the second is far more likely, and means the
+    // bucket's CORS policy doesn't list this origin (see the CORS step in
+    // README.md). That's a deployment configuration problem, and from here it
+    // is indistinguishable from a dropped connection — so log the origin,
+    // which is the one detail that tells the two apart in a bug report.
+    console.error("[enroll-upload] upload request did not complete", {
+      pageOrigin: typeof location === "undefined" ? null : location.origin,
+      hint: "if this is a CORS block, add the origin above to the R2 bucket's AllowedOrigins",
+      err,
+    });
     return {
       status: "error",
       message: "That file didn't finish uploading. Please check your connection and try again.",
