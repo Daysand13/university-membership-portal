@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { Loader2, ImagePlus, AlertCircle, Pencil, CheckCircle2, FileText } from "lucide-react";
-import { submitEnrollmentAction } from "@/lib/actions/membership-actions";
+import { submitEnrollmentAction, requestEnrollmentUploadAction } from "@/lib/actions/membership-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
@@ -22,7 +22,6 @@ import {
   MEMBERSHIP_TYPE_LABELS,
   MAX_PASSPORT_PICTURE_BYTES,
   MAX_MEDICAL_REPORT_BYTES,
-  MAX_TOTAL_UPLOAD_BYTES,
   type ApplicationTrack,
 } from "@/lib/validations/membership";
 import { downscaleImage } from "@/lib/client/downscale-image";
@@ -144,36 +143,92 @@ function formatBytes(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))}KB`;
 }
 
+const MIME_BY_EXTENSION: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+};
+
 /**
- * Shrinks an image selection where possible and writes the result back into
- * the file input, so the form submits the smaller file.
- *
- * Returns the size actually staged for upload — which is what the caller's
- * guards are measured against, not the size the person originally picked.
+ * Some Android file providers hand back a File with an empty `type`. Falling
+ * back to the extension keeps those selections usable; the server verifies the
+ * actual bytes either way, so a wrong guess is caught rather than trusted.
  */
-async function stageFileSelection(
-  input: HTMLInputElement | null,
-  file: File | undefined,
+function resolveMimeType(file: File): string {
+  if (file.type) return file.type;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return MIME_BY_EXTENSION[ext] ?? "";
+}
+
+type UploadOutcome =
+  | { status: "ready"; bytes: number; token: string; filename: string; file: File }
+  /** R2 isn't configured (local development) — carry on without storing anything. */
+  | { status: "skipped"; bytes: number; filename: string; file: File }
+  | { status: "error"; message: string };
+
+/**
+ * Re-encodes an image where possible, then uploads it straight to R2 and
+ * returns the signed ticket naming the stored object.
+ *
+ * The file bytes never touch the Next.js server: they cannot, because Vercel
+ * rejects a Function request body over 4.5MB before the function runs, and
+ * this form accepts files that alone exceed that. The form submission carries
+ * only the ticket.
+ */
+async function prepareAndUpload(
+  kind: "passport" | "medical",
+  file: File,
   targetBytes: number,
-): Promise<number> {
-  if (!file) return 0;
+): Promise<UploadOutcome> {
+  const prepared = await downscaleImage(file, { targetBytes });
+  const mimeType = resolveMimeType(prepared);
 
-  const processed = await downscaleImage(file, { targetBytes });
-  if (processed === file) return file.size;
-
-  // Swapping the input's FileList is the only way to make a native form
-  // submission carry the re-encoded file. DataTransfer is the standard route
-  // and is widely supported, but if a browser refuses, fall back to the
-  // original selection rather than losing the file entirely — the size guards
-  // will then surface a clear message instead of a failed submission.
+  let ticket;
   try {
-    const transfer = new DataTransfer();
-    transfer.items.add(processed);
-    if (input) input.files = transfer.files;
-    return processed.size;
+    ticket = await requestEnrollmentUploadAction({
+      kind,
+      filename: prepared.name,
+      mimeType,
+      fileSize: prepared.size,
+    });
   } catch {
-    return file.size;
+    return {
+      status: "error",
+      message: "We couldn't start the upload. Please check your connection and try again.",
+    };
   }
+
+  if (!ticket.ok) return { status: "error", message: ticket.error };
+  if (ticket.mode === "skip") {
+    return { status: "skipped", bytes: prepared.size, filename: prepared.name, file: prepared };
+  }
+
+  try {
+    const response = await fetch(ticket.uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": mimeType },
+      body: prepared,
+    });
+    if (!response.ok) throw new Error(`upload responded ${response.status}`);
+  } catch {
+    return {
+      status: "error",
+      message: "That file didn't finish uploading. Please check your connection and try again.",
+    };
+  }
+
+  return {
+    status: "ready",
+    bytes: prepared.size,
+    token: ticket.token,
+    filename: prepared.name,
+    file: prepared,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -339,16 +394,28 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
   // after any re-encoding, not the size originally selected.
   const [passportBytes, setPassportBytes] = useState(0);
   const [medicalBytes, setMedicalBytes] = useState(0);
+  // Signed tickets naming the objects already uploaded to R2. These are what
+  // the form actually submits in place of the file bytes. Because they live in
+  // React state rather than in the (uncontrolled) file inputs, they survive a
+  // failed submission — so a duplicate index number no longer costs someone
+  // their attachments.
+  const [passportToken, setPassportToken] = useState("");
+  const [medicalToken, setMedicalToken] = useState("");
+  const [passportUploadError, setPassportUploadError] = useState<string | null>(null);
+  const [medicalUploadError, setMedicalUploadError] = useState<string | null>(null);
   const [processingFiles, setProcessingFiles] = useState(false);
+  const [passportMissing, setPassportMissing] = useState(false);
   const [medicalMissing, setMedicalMissing] = useState(false);
-  const [filesClearedNotice, setFilesClearedNotice] = useState(false);
   const fe = state.fieldErrors ?? {};
 
+  // Only the per-file product limits are enforced now. The combined-size cap
+  // this form briefly needed is gone with the reason for it: attachments no
+  // longer ride along in the submission, so the request body can't outgrow
+  // what the platform accepts.
   const passportTooLarge = passportBytes > MAX_PASSPORT_PICTURE_BYTES;
   const medicalTooLarge = medicalBytes > MAX_MEDICAL_REPORT_BYTES;
-  const totalTooLarge =
-    !passportTooLarge && !medicalTooLarge && passportBytes + medicalBytes > MAX_TOTAL_UPLOAD_BYTES;
-  const uploadsBlocked = passportTooLarge || medicalTooLarge || totalTooLarge;
+  const uploadsBlocked =
+    passportTooLarge || medicalTooLarge || Boolean(passportUploadError) || Boolean(medicalUploadError);
 
   const isPg = track === "POSTGRADUATE";
   const departmentOptions = isPg ? POSTGRAD_DEPARTMENTS : ACADEMIC_DEPARTMENTS;
@@ -359,27 +426,21 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
   // If the server action comes back with an error (e.g. a duplicate index
   // number — the one thing that can only be checked server-side), jump back
   // to the editable form automatically so the error is actually visible
-  // instead of rendering inside a hidden review screen. React also clears
-  // the (uncontrolled, unavoidably so) file inputs whenever an action
-  // finishes, so warn the person to reselect their files if that happened.
+  // instead of rendering inside a hidden review screen.
+  //
+  // React clears the (uncontrolled, unavoidably so) file inputs whenever an
+  // action finishes, which used to mean re-picking both attachments after any
+  // failed submission. It no longer does: the uploads already happened and
+  // their tickets live in state, so what the person picked is still attached.
+  //
   // Adjusted during render (React's recommended pattern for reacting to a
-  // prop/value change) rather than in a useEffect, so it can't cause an
-  // extra render-then-fix flash.
+  // prop/value change) rather than in a useEffect, so it can't cause an extra
+  // render-then-fix flash.
   const [lastHandledState, setLastHandledState] = useState(state);
   if (state !== lastHandledState) {
     setLastHandledState(state);
     if (state.error || (state.fieldErrors && Object.keys(state.fieldErrors).length > 0)) {
       setPhase("form");
-      if (previewUrl || medicalFileName) {
-        setFilesClearedNotice(true);
-        setPreviewUrl(null);
-        setMedicalFileName(null);
-        // The inputs themselves have been emptied by React, so the recorded
-        // sizes have to go with them or the guards would keep blocking on
-        // files that are no longer attached.
-        setPassportBytes(0);
-        setMedicalBytes(0);
-      }
     }
   }
 
@@ -413,16 +474,25 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
       formEl.reportValidity();
       return;
     }
-    if ((medicalInputRef.current?.files?.length ?? 0) === 0) {
+    // Attachments are checked from state rather than from the file inputs.
+    // React empties those after any failed submission, but the uploads behind
+    // them are still in place — reading the inputs would wrongly report that
+    // someone had attached nothing.
+    if (passportBytes === 0) {
+      setPassportMissing(true);
+      passportInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (medicalBytes === 0) {
       setMedicalMissing(true);
       medicalInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    // Oversized attachments used to reach the server action, where the
-    // platform rejected the whole request before any of our code ran — the
-    // person just got a generic error. Stopping here instead keeps the
-    // failure visible, specific, and fixable.
-    if (uploadsBlocked) {
+    // A file that's too large, or that failed to upload, stops here with a
+    // specific message. This used to reach the server action, where the
+    // platform rejected the whole request before any of our code ran and the
+    // person just saw a generic error.
+    if (uploadsBlocked || processingFiles) {
       passportInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
@@ -459,12 +529,10 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
         <input type="hidden" name="track" value={track} />
         <BotProtectionFields />
 
-        {filesClearedNotice && (
-          <div className="rounded-lg border border-danger bg-danger-light p-4 text-sm text-danger">
-            For security, your browser clears selected files whenever a submission doesn&apos;t go through. Please
-            reselect your Passport Picture and Medical Report below before submitting again.
-          </div>
-        )}
+        {/* The attachments themselves are already in R2 by the time this form
+            is submitted. These tickets are all that travels with it. */}
+        <input type="hidden" name="profilePictureToken" value={passportToken} />
+        <input type="hidden" name="medicalReportToken" value={medicalToken} />
 
         {/* Notice — must be read before membership type / rest of the form */}
         <div className="rounded-lg border border-accent-300 bg-accent-50 p-6 sm:p-7 flex gap-3">
@@ -727,9 +795,19 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
               <input
                 ref={passportInputRef}
                 id="profilePicture"
-                name="profilePicture"
                 type="file"
-                required
+                // No `name`, and no `required`, both deliberate.
+                //
+                // No name: the bytes must not be posted with the form. They go
+                // straight to R2 in onChange and only the signed ticket is
+                // submitted, which is what keeps this request small enough for
+                // the platform to accept at all.
+                //
+                // No required: React empties file inputs after a failed
+                // submission, so native validation would demand a file that is
+                // in fact already uploaded. handleReviewClick checks the upload
+                // state instead.
+                //
                 // Concrete MIME types rather than the `image/*` wildcard, for
                 // the same reason as the medical report field below: on
                 // Chrome for Android a wildcard media type produces a
@@ -741,21 +819,23 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
                 accept="image/jpeg,.jpg,.jpeg,image/png,.png,image/webp,.webp"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
-                  if (!file) {
-                    setPassportBytes(0);
-                    setPreviewUrl(null);
-                    return;
-                  }
-                  setFilesClearedNotice(false);
+                  setPassportUploadError(null);
+                  // A cancelled picker leaves any previous successful upload
+                  // alone rather than silently detaching it.
+                  if (!file) return;
+                  setPassportMissing(false);
                   setProcessingFiles(true);
+                  setPreviewUrl(URL.createObjectURL(file));
                   try {
-                    const staged = await stageFileSelection(
-                      passportInputRef.current,
-                      file,
-                      PASSPORT_TARGET_BYTES,
-                    );
-                    setPassportBytes(staged);
-                    setPreviewUrl(URL.createObjectURL(passportInputRef.current?.files?.[0] ?? file));
+                    const outcome = await prepareAndUpload("passport", file, PASSPORT_TARGET_BYTES);
+                    if (outcome.status === "error") {
+                      setPassportUploadError(outcome.message);
+                      setPassportBytes(0);
+                      setPassportToken("");
+                      return;
+                    }
+                    setPassportBytes(outcome.bytes);
+                    setPassportToken(outcome.status === "ready" ? outcome.token : "");
                   } finally {
                     setProcessingFiles(false);
                   }
@@ -772,6 +852,15 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
                 This photo is {formatBytes(passportBytes)}, over the 2MB limit — please choose a smaller file.
               </p>
             )}
+            {passportUploadError && <p className="mt-1 text-xs text-danger">{passportUploadError}</p>}
+            {passportMissing && (
+              <p className="mt-1 text-xs text-danger">Please attach your passport picture before continuing.</p>
+            )}
+            {passportBytes > 0 && !passportTooLarge && !passportUploadError && (
+              <p className="mt-1 text-xs text-primary-700 flex items-center gap-1">
+                <CheckCircle2 size={13} className="shrink-0" /> Uploaded ({formatBytes(passportBytes)})
+              </p>
+            )}
             <FieldError messages={fe.profilePicture} />
           </div>
           <div className="sm:col-span-2">
@@ -779,8 +868,10 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
             <input
               ref={medicalInputRef}
               id="medicalReport"
-              name="medicalReport"
               type="file"
+              // No `name`: like the passport field above, the bytes go straight
+              // to R2 and only the signed ticket is submitted with the form.
+              //
               // Deliberately does NOT use the `image/*` wildcard here.
               // Chrome on Android turns this list into a system intent, and
               // a wildcard media type makes Android (Samsung's One UI in
@@ -799,24 +890,26 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
               accept="application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,.jpg,.jpeg,image/png,.png"
               onChange={async (e) => {
                 const file = e.target.files?.[0];
-                if (!file) {
-                  setMedicalBytes(0);
-                  setMedicalFileName(null);
-                  return;
-                }
-                setFilesClearedNotice(false);
+                setMedicalUploadError(null);
+                // A cancelled picker leaves any previous successful upload
+                // alone rather than silently detaching it.
+                if (!file) return;
                 setMedicalMissing(false);
                 setProcessingFiles(true);
+                setMedicalFileName(file.name);
                 try {
-                  // A PDF or Word document comes back untouched; only a photo
-                  // of a report gets re-encoded.
-                  const staged = await stageFileSelection(
-                    medicalInputRef.current,
-                    file,
-                    MEDICAL_IMAGE_TARGET_BYTES,
-                  );
-                  setMedicalBytes(staged);
-                  setMedicalFileName(medicalInputRef.current?.files?.[0]?.name ?? file.name);
+                  // A PDF or Word document uploads untouched; only a photo of a
+                  // report gets re-encoded first.
+                  const outcome = await prepareAndUpload("medical", file, MEDICAL_IMAGE_TARGET_BYTES);
+                  if (outcome.status === "error") {
+                    setMedicalUploadError(outcome.message);
+                    setMedicalBytes(0);
+                    setMedicalToken("");
+                    return;
+                  }
+                  setMedicalBytes(outcome.bytes);
+                  setMedicalToken(outcome.status === "ready" ? outcome.token : "");
+                  setMedicalFileName(outcome.filename);
                 } finally {
                   setProcessingFiles(false);
                 }
@@ -833,22 +926,20 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
                 This file is {formatBytes(medicalBytes)}, over the 5MB limit — please choose a smaller file.
               </p>
             )}
+            {medicalUploadError && <p className="mt-1 text-xs text-danger">{medicalUploadError}</p>}
             {medicalMissing && (
               <p className="mt-1 text-xs text-danger">Please attach your medical report before continuing.</p>
+            )}
+            {medicalBytes > 0 && !medicalTooLarge && !medicalUploadError && (
+              <p className="mt-1 text-xs text-primary-700 flex items-center gap-1">
+                <CheckCircle2 size={13} className="shrink-0" /> Uploaded ({formatBytes(medicalBytes)})
+              </p>
             )}
             <FieldError messages={fe.medicalReportKey} />
           </div>
           {processingFiles && (
-            <p className="sm:col-span-2 text-xs text-slate-light">Preparing your attachments…</p>
-          )}
-          {/* The combined limit is the one that actually broke submissions:
-              two files that each pass their own check can still add up to a
-              request the server never receives. */}
-          {totalTooLarge && (
-            <p className="sm:col-span-2 text-xs text-danger">
-              Your two attachments come to {formatBytes(passportBytes + medicalBytes)} together, which is over
-              the {formatBytes(MAX_TOTAL_UPLOAD_BYTES)} limit for one submission. Please replace one with a
-              smaller file — a photo taken at lower resolution, or a PDF saved at a smaller size.
+            <p className="sm:col-span-2 text-xs text-slate-light flex items-center gap-1.5">
+              <Loader2 size={13} className="animate-spin shrink-0" /> Uploading your attachments…
             </p>
           )}
         </SectionCard>
@@ -930,7 +1021,7 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
           size="lg"
           className="w-full"
         >
-          {processingFiles ? "Preparing attachments…" : "Review Application"}
+          {processingFiles ? "Uploading attachments…" : "Review Application"}
         </Button>
       </form>
     </div>

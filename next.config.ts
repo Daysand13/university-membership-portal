@@ -8,23 +8,22 @@ try {
 }
 
 const nextConfig: NextConfig = {
-  // Raises Next.js's own 1MB default so a 2MB passport picture can travel in
-  // a Server Action body at all. This IS load-bearing for the 1–4.5MB range.
+  // Raises Next.js's own 1MB default for Server Action bodies. Kept modest on
+  // purpose: no value here can lift the limit that actually matters.
   //
-  // But it does NOT — and cannot — do what its previous comment claimed.
   // Vercel independently caps a Function's request body at 4.5MB and rejects
   // anything larger with `413 FUNCTION_PAYLOAD_TOO_LARGE` at the edge, before
-  // the function is invoked. No value here lifts that ceiling.
+  // the function is invoked. A previous version of this comment claimed
+  // raising bodySizeLimit had solved oversized enrollment uploads; it hadn't,
+  // and couldn't. That pre-invocation rejection is precisely why those
+  // submissions produced a generic error with *nothing* in the runtime logs —
+  // the request never reached our code, so withActionErrorHandling could not
+  // catch it and console.error never ran. The empty log was the symptom, not
+  // the absence of one.
   //
-  // That pre-invocation rejection is why oversized enrollment submissions
-  // produced a generic error with *nothing* in the runtime logs: the request
-  // never reached our code, so withActionErrorHandling could not catch it and
-  // console.error never ran. An empty log was the symptom, not the absence of
-  // one. Anything that must exceed 4.5MB has to go straight to R2 via a
-  // presigned URL rather than through a Server Action body.
-  //
-  // See MAX_TOTAL_UPLOAD_BYTES in src/lib/validations/membership.ts for the
-  // client-side guard that keeps enrollment submissions under the real cap.
+  // Enrollment attachments therefore no longer travel in a Server Action body
+  // at all: the browser uploads them straight to R2 and submits a signed
+  // ticket instead. See src/lib/services/enrollment-upload-service.ts.
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb",

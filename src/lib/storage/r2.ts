@@ -170,3 +170,44 @@ export function isR2Configured(): boolean {
       process.env.R2_BUCKET_NAME,
   );
 }
+
+/**
+ * Metadata for an object already in the bucket. Used to check that a
+ * direct-to-R2 upload actually matches what was authorised, before anything
+ * referencing it is saved. Returns null when the object doesn't exist.
+ */
+export async function getObjectMetadata(
+  objectKey: string,
+): Promise<{ size: number; contentType: string | null; lastModified: Date | null } | null> {
+  try {
+    const res = await getClient().send(new HeadObjectCommand({ Bucket: getBucket(), Key: objectKey }));
+    return {
+      size: res.ContentLength ?? 0,
+      contentType: res.ContentType ?? null,
+      lastModified: res.LastModified ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reads the first `byteCount` bytes of an object.
+ *
+ * This is what preserves the "never trust the browser's Content-Type"
+ * guarantee once file bytes stop passing through the server: we read the
+ * head of the stored object back and sniff it. Without this, moving
+ * enrollment uploads direct-to-R2 would be a genuine security regression.
+ */
+export async function readObjectHeadBytes(objectKey: string, byteCount: number): Promise<Uint8Array | null> {
+  try {
+    const res = await getClient().send(
+      new GetObjectCommand({ Bucket: getBucket(), Key: objectKey, Range: `bytes=0-${byteCount - 1}` }),
+    );
+    const body = res.Body as { transformToByteArray?: () => Promise<Uint8Array> } | undefined;
+    if (!body?.transformToByteArray) return null;
+    return await body.transformToByteArray();
+  } catch {
+    return null;
+  }
+}
