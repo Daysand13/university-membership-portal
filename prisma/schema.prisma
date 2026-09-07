@@ -122,6 +122,13 @@ model AdminUser {
   auditLogs            AuditLog[]
   uploadedMedia        Media[]
 
+  // Link to the unified identity row. The granular AdminRole above stays
+  // the source of truth for what an admin may actually do — the unified
+  // model only records THAT they're an admin, never flattening these six
+  // distinct permission levels into one.
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
+
   @@map("admin_users")
 }
 
@@ -171,6 +178,9 @@ model Member {
 
   passwordResetTokens PasswordResetToken[]
   alumniProfile       AlumniProfile?
+
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
 
   @@index([status])
   @@map("members")
@@ -230,7 +240,8 @@ model MembershipApplication {
   submittedAt DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  member Member?
+  member            Member?
+  studentEnrollment StudentEnrollment?
 
   @@index([status])
   @@index([submittedAt])
@@ -625,6 +636,9 @@ model AlumniProfile {
 
   furtherStudiesApplications MembershipApplication[]
 
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -668,4 +682,116 @@ model RateLimitAttempt {
 
   @@index([key, createdAt])
   @@map("rate_limit_attempts")
+}
+
+// ==================================================================
+// UNIFIED IDENTITY (dual-status architecture)
+//
+// One human = one User row = one login, regardless of how many hats
+// they wear. The tables below exist alongside the original Member /
+// AlumniProfile / AdminUser records during the migration: those still
+// own authentication today, while these are backfilled and dormant.
+// Auth moves over in a later stage, and the legacy columns retire only
+// once that's proven — so a problem at any point is a rollback, not a
+// lockout.
+// ==================================================================
+
+enum UserRoleName {
+  MEMBER
+  ALUMNI
+  ADMIN
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  GRADUATED
+  SUSPENDED
+}
+
+model User {
+  id           String @id @default(cuid())
+  email        String @unique
+  passwordHash String
+
+  // Person-level details, as opposed to the per-enrollment academic
+  // fields on StudentEnrollment. Kept here so this row can stand on its
+  // own once the legacy tables are retired.
+  firstName  String
+  middleName String?
+  lastName   String
+  phone      String?
+
+  mustChangePassword Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  roles       UserRole[]
+  enrollments StudentEnrollment[]
+
+  // Back-references to the legacy records this user was built from, so
+  // the two models can be reconciled in either direction mid-migration.
+  member        Member?
+  alumniProfile AlumniProfile?
+  adminUser     AdminUser?
+
+  @@map("users")
+}
+
+model UserRole {
+  id     String       @id @default(cuid())
+  userId String
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   UserRoleName
+
+  createdAt DateTime @default(now())
+
+  // A role is granted once per user — "grant dual status" is an insert
+  // here, and this stops it being granted twice.
+  @@unique([userId, role])
+  @@index([role])
+  @@map("user_roles")
+}
+
+// One row per period of study. A returning student gets a NEW row with
+// their NEW index number rather than having the old one overwritten —
+// which is what makes a changing index number a non-event, and keeps
+// their earlier studies on the record instead of erasing them.
+model StudentEnrollment {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  indexNumber String @unique
+
+  applicationTrack       ApplicationTrack?
+  degreeCategory         String?
+  programme              String
+  academicDepartment     String?
+  level                  String
+  campus                 String
+  hallOfAffiliation      String?
+  yearOfAdmission        Int
+  expectedGraduationYear Int?
+
+  // Category of special needs, matching the naming the rest of the
+  // schema already uses for this field.
+  department           String
+  specificSupportNeeds String[] @default([])
+
+  membershipType MembershipType?
+  status         EnrollmentStatus @default(ACTIVE)
+  graduatedAt    DateTime?
+
+  // The application this enrollment cycle came from, where there was
+  // one (a backfilled historical enrollment may have none).
+  applicationId String?                @unique
+  application   MembershipApplication? @relation(fields: [applicationId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("student_enrollments")
 }
