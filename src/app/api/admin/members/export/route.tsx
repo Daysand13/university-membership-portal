@@ -8,6 +8,11 @@ import { MemberListPdf } from "@/lib/pdf/MemberListPdf";
 
 // @react-pdf/renderer needs the full Node runtime (it isn't Edge-compatible).
 export const runtime = "nodejs";
+// Always pull a fresh member list — this must never serve a cached PDF from
+// a previous export, at any layer (Next's route cache, Vercel's edge, or
+// the browser).
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function buildFilterSummary(sp: URLSearchParams): string {
   const parts: string[] = [];
@@ -65,7 +70,8 @@ export async function GET(request: NextRequest) {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="${filename}"`,
-      "Cache-Control": "no-store",
+      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+      "Pragma": "no-cache",
     },
   });
 }

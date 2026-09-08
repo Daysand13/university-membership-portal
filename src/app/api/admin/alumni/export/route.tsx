@@ -7,6 +7,8 @@ import { AlumniListPdf } from "@/lib/pdf/AlumniListPdf";
 
 // @react-pdf/renderer needs the full Node runtime (it isn't Edge-compatible).
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function buildFilterSummary(sp: URLSearchParams): string {
   const parts: string[] = [];
@@ -43,7 +45,8 @@ export async function GET(request: NextRequest) {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="${filename}"`,
-      "Cache-Control": "no-store",
+      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+      "Pragma": "no-cache",
     },
   });
 }
