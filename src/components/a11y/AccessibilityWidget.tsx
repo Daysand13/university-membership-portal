@@ -3,16 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
-import { Contrast, Volume2, VolumeX } from "lucide-react";
+import { Moon, Sun, Volume2, VolumeX } from "lucide-react";
 
-const CONTRAST_MODES = [
-  { key: "", label: "Contrast: Default" },
-  { key: "dark", label: "Contrast: Dark High-Contrast" },
-  { key: "light-boost", label: "Contrast: Light High-Contrast" },
-  { key: "grayscale", label: "Contrast: Grayscale" },
-] as const;
-
-const CONTRAST_STORAGE_KEY = "a11y-contrast-mode";
+const THEME_STORAGE_KEY = "a11y-theme";
 
 // The public header renders an empty slot with this id right next to its
 // mobile hamburger button (see MobileNav) — portalling the compact buttons
@@ -27,29 +20,30 @@ const BUTTON_CLASSES =
 /**
  * Site-wide accessibility toolbar: a "Read Aloud" button that speaks the
  * current page's content via the browser's speech synthesis, and a
- * "Contrast" button that cycles through several high-contrast display
- * modes. Mounted once in the root layout so both work on every page.
+ * Dark/Light mode toggle — same idea as a phone's system theme switch.
+ * Written copy goes white on dark, dark on light; the gold accent palette
+ * is untouched either way (see globals.css). Mounted once in the root
+ * layout so both controls work on every page.
  */
 export function AccessibilityWidget() {
   const pathname = usePathname();
-  const [contrastIndex, setContrastIndex] = useState(0);
+  const [isDark, setIsDark] = useState(false);
   const [isReading, setIsReading] = useState(false);
   const [mobileSlot, setMobileSlot] = useState<HTMLElement | null>(null);
   const hydrated = useRef(false);
 
-  // Restore the saved contrast mode after mount (a plain page load starts
-  // fresh, client-side navigations within the app keep this component
-  // mounted and don't need it, but reading localStorage is cheap either way).
+  // Restore the saved theme after mount (a plain page load starts fresh;
+  // client-side navigations keep this component mounted and don't need
+  // this, but reading localStorage again is cheap either way).
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(CONTRAST_STORAGE_KEY) ?? "";
-      const idx = CONTRAST_MODES.findIndex((m) => m.key === stored);
+      const stored = localStorage.getItem(THEME_STORAGE_KEY);
       // One-time localStorage hydration after mount; reading it during
       // render would mismatch the server-rendered default.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (idx > 0) setContrastIndex(idx);
+      if (stored === "dark") setIsDark(true);
     } catch {
-      // localStorage unavailable (private browsing, etc.) — default mode is fine.
+      // localStorage unavailable (private browsing, etc.) — light mode is fine.
     }
     hydrated.current = true;
     // The slot lives in server-rendered header markup that's already in the
@@ -58,20 +52,19 @@ export function AccessibilityWidget() {
   }, []);
 
   useEffect(() => {
-    const mode = CONTRAST_MODES[contrastIndex];
-    if (mode.key) {
-      document.documentElement.setAttribute("data-contrast", mode.key);
+    if (isDark) {
+      document.documentElement.setAttribute("data-theme", "dark");
     } else {
-      document.documentElement.removeAttribute("data-contrast");
+      document.documentElement.removeAttribute("data-theme");
     }
     if (hydrated.current) {
       try {
-        localStorage.setItem(CONTRAST_STORAGE_KEY, mode.key);
+        localStorage.setItem(THEME_STORAGE_KEY, isDark ? "dark" : "light");
       } catch {
-        // Ignore — the mode still applies for this page view.
+        // Ignore — the theme still applies for this page view.
       }
     }
-  }, [contrastIndex]);
+  }, [isDark]);
 
   // Stop reading whenever the route changes, so speech never carries on
   // top of a page the visitor already navigated away from. Also re-check
@@ -88,8 +81,8 @@ export function AccessibilityWidget() {
     }
   }, [pathname]);
 
-  const toggleContrast = useCallback(() => {
-    setContrastIndex((i) => (i + 1) % CONTRAST_MODES.length);
+  const toggleTheme = useCallback(() => {
+    setIsDark((d) => !d);
   }, []);
 
   const toggleReadAloud = useCallback(() => {
@@ -126,7 +119,7 @@ export function AccessibilityWidget() {
   }, [isReading]);
 
   const readAloudLabel = isReading ? "Stop reading page aloud" : "Read this page aloud";
-  const contrastLabel = `Change contrast mode — currently ${CONTRAST_MODES[contrastIndex].label.replace("Contrast: ", "")}`;
+  const themeLabel = isDark ? "Switch to light mode" : "Switch to dark mode";
 
   const compactButtons = (
     <>
@@ -139,8 +132,14 @@ export function AccessibilityWidget() {
       >
         {isReading ? <VolumeX size={17} /> : <Volume2 size={17} />}
       </button>
-      <button type="button" onClick={toggleContrast} aria-label={contrastLabel} className={`${BUTTON_CLASSES} p-2`}>
-        <Contrast size={17} />
+      <button
+        type="button"
+        onClick={toggleTheme}
+        aria-pressed={isDark}
+        aria-label={themeLabel}
+        className={`${BUTTON_CLASSES} p-2`}
+      >
+        {isDark ? <Sun size={17} /> : <Moon size={17} />}
       </button>
     </>
   );
@@ -159,12 +158,13 @@ export function AccessibilityWidget() {
       </button>
       <button
         type="button"
-        onClick={toggleContrast}
-        aria-label={contrastLabel}
+        onClick={toggleTheme}
+        aria-pressed={isDark}
+        aria-label={themeLabel}
         className={`${BUTTON_CLASSES} pl-3.5 pr-4 py-2.5 text-sm font-semibold`}
       >
-        <Contrast size={18} />
-        {CONTRAST_MODES[contrastIndex].label}
+        {isDark ? <Sun size={18} /> : <Moon size={18} />}
+        {isDark ? "Light Mode" : "Dark Mode"}
       </button>
     </>
   );

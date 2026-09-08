@@ -202,28 +202,97 @@
 }
 
 /*
-  Accessibility contrast modes, toggled by AccessibilityWidget via a
-  data-contrast attribute on <html>. Uses the CSS filter trick (invert the
-  whole document, then invert images back) rather than overriding every
-  Tailwind color utility individually -- this is the only approach that
-  reliably reaches every component on the site, including ones rendered
-  from database content, without a second maintained color system.
+  Dark / Light theme, toggled by AccessibilityWidget via data-theme="dark"
+  on <html>.
+
+  Deliberately NOT a filter-invert trick (that was tried and reverted --
+  it inverted the gold accent too, and double-inverted wherever an accent
+  background nested an accent-colored icon/text inside it). Instead this
+  redefines the specific color tokens that are genuinely single-purpose
+  (ink/slate/line/surface-muted are only ever used as text or borders,
+  never as a background) directly, so every component that already uses
+  them picks up the new value automatically.
+
+  Institutional navy (primary-600 through 950) and the solid
+  success/danger/warning action buttons are deliberately left untouched
+  in both themes -- those are brand/action colors, not neutral page
+  chrome, the same way a phone's dark mode doesn't recolor an app's own
+  red "Delete" button. Only the "light alert badge" pairs
+  (bg-success-light + text-success, etc.) get an explicit dark-mode pair
+  so they don't end up as dark text on an still-pale background. The gold
+  accent scale is never touched by any of this, in either theme.
 */
-:root[data-contrast="dark"] {
-  filter: invert(1) hue-rotate(180deg);
-}
-:root[data-contrast="dark"] img,
-:root[data-contrast="dark"] video,
-:root[data-contrast="dark"] svg,
-:root[data-contrast="dark"] iframe,
-:root[data-contrast="dark"] embed {
-  filter: invert(1) hue-rotate(180deg);
+:root[data-theme="dark"] {
+  --color-ink: #f2f4f7;
+  --color-slate: #b7c0ca;
+  --color-slate-light: #93a0ac;
+  --color-line: #2a3040;
+  --color-surface-muted: #161a23;
 }
 
-:root[data-contrast="light-boost"] {
-  filter: contrast(1.6) saturate(1.35);
+:root[data-theme="dark"] .bg-white {
+  background-color: #0f121a;
 }
 
-:root[data-contrast="grayscale"] {
-  filter: grayscale(1) contrast(1.35);
+:root[data-theme="dark"] .text-primary-950 {
+  color: #f2f4f7;
+}
+/* text-primary-600/700/800 is used two different ways: as a plain link
+   color on an otherwise neutral card (needs to lighten, or it goes
+   near-invisible on the new dark card background), and painted on top of
+   its own light primary-tinted chip (icon circles, status badges) that
+   isn't touched -- those need to stay their original navy or the chip
+   goes light-on-light instead. The :not() below excludes the second case
+   by checking for that chip's own STATIC light background class -- it
+   requires "bg-primary-50"/"bg-primary-100" to start the class string or
+   follow a space, so it doesn't also match a merely hover:bg-primary-50
+   (a substring match alone would, since "hover:bg-primary-50" contains
+   "bg-primary-50" too, wrongly exempting plain links that only get that
+   light background on hover). */
+:root[data-theme="dark"] .text-primary-600:not(:is([class^="bg-primary-50"], [class*=" bg-primary-50"], [class^="bg-primary-100"], [class*=" bg-primary-100"])),
+:root[data-theme="dark"] .text-primary-700:not(:is([class^="bg-primary-50"], [class*=" bg-primary-50"], [class^="bg-primary-100"], [class*=" bg-primary-100"])),
+:root[data-theme="dark"] .text-primary-800:not(:is([class^="bg-primary-50"], [class*=" bg-primary-50"], [class^="bg-primary-100"], [class*=" bg-primary-100"])) {
+  color: #ccd2f7;
+}
+
+/* A minority of text-primary-950 uses sit on a gold/accent background
+   rather than a plain card (the "accent" button variant, info banners) --
+   those need their original dark navy back, or the override above leaves
+   near-white text on gold, which is both illegible and changes how the
+   gold buttons look between themes. */
+:root[data-theme="dark"] .bg-accent-50.text-primary-950,
+:root[data-theme="dark"] .bg-accent-400.text-primary-950,
+:root[data-theme="dark"] .bg-accent-500.text-primary-950,
+:root[data-theme="dark"] .bg-accent-600.text-primary-950 {
+  color: #14153d;
+}
+
+:root[data-theme="dark"] .text-success {
+  color: #4ade80;
+}
+:root[data-theme="dark"] .bg-success-light {
+  background-color: rgba(74, 222, 128, 0.12);
+}
+:root[data-theme="dark"] .border-success {
+  border-color: rgba(74, 222, 128, 0.4);
+}
+
+:root[data-theme="dark"] .text-danger {
+  color: #f87171;
+}
+:root[data-theme="dark"] .bg-danger-light {
+  background-color: rgba(248, 113, 113, 0.12);
+}
+:root[data-theme="dark"] .border-danger {
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+:root[data-theme="dark"] .text-warning {
+  color: #fbbf24;
+}
+:root[data-theme="dark"] .bg-warning-light {
+  background-color: rgba(251, 191, 36, 0.12);
+}
+:root[data-theme="dark"] .border-warning {
+  border-color: rgba(251, 191, 36, 0.4);
 }

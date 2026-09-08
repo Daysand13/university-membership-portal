@@ -23,12 +23,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className="h-full antialiased">
       <head>
-        {/* Applied before paint so a saved contrast mode never flashes the
-            default theme first on load. */}
+        {/* Applied before paint so a saved dark/light theme never flashes
+            the default theme first on load. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{var m=localStorage.getItem('a11y-contrast-mode');if(m)document.documentElement.setAttribute('data-contrast',m);}catch(e){}",
+              "try{if(localStorage.getItem('a11y-theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}",
           }}
         />
       </head>
