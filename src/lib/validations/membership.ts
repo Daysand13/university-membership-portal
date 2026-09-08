@@ -109,6 +109,7 @@ export const ACADEMIC_DEPARTMENTS = [
 export const PROGRAMS_OF_STUDY = [
   "BA Arabic Education",
   "BA Art Education",
+  "BA Communication and Media Studies",
   "BA Ewe Education",
   "BA Fante, Nzema and Twi Education",
   "BA French Education",

@@ -57,7 +57,11 @@ export function MobileNav({ socialLinks }: { socialLinks: SocialLink[] }) {
   }, [open]);
 
   return (
-    <div className="lg:hidden">
+    <div className="lg:hidden flex items-center gap-1">
+      {/* AccessibilityWidget portals its compact Read Aloud / Contrast
+          buttons in here, so they sit right beside the hamburger instead of
+          floating separately over page content. */}
+      <div id="a11y-mobile-slot" className="flex items-center" />
       <button
         type="button"
         aria-label={open ? "Close menu" : "Open menu"}

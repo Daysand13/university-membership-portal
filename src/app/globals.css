@@ -200,3 +200,30 @@
     text-align: left;
   }
 }
+
+/*
+  Accessibility contrast modes, toggled by AccessibilityWidget via a
+  data-contrast attribute on <html>. Uses the CSS filter trick (invert the
+  whole document, then invert images back) rather than overriding every
+  Tailwind color utility individually -- this is the only approach that
+  reliably reaches every component on the site, including ones rendered
+  from database content, without a second maintained color system.
+*/
+:root[data-contrast="dark"] {
+  filter: invert(1) hue-rotate(180deg);
+}
+:root[data-contrast="dark"] img,
+:root[data-contrast="dark"] video,
+:root[data-contrast="dark"] svg,
+:root[data-contrast="dark"] iframe,
+:root[data-contrast="dark"] embed {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+:root[data-contrast="light-boost"] {
+  filter: contrast(1.6) saturate(1.35);
+}
+
+:root[data-contrast="grayscale"] {
+  filter: grayscale(1) contrast(1.35);
+}
