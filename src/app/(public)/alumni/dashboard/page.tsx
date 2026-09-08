@@ -1,7 +1,10 @@
 import Link from "next/link";
-import { User, Search, Users, CalendarDays, LogOut, Pencil, KeyRound, GraduationCap } from "lucide-react";
+import { User, Search, Users, CalendarDays, LogOut, Pencil, KeyRound, GraduationCap, Briefcase, Heart, Eye } from "lucide-react";
 import { requireAlumni } from "@/lib/auth/alumni";
 import { alumniLogoutAction } from "@/lib/actions/auth-actions";
+import { DashboardStat } from "@/components/dashboard/DashboardStat";
+import { DualStatusBanner } from "@/components/dashboard/DualStatusBanner";
+import { getCurrentUser } from "@/lib/auth/user";
 
 export const metadata = { title: "Alumni Dashboard" };
 export const dynamic = "force-dynamic";
@@ -38,9 +41,10 @@ export default async function AlumniDashboardPage({
 }: {
   searchParams: Promise<{ passwordChanged?: string }>;
 }) {
-  const alumni = await requireAlumni();
+  const [alumni, session] = await Promise.all([requireAlumni(), getCurrentUser()]);
   const sp = await searchParams;
   const firstName = alumni.fullName.split(" ")[0];
+  const isDualStatus = session?.roles.includes("MEMBER") ?? false;
 
   return (
     <div className="bg-surface-muted min-h-[70vh]">
@@ -51,34 +55,45 @@ export default async function AlumniDashboardPage({
           </div>
         )}
 
-        <div className="bg-white rounded-lg border border-line p-7 mb-8 flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
-          <div className="w-16 h-16 rounded-full bg-primary-50 border border-line overflow-hidden flex items-center justify-center text-primary-300 shrink-0">
-            {alumni.profileImageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={alumni.profileImageUrl} alt={alumni.fullName} className="w-full h-full object-cover" />
-            ) : (
-              <User size={26} />
-            )}
-          </div>
-          <div className="flex-1">
-            <h1 className="font-display font-bold text-2xl text-primary-950">Welcome back, {firstName}!</h1>
-            <p className="text-sm text-slate mt-1">
-              {alumni.programme} · Class of {alumni.graduationYear}
-            </p>
-            <div className="mt-4 flex flex-wrap justify-center sm:justify-start gap-3">
-              <Link
-                href="/alumni/profile"
-                className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-800 hover:text-accent-600"
-              >
-                <Pencil size={14} /> Edit Profile
-              </Link>
-              <Link
-                href="/alumni/profile#password"
-                className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-800 hover:text-accent-600"
-              >
-                <KeyRound size={14} /> Change Password
-              </Link>
+        {isDualStatus && <DualStatusBanner otherPortalLabel="Student" />}
+
+        <div className="bg-white rounded-lg border border-line p-7 mb-8">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
+            <div className="w-16 h-16 rounded-full bg-primary-50 border border-line overflow-hidden flex items-center justify-center text-primary-300 shrink-0">
+              {alumni.profileImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={alumni.profileImageUrl} alt={alumni.fullName} className="w-full h-full object-cover" />
+              ) : (
+                <User size={26} />
+              )}
             </div>
+            <div className="flex-1">
+              <h1 className="font-display font-bold text-2xl text-primary-950">Welcome back, {firstName}!</h1>
+              <p className="text-sm text-slate mt-1">
+                {alumni.programme} · Class of {alumni.graduationYear}
+              </p>
+              <div className="mt-4 flex flex-wrap justify-center sm:justify-start gap-3">
+                <Link
+                  href="/alumni/profile"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-800 hover:text-accent-600"
+                >
+                  <Pencil size={14} /> Edit Profile
+                </Link>
+                <Link
+                  href="/alumni/profile#password"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-800 hover:text-accent-600"
+                >
+                  <KeyRound size={14} /> Change Password
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-line">
+            <DashboardStat icon={GraduationCap} label="Class Of" value={String(alumni.graduationYear)} />
+            <DashboardStat icon={Briefcase} label="Profession" value={alumni.profession || "Not set"} />
+            <DashboardStat icon={Heart} label="Mentoring" value={alumni.willingToMentor ? "Yes" : "Not yet"} />
+            <DashboardStat icon={Eye} label="Directory" value={alumni.directoryVisible ? "Visible" : "Hidden"} />
           </div>
         </div>
 

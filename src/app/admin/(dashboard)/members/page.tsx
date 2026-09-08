@@ -3,11 +3,17 @@ import { Users, Trash2, FileDown } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/Common";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { listMembers, getMemberFilterOptions } from "@/lib/services/membership-service";
+import { listMembers, getMemberFilterOptions, MEMBER_SORT_OPTIONS, type MemberSort } from "@/lib/services/membership-service";
 import { deleteMemberAction } from "@/lib/actions/membership-actions";
 import { getCurrentAdmin } from "@/lib/auth/admin";
 import { MEMBERSHIP_TYPE_LABELS } from "@/lib/validations/membership";
 import { formatFullName } from "@/lib/format";
+
+const SORT_LABELS: Record<MemberSort, string> = {
+  newest: "Date Joined (newest first)",
+  oldest: "Date Joined (oldest first)",
+  name: "Name (A–Z)",
+};
 
 export const metadata = { title: "Members" };
 export const dynamic = "force-dynamic";
@@ -23,6 +29,7 @@ interface MembersSearchParams {
   status?: string;
   from?: string;
   to?: string;
+  sort?: string;
 }
 
 function formatDate(date: Date): string {
@@ -31,6 +38,9 @@ function formatDate(date: Date): string {
 
 export default async function AdminMembersPage({ searchParams }: { searchParams: Promise<MembersSearchParams> }) {
   const sp = await searchParams;
+  const sort: MemberSort = (MEMBER_SORT_OPTIONS as readonly string[]).includes(sp.sort ?? "")
+    ? (sp.sort as MemberSort)
+    : "newest";
   const [members, filterOptions, currentAdmin] = await Promise.all([
     listMembers({
       search: sp.q,
@@ -43,6 +53,7 @@ export default async function AdminMembersPage({ searchParams }: { searchParams:
       status: sp.status,
       dateFrom: sp.from,
       dateTo: sp.to,
+      sort,
     }),
     getMemberFilterOptions(),
     getCurrentAdmin(),
@@ -131,6 +142,11 @@ export default async function AdminMembersPage({ searchParams }: { searchParams:
           <label className="text-xs text-slate-light shrink-0">to</label>
           <input type="date" name="to" defaultValue={sp.to} className={`${selectClasses} w-full`} />
         </div>
+        <select name="sort" defaultValue={sort} className={selectClasses}>
+          {MEMBER_SORT_OPTIONS.map((s) => (
+            <option key={s} value={s}>{SORT_LABELS[s]}</option>
+          ))}
+        </select>
         <div className="flex items-center gap-2 lg:col-span-2">
           <button type="submit" className="rounded-md bg-primary-800 text-white px-4 py-2 text-sm font-semibold hover:bg-primary-900">
             Apply Filters

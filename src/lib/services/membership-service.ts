@@ -908,7 +908,17 @@ export interface MemberListFilter {
   status?: string;
   dateFrom?: string;
   dateTo?: string;
+  sort?: MemberSort;
 }
+
+export const MEMBER_SORT_OPTIONS = ["newest", "oldest", "name"] as const;
+export type MemberSort = (typeof MEMBER_SORT_OPTIONS)[number];
+
+const MEMBER_ORDER_BY: Record<MemberSort, Prisma.MemberOrderByWithRelationInput | Prisma.MemberOrderByWithRelationInput[]> = {
+  newest: { createdAt: "desc" },
+  oldest: { createdAt: "asc" },
+  name: [{ firstName: "asc" }, { lastName: "asc" }],
+};
 
 function buildMemberWhere(filter?: MemberListFilter): Prisma.MemberWhereInput {
   const where: Prisma.MemberWhereInput = {};
@@ -952,7 +962,7 @@ function buildMemberWhere(filter?: MemberListFilter): Prisma.MemberWhereInput {
 export async function listMembers(filter?: MemberListFilter) {
   return db.member.findMany({
     where: buildMemberWhere(filter),
-    orderBy: { createdAt: "desc" },
+    orderBy: MEMBER_ORDER_BY[filter?.sort ?? "newest"],
   });
 }
 
@@ -1096,6 +1106,33 @@ export async function setMemberStatus(params: {
  * profileImageUrl or medicalReportUrl either: there is no admin re-upload
  * path yet, so those stay whatever the member's own application set them to.
  */
+const ADMIN_EDITABLE_FIELD_LABELS: Record<string, string> = {
+  indexNumber: "Index Number",
+  firstName: "First Name",
+  middleName: "Middle Name",
+  lastName: "Surname",
+  email: "Email Address",
+  phone: "Phone Number",
+  dateOfBirth: "Date of Birth",
+  gender: "Gender",
+  membershipType: "Membership Type",
+  applicationTrack: "Study Level (Track)",
+  campus: "Campus",
+  hallOfAffiliation: "Hall of Affiliation",
+  degreeCategory: "Postgraduate Degree Category",
+  academicDepartment: "Academic Department",
+  programme: "Programme",
+  level: "Level",
+  yearOfAdmission: "Year of Admission",
+  expectedGraduationYear: "Expected Graduation Year",
+  department: "Category of Special Needs",
+  specificSupportNeeds: "Specific Support Needs",
+  residentialAddress: "Residential Address",
+  region: "Region",
+  emergencyContactName: "Emergency Contact Name",
+  emergencyContactPhone: "Emergency Contact Phone",
+};
+
 export async function updateMemberAdmin(params: {
   memberId: string;
   adminId: string;
@@ -1196,6 +1233,31 @@ export async function updateMemberAdmin(params: {
         newValue: newValue as Prisma.InputJsonValue,
       },
     });
+
+    // A member should never learn their own details changed by noticing it
+    // themselves — the same confirmation their own self-service edit sends
+    // (see updateMemberProfile above), reused here so an admin correction
+    // isn't silent just because the member didn't make it. Best-effort: a
+    // stalled email must never make an otherwise-successful edit look like
+    // it failed to the admin who made it.
+    try {
+      const changedFields = Object.keys(newValue).map((key) => ADMIN_EDITABLE_FIELD_LABELS[key] ?? key);
+      const { subject, html } = profileUpdatedEmail({
+        firstName: updated.firstName,
+        changedFields,
+        brand: await getEmailBrand(),
+      });
+      await sendEmail({
+        to: updated.email,
+        subject,
+        html,
+        template: "profile-updated",
+        entityType: "Member",
+        entityId: updated.id,
+      });
+    } catch (err) {
+      console.error(`[update-member-admin] ${memberId} updated, but notification email failed:`, err);
+    }
   }
 
   return updated;

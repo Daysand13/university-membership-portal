@@ -30,6 +30,7 @@ import { isLikelyBot } from "@/lib/bot-protection";
 import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { ApplicationStatus, AdminRole } from "@/generated/prisma/client";
 import { isR2Configured } from "@/lib/storage/r2";
+import { domainCanReceiveMail } from "@/lib/email-domain-check";
 import {
   requestEnrollmentUpload,
   adoptEnrollmentUpload,
@@ -87,6 +88,21 @@ async function submitEnrollmentActionImpl(
   const parsed = enrollmentSchema.safeParse(candidate);
   if (!parsed.success) {
     return { fieldErrors: parsed.error.flatten().fieldErrors };
+  }
+
+  // Catches the exact mistake that locked a real member out of email-only
+  // login elsewhere in this system (gmail.cim instead of gmail.com) — a
+  // domain that can't receive mail at all, before an application is ever
+  // saved under it. See email-domain-check.ts for what this can and can't
+  // actually confirm.
+  if (!(await domainCanReceiveMail(parsed.data.email))) {
+    return {
+      fieldErrors: {
+        email: [
+          "We couldn't find a mail server for this email address — please check for a typo (for example, .com instead of .cim) and try again.",
+        ],
+      },
+    };
   }
 
   // Verify each upload against what was actually authorised: the object has

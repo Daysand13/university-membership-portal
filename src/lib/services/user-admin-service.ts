@@ -31,6 +31,40 @@ export class UserAdminError extends Error {
 
 const INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // matches the graduation invite window
 
+/**
+ * Sends the "set your alumni password" invite — the only way a brand-new
+ * alumni profile with no password gets a working login. Never throws: the
+ * standing this follows has already been granted by the time this runs, so
+ * a failed email must be logged and swallowed, not surfaced as if the grant
+ * itself failed (an admin retrying would just find the standing already
+ * there and be confused, not fix anything).
+ */
+async function sendAlumniInvite(params: { alumniProfileId: string; email: string; firstName: string; inviteBaseUrl: string }) {
+  const { alumniProfileId, email, firstName, inviteBaseUrl } = params;
+  try {
+    const rawToken = randomBytes(32).toString("hex");
+    const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+    await db.alumniPasswordResetToken.create({
+      data: { tokenHash, alumniId: alumniProfileId, expiresAt: new Date(Date.now() + INVITE_TTL_MS) },
+    });
+    const { subject, html } = alumniGraduationInviteEmail({
+      firstName,
+      setPasswordUrl: `${inviteBaseUrl}?token=${rawToken}`,
+      brand: await getEmailBrand(),
+    });
+    await sendEmail({
+      to: email,
+      subject,
+      html,
+      template: "alumni-graduation-invite",
+      entityType: "AlumniProfile",
+      entityId: alumniProfileId,
+    });
+  } catch (err) {
+    console.error("[send-alumni-invite] alumni standing granted, but invite email failed:", err);
+  }
+}
+
 export interface UserMatrixFilter {
   search?: string;
   role?: UserRoleName;
@@ -67,7 +101,12 @@ export async function listUsersForMatrix(filter?: UserMatrixFilter) {
       alumniProfile: { select: { id: true, graduationYear: true, status: true } },
       adminUser: { select: { id: true, role: true, isActive: true } },
     },
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    // Sorted the way the name is actually displayed (first name first) — the
+    // matrix showed lastName-first order before, which reads as scrambled
+    // against a page that always renders "First Middle Last". This applies
+    // regardless of which of the four role tabs is active, since the role
+    // filter is only a WHERE clause and never touches this ordering.
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     take: 200,
   });
 }
@@ -176,32 +215,9 @@ export async function pushToAlumniArchive(params: {
   // Someone who already had a working alumni login doesn't need an invite —
   // sending one would reset a password they're actively using.
   if (!alreadyAlumni) {
-    try {
-      const profile = await db.alumniProfile.findUnique({ where: { userId } });
-      if (profile) {
-        const rawToken = randomBytes(32).toString("hex");
-        const tokenHash = createHash("sha256").update(rawToken).digest("hex");
-        await db.alumniPasswordResetToken.create({
-          data: { tokenHash, alumniId: profile.id, expiresAt: new Date(Date.now() + INVITE_TTL_MS) },
-        });
-        const { subject, html } = alumniGraduationInviteEmail({
-          firstName: member.firstName,
-          setPasswordUrl: `${inviteBaseUrl}?token=${rawToken}`,
-          brand: await getEmailBrand(),
-        });
-        await sendEmail({
-          to: user.email,
-          subject,
-          html,
-          template: "alumni-graduation-invite",
-          entityType: "AlumniProfile",
-          entityId: profile.id,
-        });
-      }
-    } catch (err) {
-      // The archive itself already succeeded — a failed invite must not undo
-      // it or report failure, or an admin would retry and double-archive.
-      console.error("[push-to-alumni-archive] archived, but invite email failed:", err);
+    const profile = await db.alumniProfile.findUnique({ where: { userId } });
+    if (profile) {
+      await sendAlumniInvite({ alumniProfileId: profile.id, email: user.email, firstName: member.firstName, inviteBaseUrl });
     }
   }
 }
@@ -222,8 +238,9 @@ export async function grantDualStatus(params: {
   role: Extract<UserRoleName, "MEMBER" | "ALUMNI">;
   graduationYear?: number;
   adminId: string;
+  inviteBaseUrl: string;
 }) {
-  const { userId, role, graduationYear, adminId } = params;
+  const { userId, role, graduationYear, adminId, inviteBaseUrl } = params;
 
   const user = await db.user.findUnique({
     where: { id: userId },
@@ -251,21 +268,29 @@ export async function grantDualStatus(params: {
     }
   }
 
+  let newAlumniProfileId: string | null = null;
+
   await db.$transaction(async (tx) => {
     if (role === "ALUMNI" && !user.alumniProfile) {
-      await tx.alumniProfile.create({
+      // No password exists for this profile yet — mustSetPassword: false
+      // here was the actual bug: it told the login screen a password was
+      // already set when none was, and with no invite ever sent, there was
+      // no way to set one either. The account was granted standing it could
+      // never use.
+      const created = await tx.alumniProfile.create({
         data: {
           fullName: formatFullName(user.firstName, user.middleName, user.lastName),
           email: user.email,
           phone: user.phone ?? user.member?.phone ?? "",
           graduationYear: graduationYear!,
           programme: user.member?.programme ?? user.enrollments[0]?.programme ?? "Not recorded",
-          mustSetPassword: false,
+          mustSetPassword: true,
           directoryVisible: true,
           status: "ACTIVE",
           userId,
         },
       });
+      newAlumniProfileId = created.id;
     }
 
     if (role === "MEMBER" && user.member) {
@@ -290,6 +315,15 @@ export async function grantDualStatus(params: {
       },
     });
   });
+
+  if (newAlumniProfileId) {
+    await sendAlumniInvite({
+      alumniProfileId: newAlumniProfileId,
+      email: user.email,
+      firstName: user.firstName,
+      inviteBaseUrl,
+    });
+  }
 }
 
 /**

@@ -34,6 +34,7 @@ import {
 } from "@/lib/auth/user";
 import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { isLikelyBot } from "@/lib/bot-protection";
+import { domainCanReceiveMail } from "@/lib/email-domain-check";
 import type { ActionState } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -235,6 +236,16 @@ async function alumniRegisterActionImpl(
   const parsed = alumniRegisterSchema.safeParse(candidate);
   if (!parsed.success) {
     return { fieldErrors: parsed.error.flatten().fieldErrors };
+  }
+
+  if (!(await domainCanReceiveMail(parsed.data.email))) {
+    return {
+      fieldErrors: {
+        email: [
+          "We couldn't find a mail server for this email address — please check for a typo (for example, .com instead of .cim) and try again.",
+        ],
+      },
+    };
   }
 
   let alumni;

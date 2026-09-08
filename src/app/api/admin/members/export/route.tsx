@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { getCurrentAdmin } from "@/lib/auth/admin";
-import { listMembers } from "@/lib/services/membership-service";
+import { listMembers, MEMBER_SORT_OPTIONS, type MemberSort } from "@/lib/services/membership-service";
 import { getEmailBrand } from "@/lib/services/content-service";
 import { MEMBERSHIP_TYPE_LABELS } from "@/lib/validations/membership";
 import { MemberListPdf } from "@/lib/pdf/MemberListPdf";
@@ -34,6 +34,11 @@ export async function GET(request: NextRequest) {
   }
 
   const sp = request.nextUrl.searchParams;
+  const rawSort = sp.get("sort");
+  const sort: MemberSort | undefined = (MEMBER_SORT_OPTIONS as readonly string[]).includes(rawSort ?? "")
+    ? (rawSort as MemberSort)
+    : undefined;
+
   const [members, brand] = await Promise.all([
     listMembers({
       search: sp.get("q") ?? undefined,
@@ -46,6 +51,7 @@ export async function GET(request: NextRequest) {
       status: sp.get("status") ?? undefined,
       dateFrom: sp.get("from") ?? undefined,
       dateTo: sp.get("to") ?? undefined,
+      sort,
     }),
     getEmailBrand(),
   ]);

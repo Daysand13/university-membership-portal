@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
-import { Loader2, ImagePlus, AlertCircle, Pencil, CheckCircle2, FileText } from "lucide-react";
+import { useActionState, useRef, useState } from "react";
+import { Loader2, ImagePlus, AlertCircle, CheckCircle2 } from "lucide-react";
 import { submitEnrollmentAction, requestEnrollmentUploadAction } from "@/lib/actions/membership-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
@@ -26,8 +26,6 @@ import {
   type ApplicationTrack,
 } from "@/lib/validations/membership";
 import { prepareAndUpload } from "@/lib/client/upload-attachment";
-
-const GENDER_LABELS: Record<string, string> = { MALE: "Male", FEMALE: "Female" };
 
 // Every field the form collects, all controlled by React state. This is
 // deliberate: React automatically resets *uncontrolled* fields once a
@@ -126,159 +124,11 @@ function formatBytes(bytes: number): string {
 }
 
 
-// ---------------------------------------------------------------------------
-// Review screen — read-only summary of everything captured in the form,
-// read directly from the same controlled state the form itself uses, so it
-// can never drift out of sync with what's actually been entered.
-// ---------------------------------------------------------------------------
-
-function ReviewField({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-light">{label}</dt>
-      <dd className="text-sm text-ink mt-0.5">{value || <span className="text-slate-light">—</span>}</dd>
-    </div>
-  );
-}
-
-function ReviewSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-line p-6 sm:p-7">
-      <h3 className="font-display font-bold text-base text-primary-950 mb-4">{title}</h3>
-      <dl className="grid sm:grid-cols-2 gap-4">{children}</dl>
-    </div>
-  );
-}
-
-function ReviewScreen({
-  values,
-  isPg,
-  passportPreviewUrl,
-  medicalFileName,
-  onEdit,
-  onConfirm,
-  isPending,
-}: {
-  values: FormValues;
-  isPg: boolean;
-  passportPreviewUrl: string | null;
-  medicalFileName: string | null;
-  onEdit: () => void;
-  onConfirm: () => void;
-  isPending: boolean;
-}) {
-  return (
-    <div className="space-y-6">
-      <div className="rounded-lg border border-primary-300 bg-primary-50 p-6 sm:p-7 flex gap-3">
-        <CheckCircle2 size={20} className="text-primary-700 shrink-0 mt-0.5" />
-        <p className="text-sm text-primary-950 leading-relaxed">
-          Please review your details carefully before submitting. If anything needs to be corrected, click
-          <strong> Edit Application</strong> to go back — your entries will still be there.
-        </p>
-      </div>
-
-      <ReviewSection title="Membership Type">
-        <ReviewField
-          label="Membership Status"
-          value={MEMBERSHIP_TYPE_LABELS[values.membershipType as keyof typeof MEMBERSHIP_TYPE_LABELS] ?? values.membershipType}
-        />
-      </ReviewSection>
-
-      <ReviewSection title="Personal Identification">
-        <ReviewField label="First Name" value={values.firstName} />
-        <ReviewField label="Middle Name" value={values.middleName} />
-        <ReviewField label="Surname" value={values.lastName} />
-        <ReviewField label="Date of Birth" value={values.dateOfBirth} />
-        <ReviewField label="Gender" value={GENDER_LABELS[values.gender] ?? values.gender} />
-        <ReviewField label="Personal Email Address" value={values.email} />
-        <ReviewField label="Phone Number / WhatsApp" value={values.phone} />
-      </ReviewSection>
-
-      <ReviewSection title={isPg ? "Campus & Postgraduate Department" : "UEW Campus & Academic Department"}>
-        <ReviewField label="UEW Campus" value={values.campus} />
-        <ReviewField label="Hall of Affiliation" value={values.hallOfAffiliation} />
-        {isPg && <ReviewField label="Postgraduate Degree Category" value={values.degreeCategory} />}
-        <ReviewField label="Academic Department" value={values.academicDepartment} />
-        <ReviewField label="Program of Study" value={values.programme} />
-        <ReviewField label={isPg ? "Year of Study" : "Level"} value={values.level} />
-        <ReviewField label="Index Number" value={values.indexNumber} />
-        <ReviewField label="Year of Admission" value={values.yearOfAdmission} />
-        <ReviewField label="Expected Graduation Year" value={values.expectedGraduationYear} />
-      </ReviewSection>
-
-      <ReviewSection title="Category of Special Needs">
-        <ReviewField label="Category of Special Needs" value={values.department} />
-        <ReviewField
-          label="Specific Support Needed on Campus"
-          value={
-            values.specificSupportNeeds.length > 0 ? (
-              <ul className="list-disc list-inside space-y-0.5">
-                {values.specificSupportNeeds.map((need) => (
-                  <li key={need}>{need}</li>
-                ))}
-              </ul>
-            ) : (
-              "None selected"
-            )
-          }
-        />
-      </ReviewSection>
-
-      <div className="rounded-lg border border-line p-6 sm:p-7">
-        <h3 className="font-display font-bold text-base text-primary-950 mb-4">Document Attachments</h3>
-        <div className="grid sm:grid-cols-2 gap-5">
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-light mb-2">Passport Picture</dt>
-            <div className="w-16 h-16 rounded-full bg-surface-muted border border-line overflow-hidden flex items-center justify-center text-slate-light">
-              {passportPreviewUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={passportPreviewUrl} alt="Passport preview" className="w-full h-full object-cover" />
-              ) : (
-                <ImagePlus size={18} />
-              )}
-            </div>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-light mb-2">Medical Report</dt>
-            <dd className="text-sm text-ink flex items-center gap-1.5">
-              {medicalFileName ? (
-                <>
-                  <FileText size={15} className="text-primary-700 shrink-0" /> {medicalFileName}
-                </>
-              ) : (
-                <span className="text-slate-light">—</span>
-              )}
-            </dd>
-          </div>
-        </div>
-      </div>
-
-      <ReviewSection title="Additional Information">
-        <ReviewField label="Residential Address" value={values.residentialAddress} />
-        <ReviewField label="Region" value={values.region} />
-        <ReviewField label="Emergency Contact Name" value={values.emergencyContactName} />
-        <ReviewField label="Emergency Contact Phone" value={values.emergencyContactPhone} />
-      </ReviewSection>
-
-      <div className="flex flex-col sm:flex-row gap-3">
-        <Button type="button" variant="outline" onClick={onEdit} className="sm:w-auto" disabled={isPending}>
-          <Pencil size={15} /> Edit Application
-        </Button>
-        <Button type="button" onClick={onConfirm} disabled={isPending} size="lg" className="flex-1">
-          {isPending && <Loader2 size={16} className="animate-spin" />}
-          {isPending ? "Submitting…" : "Confirm & Submit Membership Registration"}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
   const [state, formAction, isPending] = useActionState(submitEnrollmentAction, initialActionState);
   const formRef = useRef<HTMLFormElement>(null);
   const passportInputRef = useRef<HTMLInputElement>(null);
   const medicalInputRef = useRef<HTMLInputElement>(null);
-  const [phase, setPhase] = useState<"form" | "review">("form");
   const [values, setValues] = useState<FormValues>(INITIAL_VALUES);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [medicalFileName, setMedicalFileName] = useState<string | null>(null);
@@ -318,35 +168,24 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
   const levelOptions = isPg ? POSTGRAD_LEVELS : LEVELS;
   const levelLabel = isPg ? "Year of Study" : "Level / Year of Study";
 
-  // If the server action comes back with an error (e.g. a duplicate index
-  // number — the one thing that can only be checked server-side), jump back
-  // to the editable form automatically so the error is actually visible
-  // instead of rendering inside a hidden review screen.
-  //
   // React clears the (uncontrolled, unavoidably so) file inputs whenever an
-  // action finishes, which used to mean re-picking both attachments after any
-  // failed submission. It no longer does: the uploads already happened and
-  // their tickets live in state, so what the person picked is still attached.
+  // action finishes — but it no longer costs anyone their attachments on a
+  // failed submission (e.g. a duplicate index number): the uploads already
+  // happened and their tickets live in state above, untouched by this.
   //
-  // Adjusted during render (React's recommended pattern for reacting to a
-  // prop/value change) rather than in a useEffect, so it can't cause an extra
-  // render-then-fix flash.
+  // A fresh error is still worth scrolling up for, since the alert banner
+  // sits at the very top of this single-page form. Adjusted during render
+  // (React's recommended pattern for reacting to a prop/value change) so it
+  // can't cause an extra render-then-scroll flash, with the actual
+  // window.scrollTo — a genuine browser side effect — deferred to a
+  // microtask so it runs after this render commits.
   const [lastHandledState, setLastHandledState] = useState(state);
   if (state !== lastHandledState) {
     setLastHandledState(state);
     if (state.error || (state.fieldErrors && Object.keys(state.fieldErrors).length > 0)) {
-      setPhase("form");
+      queueMicrotask(() => window.scrollTo({ top: 0, behavior: "smooth" }));
     }
   }
-
-  // Scrolling to top is a genuine side-effect on the browser (not React
-  // state), so this belongs in an effect — unlike the state adjustment
-  // above. Runs whenever the visible phase changes, covering the review
-  // click, the edit-application click, and the error-triggered bounce back
-  // to the form, all in one place.
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [phase]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = e.target;
@@ -362,7 +201,10 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
     }));
   }
 
-  function handleReviewClick() {
+  // There is no separate review screen to catch a mistake on — this runs
+  // immediately before the actual submission, so every check that used to
+  // gate "move on to review" now gates the real thing.
+  function handleSubmitClick() {
     const formEl = formRef.current;
     if (!formEl) return;
     if (!formEl.checkValidity()) {
@@ -391,35 +233,12 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
       passportInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    setPhase("review");
-  }
-
-  function handleConfirmSubmit() {
-    // The form was never unmounted (just hidden), so its current values —
-    // including any edits made after going back — are what gets submitted.
-    formRef.current?.requestSubmit();
+    formEl.requestSubmit();
   }
 
   return (
     <div>
-      {phase === "review" && (
-        <ReviewScreen
-          values={values}
-          isPg={isPg}
-          passportPreviewUrl={previewUrl}
-          medicalFileName={medicalFileName}
-          onEdit={() => setPhase("form")}
-          onConfirm={handleConfirmSubmit}
-          isPending={isPending}
-        />
-      )}
-
-      <form
-        ref={formRef}
-        action={formAction}
-        className={phase === "review" ? "hidden" : "space-y-6"}
-        encType="multipart/form-data"
-      >
+      <form ref={formRef} action={formAction} className="space-y-6" encType="multipart/form-data">
         <FormAlert message={state.error} />
         <input type="hidden" name="track" value={track} />
         <BotProtectionFields />
@@ -700,7 +519,7 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
                 //
                 // No required: React empties file inputs after a failed
                 // submission, so native validation would demand a file that is
-                // in fact already uploaded. handleReviewClick checks the upload
+                // in fact already uploaded. handleSubmitClick checks the upload
                 // state instead.
                 //
                 // Concrete MIME types rather than the `image/*` wildcard, for
@@ -827,7 +646,8 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
             )}
             {medicalBytes > 0 && !medicalTooLarge && !medicalUploadError && (
               <p className="mt-1 text-xs text-primary-700 flex items-center gap-1">
-                <CheckCircle2 size={13} className="shrink-0" /> Uploaded ({formatBytes(medicalBytes)})
+                <CheckCircle2 size={13} className="shrink-0" />
+                Uploaded{medicalFileName ? `: ${medicalFileName}` : ""} ({formatBytes(medicalBytes)})
               </p>
             )}
             <FieldError messages={fe.medicalReportKey} />
@@ -909,23 +729,26 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
           <FieldError messages={fe.agreedToTerms} />
         </div>
 
-        <div className="rounded-lg border border-accent-300 bg-accent-50 p-4 flex gap-3">
-          <AlertCircle size={18} className="text-accent-600 shrink-0 mt-0.5" />
+        <div className="rounded-lg border-2 border-accent-400 bg-accent-50 p-4 flex gap-3">
+          <AlertCircle size={20} className="text-accent-600 shrink-0 mt-0.5" />
           <p className="text-sm text-primary-950 leading-relaxed">
-            Please critically review every section of this form before you continue. You&apos;ll see a full
-            summary on the next screen, but it&apos;s much easier to correct a mistake now than after your
-            application has been submitted for review.
+            <strong className="font-bold">
+              There is no review step after this — carefully check every section above before submitting.
+            </strong>{" "}
+            Once your application is submitted, you cannot edit it yourself. If something needs to change
+            afterward, you&apos;ll need to contact the association directly.
           </p>
         </div>
 
         <Button
           type="button"
-          onClick={handleReviewClick}
-          disabled={processingFiles}
+          onClick={handleSubmitClick}
+          disabled={processingFiles || isPending}
           size="lg"
           className="w-full"
         >
-          {processingFiles ? "Uploading attachments…" : "Review Application"}
+          {(processingFiles || isPending) && <Loader2 size={16} className="animate-spin" />}
+          {processingFiles ? "Uploading attachments…" : isPending ? "Submitting…" : "Submit Application"}
         </Button>
       </form>
     </div>

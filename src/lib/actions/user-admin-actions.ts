@@ -75,6 +75,7 @@ async function grantDualStatusActionImpl(
       role: parsed.data.role,
       graduationYear: parsed.data.graduationYear,
       adminId: admin.id,
+      inviteBaseUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/alumni/reset-password`,
     });
   } catch (err) {
     if (err instanceof UserAdminError) return { error: err.message };

@@ -1,8 +1,11 @@
-import { User, GraduationCap, Mail, MapPin, ShieldCheck } from "lucide-react";
+import { User, GraduationCap, Mail, MapPin, ShieldCheck, IdCard, BookOpen, Building2 } from "lucide-react";
 import { requireMember } from "@/lib/auth/member";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { MemberProfileForm } from "@/components/forms/MemberProfileForm";
+import { DashboardStat } from "@/components/dashboard/DashboardStat";
+import { DualStatusBanner } from "@/components/dashboard/DualStatusBanner";
 import { formatFullName } from "@/lib/format";
+import { getCurrentUser } from "@/lib/auth/user";
 
 function formatDate(date: Date | null): string {
   if (!date) return "—";
@@ -10,35 +13,52 @@ function formatDate(date: Date | null): string {
 }
 
 export default async function MemberDashboardPage() {
-  const member = await requireMember();
+  const [member, session] = await Promise.all([requireMember(), getCurrentUser()]);
+  const isDualStatus = session?.roles.includes("ALUMNI") ?? false;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div className="lg:col-span-1 space-y-6">
-        <div className="bg-white rounded-lg border border-line p-6 text-center">
+    <div>
+      {isDualStatus && <DualStatusBanner otherPortalLabel="Alumni" />}
+
+      <div className="bg-white rounded-lg border border-line p-6 sm:p-7 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-5">
           <a
             href={member.profileImageUrl ?? undefined}
             target="_blank"
             rel="noopener noreferrer"
             aria-disabled={!member.profileImageUrl}
-            className={`w-20 h-20 rounded-full bg-primary-50 mx-auto overflow-hidden flex items-center justify-center text-primary-300 border border-line ${member.profileImageUrl ? "hover:opacity-80 cursor-zoom-in" : "pointer-events-none"}`}
+            className={`w-16 h-16 rounded-full bg-primary-50 overflow-hidden flex items-center justify-center text-primary-300 border border-line shrink-0 ${member.profileImageUrl ? "hover:opacity-80 cursor-zoom-in" : "pointer-events-none"}`}
           >
             {member.profileImageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={member.profileImageUrl} alt={member.firstName} className="w-full h-full object-cover" />
             ) : (
-              <User size={28} />
+              <User size={26} />
             )}
           </a>
-          <h2 className="mt-4 font-display font-bold text-lg text-primary-950">
-            {formatFullName(member.firstName, member.middleName, member.lastName)}
-          </h2>
-          <p className="text-sm text-slate font-data">{member.indexNumber}</p>
-          <div className="mt-3">
-            <StatusBadge status={member.status} />
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="font-display font-bold text-xl text-primary-950 truncate">
+                {formatFullName(member.firstName, member.middleName, member.lastName)}
+              </h1>
+              <StatusBadge status={member.status} />
+            </div>
+            <p className="text-sm text-slate mt-0.5">
+              {member.programme} · {member.level}
+            </p>
           </div>
         </div>
 
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-line">
+          <DashboardStat icon={IdCard} label="Index Number" value={member.indexNumber} />
+          <DashboardStat icon={BookOpen} label="Programme" value={member.programme} />
+          <DashboardStat icon={Building2} label="Campus" value={member.campus} />
+          <DashboardStat icon={ShieldCheck} label="Member Since" value={formatDate(member.createdAt)} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="lg:col-span-1 space-y-6">
         <div className="bg-white rounded-lg border border-line p-6">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-slate mb-4">Academic</h3>
           <dl className="space-y-3 text-sm">
@@ -129,25 +149,22 @@ export default async function MemberDashboardPage() {
               <Mail size={16} className="text-primary-700 shrink-0 mt-0.5" />
               <dd className="text-ink break-all">{member.email}</dd>
             </div>
-            <div className="flex gap-2.5">
-              <ShieldCheck size={16} className="text-primary-700 shrink-0 mt-0.5" />
-              <dd className="text-ink">Member since {formatDate(member.createdAt)}</dd>
-            </div>
           </dl>
         </div>
       </div>
 
-      <div className="lg:col-span-2">
-        <div className="bg-white rounded-lg border border-line p-6 sm:p-7">
-          <div className="flex items-center gap-2 mb-6">
-            <MapPin size={18} className="text-accent-500" />
-            <h2 className="font-display font-bold text-lg text-primary-950">Contact Details</h2>
+        <div className="lg:col-span-2">
+          <div className="bg-white rounded-lg border border-line p-6 sm:p-7">
+            <div className="flex items-center gap-2 mb-6">
+              <MapPin size={18} className="text-accent-500" />
+              <h2 className="font-display font-bold text-lg text-primary-950">Contact Details</h2>
+            </div>
+            <p className="text-sm text-slate mb-6">
+              You can update your contact information below. Academic and index number details are managed by
+              the association — contact us if anything there needs to change.
+            </p>
+            <MemberProfileForm member={member} />
           </div>
-          <p className="text-sm text-slate mb-6">
-            You can update your contact information below. Academic and index number details are managed by
-            the association — contact us if anything there needs to change.
-          </p>
-          <MemberProfileForm member={member} />
         </div>
       </div>
     </div>
