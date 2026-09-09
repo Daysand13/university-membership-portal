@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { CheckCircle2 } from "lucide-react";
 import { LinkButton } from "@/components/ui/Button";
+import { ClearFormDraft } from "@/components/forms/ClearFormDraft";
 
 export const metadata: Metadata = { title: "Application Submitted" };
 
 export default function EnrollSuccessPage() {
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
+      <ClearFormDraft draftKeys={["enrollment-draft:UNDERGRADUATE", "enrollment-draft:POSTGRADUATE"]} />
       <div className="mx-auto max-w-xl text-center">
         <div className="w-16 h-16 rounded-full bg-success-light text-success flex items-center justify-center mx-auto mb-6">
           <CheckCircle2 size={32} />

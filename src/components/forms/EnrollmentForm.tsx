@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { Loader2, ImagePlus, AlertCircle, CheckCircle2 } from "lucide-react";
 import { submitEnrollmentAction, requestEnrollmentUploadAction } from "@/lib/actions/membership-actions";
 import { initialActionState } from "@/lib/actions/types";
@@ -26,6 +26,7 @@ import {
   type ApplicationTrack,
 } from "@/lib/validations/membership";
 import { prepareAndUpload } from "@/lib/client/upload-attachment";
+import { loadDraft, saveDraft } from "@/lib/client/form-draft";
 
 // Every field the form collects, all controlled by React state. This is
 // deliberate: React automatically resets *uncontrolled* fields once a
@@ -88,6 +89,21 @@ const INITIAL_VALUES: FormValues = {
   emergencyContactPhone: "",
   agreedToTerms: false,
 };
+
+/**
+ * What gets written to sessionStorage so a discarded page can pick up where
+ * it left off. The attachment tickets are the important part: the files
+ * themselves are already in storage, and these are the only proof of that.
+ * No File objects here — they aren't serialisable, and don't need to be.
+ */
+interface EnrollmentDraft {
+  values: FormValues;
+  passportToken: string;
+  passportBytes: number;
+  medicalToken: string;
+  medicalBytes: number;
+  medicalFileName: string | null;
+}
 
 function SectionCard({
   step,
@@ -152,6 +168,45 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
   const [passportMissing, setPassportMissing] = useState(false);
   const [medicalMissing, setMedicalMissing] = useState(false);
   const fe = state.fieldErrors ?? {};
+
+  // Restoring a draft (see form-draft.ts) is what keeps a phone discarding
+  // this page — which it does routinely while the file picker is in the
+  // foreground — from silently emptying the form and detaching attachments
+  // that were already uploaded. Undergraduate and postgraduate drafts are
+  // kept apart so switching tracks doesn't restore the wrong one.
+  const draftKey = `enrollment-draft:${track}`;
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  useEffect(() => {
+    const draft = loadDraft<EnrollmentDraft>(draftKey);
+    if (draft) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setValues({ ...INITIAL_VALUES, ...draft.values });
+      setPassportToken(draft.passportToken);
+      setPassportBytes(draft.passportBytes);
+      setMedicalToken(draft.medicalToken);
+      setMedicalBytes(draft.medicalBytes);
+      setMedicalFileName(draft.medicalFileName);
+    }
+    setDraftRestored(true);
+  }, [draftKey]);
+
+  // Gated on restored state, not a ref: this has to wait for the restored
+  // values to actually be committed. Flagging completion with a ref instead
+  // would let this run in the same commit as the restore above, still
+  // holding the empty initial values in its closure — which would overwrite
+  // the very draft that was just read, emptying the form it meant to save.
+  useEffect(() => {
+    if (!draftRestored) return;
+    saveDraft<EnrollmentDraft>(draftKey, {
+      values,
+      passportToken,
+      passportBytes,
+      medicalToken,
+      medicalBytes,
+      medicalFileName,
+    });
+  }, [draftRestored, draftKey, values, passportToken, passportBytes, medicalToken, medicalBytes, medicalFileName]);
 
   // Only the per-file product limits are enforced now. The combined-size cap
   // this form briefly needed is gone with the reason for it: attachments no
@@ -238,7 +293,11 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
 
   return (
     <div>
-      <form ref={formRef} action={formAction} className="space-y-6" encType="multipart/form-data">
+      {/* No encType: the attachments no longer travel with this submission
+          (they're already in R2, and only their tickets are posted), and
+          React sets its own encoding for a function action anyway — leaving
+          it set logged a console error on every page load. */}
+      <form ref={formRef} action={formAction} className="space-y-6">
         <FormAlert message={state.error} />
         <input type="hidden" name="track" value={track} />
         <BotProtectionFields />
@@ -539,7 +598,14 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
                   if (!file) return;
                   setPassportMissing(false);
                   setProcessingFiles(true);
-                  setPreviewUrl(URL.createObjectURL(file));
+                  // Each preview holds the whole image in memory until it's
+                  // revoked. Leaking one per selection pushes a low-memory
+                  // phone closer to discarding this page, which is the very
+                  // thing the draft above exists to survive.
+                  setPreviewUrl((previous) => {
+                    if (previous) URL.revokeObjectURL(previous);
+                    return URL.createObjectURL(file);
+                  });
                   try {
                     const outcome = await prepareAndUpload("passport", file, PASSPORT_TARGET_BYTES, requestEnrollmentUploadAction);
                     if (outcome.status === "error") {

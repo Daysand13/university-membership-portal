@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { Loader2, ImagePlus, FileText, CheckCircle2 } from "lucide-react";
 import { submitFurtherStudiesAction, requestFurtherStudiesUploadAction } from "@/lib/actions/alumni-actions";
 import { initialActionState } from "@/lib/actions/types";
@@ -22,10 +22,33 @@ import {
   GHANA_REGIONS,
 } from "@/lib/validations/membership";
 import { prepareAndUpload, type UploadOutcome } from "@/lib/client/upload-attachment";
+import { loadDraft, saveDraft, clearDraft } from "@/lib/client/form-draft";
 import type { AlumniProfile } from "@/generated/prisma/client";
 
 const PASSPORT_TARGET_BYTES = 1024 * 1024; // 1 MB
 const MEDICAL_IMAGE_TARGET_BYTES = 2.5 * 1024 * 1024; // 2.5 MB
+
+const DRAFT_KEY = "further-studies-draft";
+
+/**
+ * Mirrors this form's state so a page the phone discarded while the file
+ * picker was open comes back intact — see form-draft.ts for why that
+ * happens. The academic fields live outside `values`, so they're listed
+ * out here rather than nested.
+ */
+interface FurtherStudiesDraft {
+  values: FormValues;
+  track: string;
+  academicDepartment: string;
+  programme: string;
+  level: string;
+  degreeCategory: string;
+  passportToken: string;
+  passportBytes: number;
+  medicalToken: string;
+  medicalBytes: number;
+  medicalFileName: string | null;
+}
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
@@ -139,6 +162,70 @@ export function FurtherStudiesForm({ alumni }: { alumni: AlumniProfile }) {
   const [passportError, setPassportError] = useState<string | null>(null);
   const [medicalError, setMedicalError] = useState<string | null>(null);
   const [processingFiles, setProcessingFiles] = useState(false);
+
+  // Same draft restore/save pair as the enrollment form, and for the same
+  // reason: without it, a phone discarding this page while the file picker
+  // is in the foreground empties the form and detaches attachments that
+  // were already uploaded.
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  useEffect(() => {
+    const draft = loadDraft<FurtherStudiesDraft>(DRAFT_KEY);
+    if (draft) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setValues((prev) => ({ ...prev, ...draft.values }));
+      setTrack(draft.track);
+      setAcademicDepartment(draft.academicDepartment);
+      setProgramme(draft.programme);
+      setLevel(draft.level);
+      setDegreeCategory(draft.degreeCategory);
+      setPassportToken(draft.passportToken);
+      setPassportBytes(draft.passportBytes);
+      setMedicalToken(draft.medicalToken);
+      setMedicalBytes(draft.medicalBytes);
+      setMedicalFileName(draft.medicalFileName);
+    }
+    setDraftRestored(true);
+  }, []);
+
+  // Gated on restored state rather than a ref so the restored values are
+  // committed before this can write them back — a ref would let this run in
+  // the same commit as the restore, saving the empty initial values over
+  // the draft it had just read.
+  useEffect(() => {
+    if (!draftRestored) return;
+    if (state.success) {
+      clearDraft(DRAFT_KEY);
+      return;
+    }
+    saveDraft<FurtherStudiesDraft>(DRAFT_KEY, {
+      values,
+      track,
+      academicDepartment,
+      programme,
+      level,
+      degreeCategory,
+      passportToken,
+      passportBytes,
+      medicalToken,
+      medicalBytes,
+      medicalFileName,
+    });
+  }, [
+    draftRestored,
+    state.success,
+    values,
+    track,
+    academicDepartment,
+    programme,
+    level,
+    degreeCategory,
+    passportToken,
+    passportBytes,
+    medicalToken,
+    medicalBytes,
+    medicalFileName,
+  ]);
 
   async function handleFileChange(kind: "passport" | "medical", file: File | undefined) {
     const setError = kind === "passport" ? setPassportError : setMedicalError;
