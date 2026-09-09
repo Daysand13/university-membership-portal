@@ -154,6 +154,7 @@ export function FurtherStudiesForm({ alumni }: { alumni: AlumniProfile }) {
 
   const passportInputRef = useRef<HTMLInputElement>(null);
   const medicalInputRef = useRef<HTMLInputElement>(null);
+  const medicalPhotoInputRef = useRef<HTMLInputElement>(null);
   const [passportToken, setPassportToken] = useState("");
   const [medicalToken, setMedicalToken] = useState("");
   const [passportBytes, setPassportBytes] = useState(0);
@@ -581,20 +582,50 @@ export function FurtherStudiesForm({ alumni }: { alumni: AlumniProfile }) {
             <FieldError messages={fe.profilePicture} />
           </div>
           <div>
-            <Label htmlFor="medicalReport" required={attachmentsRequired}>Medical Report / Disability Assessment</Label>
-            <input
-              ref={medicalInputRef}
-              id="medicalReport"
-              type="file"
-              // No `accept`, matching the enrollment form's medical field —
-              // see the comment there. Any image type in the list makes
-              // Samsung's One UI open a Camera/Photos-only picker with no
-              // way to reach a saved PDF, and this field has to accept both
-              // a document and a photo of one. The server validates the
-              // real bytes instead.
-              onChange={(e) => handleFileChange("medical", e.target.files?.[0])}
-              className="block w-full text-sm text-slate file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-sm file:font-semibold hover:file:bg-primary-100"
-            />
+            <Label htmlFor="medicalReportDocument" required={attachmentsRequired}>
+              Medical Report / Disability Assessment
+            </Label>
+            {/*
+              Split into two single-file-type inputs for the same reason as
+              the enrollment form — see the comment there. A mixed accept
+              list (or none) makes Samsung's One UI offer only Camera,
+              Camcorder, Voice Recorder and Photos, with no way to reach a
+              saved PDF. Both feed the same attachment.
+            */}
+            <div className="mt-2 space-y-2">
+              <div>
+                <p className="text-xs font-semibold text-ink mb-1">Option A: PDF or Word file</p>
+                <input
+                  ref={medicalInputRef}
+                  id="medicalReportDocument"
+                  type="file"
+                  accept="application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
+                  onChange={(e) => {
+                    if (e.target.files?.[0] && medicalPhotoInputRef.current) {
+                      medicalPhotoInputRef.current.value = "";
+                    }
+                    handleFileChange("medical", e.target.files?.[0]);
+                  }}
+                  className="block w-full text-xs text-slate file:mr-2 file:py-1.5 file:px-2.5 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-xs file:font-semibold hover:file:bg-primary-100"
+                />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-ink mb-1">Option B: Photo of the document</p>
+                <input
+                  ref={medicalPhotoInputRef}
+                  id="medicalReportPhoto"
+                  type="file"
+                  accept="image/jpeg,.jpg,.jpeg,image/png,.png"
+                  onChange={(e) => {
+                    if (e.target.files?.[0] && medicalInputRef.current) {
+                      medicalInputRef.current.value = "";
+                    }
+                    handleFileChange("medical", e.target.files?.[0]);
+                  }}
+                  className="block w-full text-xs text-slate file:mr-2 file:py-1.5 file:px-2.5 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-xs file:font-semibold hover:file:bg-primary-100"
+                />
+              </div>
+            </div>
             {medicalError && <p className="mt-1 text-xs text-danger">{medicalError}</p>}
             {medicalBytes > 0 && !medicalError && (
               <p className="mt-1 text-xs text-primary-700 flex items-center gap-1">

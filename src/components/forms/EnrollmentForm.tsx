@@ -145,6 +145,7 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
   const formRef = useRef<HTMLFormElement>(null);
   const passportInputRef = useRef<HTMLInputElement>(null);
   const medicalInputRef = useRef<HTMLInputElement>(null);
+  const medicalPhotoInputRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState<FormValues>(INITIAL_VALUES);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [medicalFileName, setMedicalFileName] = useState<string | null>(null);
@@ -239,6 +240,41 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
     setLastHandledState(state);
     if (state.error || (state.fieldErrors && Object.keys(state.fieldErrors).length > 0)) {
       queueMicrotask(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+    }
+  }
+
+  /**
+   * Shared by both medical report inputs — whichever one the applicant
+   * uses, it's the same single attachment underneath. `otherInput` is
+   * emptied so the two can't visibly disagree about what's attached.
+   */
+  async function handleMedicalFile(
+    file: File | undefined,
+    otherInput: React.RefObject<HTMLInputElement | null>,
+  ) {
+    setMedicalUploadError(null);
+    // A cancelled picker leaves any previous successful upload alone rather
+    // than silently detaching it.
+    if (!file) return;
+    if (otherInput.current) otherInput.current.value = "";
+    setMedicalMissing(false);
+    setProcessingFiles(true);
+    setMedicalFileName(file.name);
+    try {
+      // A PDF or Word document uploads untouched; only a photo of a report
+      // gets re-encoded first.
+      const outcome = await prepareAndUpload("medical", file, MEDICAL_IMAGE_TARGET_BYTES, requestEnrollmentUploadAction);
+      if (outcome.status === "error") {
+        setMedicalUploadError(outcome.message);
+        setMedicalBytes(0);
+        setMedicalToken("");
+        return;
+      }
+      setMedicalBytes(outcome.bytes);
+      setMedicalToken(outcome.status === "ready" ? outcome.token : "");
+      setMedicalFileName(outcome.filename);
+    } finally {
+      setProcessingFiles(false);
     }
   }
 
@@ -644,67 +680,69 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
             <FieldError messages={fe.profilePicture} />
           </div>
           <div className="sm:col-span-2">
-            <Label htmlFor="medicalReport" required>Medical Report / Disability Assessment</Label>
-            <input
-              ref={medicalInputRef}
-              id="medicalReport"
-              type="file"
-              // No `name`: like the passport field above, the bytes go straight
-              // to R2 and only the signed ticket is submitted with the form.
-              //
-              // No `accept` either, and that is deliberate — do not add one
-              // back without testing on a Samsung device first.
-              //
-              // Chrome on Android turns `accept` into a system intent. The
-              // moment the list contains ANY image type, Samsung's One UI
-              // resolves it to a *media* picker: Camera and Photos only,
-              // with no way to reach a saved PDF in My Files or Drive. That
-              // is true even when concrete types are listed instead of the
-              // `image/*` wildcard — listing "image/jpeg,image/png"
-              // alongside the document types was tried and still produced
-              // the media-only picker for real users on Samsung phones.
-              //
-              // Since this field has to take both a PDF/Word report AND a
-              // photo of one, there is no accept list that covers both
-              // without tripping that behaviour. Omitting it entirely gives
-              // the full file chooser on every Android OEM, and Photos plus
-              // Browse on iOS. Nothing is lost by not filtering here: the
-              // server checks the real bytes against ALLOWED_DOCUMENT_TYPES
-              // and returns a clear message, which is a far better failure
-              // than a picker that cannot reach the file at all.
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                setMedicalUploadError(null);
-                // A cancelled picker leaves any previous successful upload
-                // alone rather than silently detaching it.
-                if (!file) return;
-                setMedicalMissing(false);
-                setProcessingFiles(true);
-                setMedicalFileName(file.name);
-                try {
-                  // A PDF or Word document uploads untouched; only a photo of a
-                  // report gets re-encoded first.
-                  const outcome = await prepareAndUpload("medical", file, MEDICAL_IMAGE_TARGET_BYTES, requestEnrollmentUploadAction);
-                  if (outcome.status === "error") {
-                    setMedicalUploadError(outcome.message);
-                    setMedicalBytes(0);
-                    setMedicalToken("");
-                    return;
-                  }
-                  setMedicalBytes(outcome.bytes);
-                  setMedicalToken(outcome.status === "ready" ? outcome.token : "");
-                  setMedicalFileName(outcome.filename);
-                } finally {
-                  setProcessingFiles(false);
-                }
-              }}
-              className="block w-full text-sm text-slate file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-sm file:font-semibold hover:file:bg-primary-100"
-            />
-            <p className="mt-1.5 text-xs text-slate-light">
-              Upload your medical report as a PDF, Word document, or a clear photo (JPG or PNG). Max 5MB. On a
-              phone this opens your file browser, so you can pick a saved file from My Files, Downloads or Drive
-              — or choose a photo you&apos;ve already taken.
+            <Label htmlFor="medicalReportDocument" required>Medical Report / Disability Assessment</Label>
+            <p className="mt-1 mb-3 text-xs text-slate">
+              Attach it whichever way you have it — a saved PDF or Word file, or a photo of the paper copy.
+              Use <strong>one</strong> of the two options below. Max 5MB.
             </p>
+
+            {/*
+              Two inputs rather than one, and that split is load-bearing — do
+              not merge them back into a single field.
+
+              Chrome on Android turns `accept` into a system intent. A list
+              of ONE kind of file resolves cleanly: documents open the file
+              browser (My Files, Downloads, Drive), images open the camera
+              and gallery. A list mixing both — and an empty list too — makes
+              Samsung's One UI fall back to a "Choose an action" sheet
+              offering only Camera, Camcorder, Voice Recorder and Photos,
+              with no route to a saved PDF at all. Both the mixed list and
+              the omitted one were tried on real Samsung phones and both
+              failed this way.
+
+              Keeping each input to a single kind of file is what makes the
+              document picker reachable. Both feed the same upload, so from
+              the applicant's side it is still one attachment.
+            */}
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="rounded-md border border-line p-4">
+                <label htmlFor="medicalReportDocument" className="block text-sm font-semibold text-ink mb-2">
+                  Option A: PDF or Word file
+                </label>
+                <input
+                  ref={medicalInputRef}
+                  id="medicalReportDocument"
+                  type="file"
+                  // Documents only — this is the list that opens My Files.
+                  accept="application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
+                  onChange={(e) => handleMedicalFile(e.target.files?.[0], medicalPhotoInputRef)}
+                  className="block w-full text-xs text-slate file:mr-2 file:py-1.5 file:px-2.5 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-xs file:font-semibold hover:file:bg-primary-100"
+                />
+                <p className="mt-1.5 text-xs text-slate-light">
+                  Opens your phone&apos;s Files / My Files picker. PDF, .doc or .docx.
+                </p>
+              </div>
+
+              <div className="rounded-md border border-line p-4">
+                <label htmlFor="medicalReportPhoto" className="block text-sm font-semibold text-ink mb-2">
+                  Option B: Photo of the document
+                </label>
+                <input
+                  ref={medicalPhotoInputRef}
+                  id="medicalReportPhoto"
+                  type="file"
+                  // Images only — concrete types rather than the image/*
+                  // wildcard so an iPhone converts HEIC to JPEG at the
+                  // picker instead of the server rejecting it after upload.
+                  accept="image/jpeg,.jpg,.jpeg,image/png,.png"
+                  onChange={(e) => handleMedicalFile(e.target.files?.[0], medicalInputRef)}
+                  className="block w-full text-xs text-slate file:mr-2 file:py-1.5 file:px-2.5 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-xs file:font-semibold hover:file:bg-primary-100"
+                />
+                <p className="mt-1.5 text-xs text-slate-light">
+                  Uses your camera or photo gallery. JPG or PNG.
+                </p>
+              </div>
+            </div>
             {medicalTooLarge && (
               <p className="mt-1 text-xs text-danger">
                 This file is {formatBytes(medicalBytes)}, over the 5MB limit — please choose a smaller file.
