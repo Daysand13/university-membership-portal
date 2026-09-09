@@ -5,6 +5,7 @@ import { alumniLogoutAction } from "@/lib/actions/auth-actions";
 import { DashboardStat } from "@/components/dashboard/DashboardStat";
 import { DualStatusBanner } from "@/components/dashboard/DualStatusBanner";
 import { getCurrentUser } from "@/lib/auth/user";
+import { alumniHasMemberStanding } from "@/lib/services/dual-status-service";
 
 export const metadata = { title: "Alumni Dashboard" };
 export const dynamic = "force-dynamic";
@@ -41,10 +42,16 @@ export default async function AlumniDashboardPage({
 }: {
   searchParams: Promise<{ passwordChanged?: string }>;
 }) {
-  const [alumni, session] = await Promise.all([requireAlumni(), getCurrentUser()]);
-  const sp = await searchParams;
+  const alumni = await requireAlumni();
+  // Read from the records, not the session: someone signed in through the
+  // older alumni-only login has no unified session, and reading roles off
+  // that was why a genuinely dual member saw no badge at all.
+  const [sp, isDualStatus, session] = await Promise.all([
+    searchParams,
+    alumniHasMemberStanding(alumni),
+    getCurrentUser(),
+  ]);
   const firstName = alumni.fullName.split(" ")[0];
-  const isDualStatus = session?.roles.includes("MEMBER") ?? false;
 
   return (
     <div className="bg-surface-muted min-h-[70vh]">
@@ -55,7 +62,7 @@ export default async function AlumniDashboardPage({
           </div>
         )}
 
-        {isDualStatus && <DualStatusBanner otherPortalLabel="Student" />}
+        {isDualStatus && <DualStatusBanner otherPortalLabel="Student" canSwitch={session !== null} />}
 
         <div className="bg-white rounded-lg border border-line p-7 mb-8">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">

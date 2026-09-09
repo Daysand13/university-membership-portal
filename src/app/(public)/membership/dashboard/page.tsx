@@ -6,6 +6,7 @@ import { DashboardStat } from "@/components/dashboard/DashboardStat";
 import { DualStatusBanner } from "@/components/dashboard/DualStatusBanner";
 import { formatFullName } from "@/lib/format";
 import { getCurrentUser } from "@/lib/auth/user";
+import { memberHasAlumniStanding } from "@/lib/services/dual-status-service";
 
 function formatDate(date: Date | null): string {
   if (!date) return "—";
@@ -13,12 +14,18 @@ function formatDate(date: Date | null): string {
 }
 
 export default async function MemberDashboardPage() {
-  const [member, session] = await Promise.all([requireMember(), getCurrentUser()]);
-  const isDualStatus = session?.roles.includes("ALUMNI") ?? false;
+  const member = await requireMember();
+  // Read from the records, not the session: someone signed in through the
+  // older member-only login has no unified session, and reading roles off
+  // that was why a genuinely dual member saw no badge at all.
+  const [isDualStatus, session] = await Promise.all([
+    memberHasAlumniStanding(member),
+    getCurrentUser(),
+  ]);
 
   return (
     <div>
-      {isDualStatus && <DualStatusBanner otherPortalLabel="Alumni" />}
+      {isDualStatus && <DualStatusBanner otherPortalLabel="Alumni" canSwitch={session !== null} />}
 
       <div className="bg-white rounded-lg border border-line p-6 sm:p-7 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-5">
