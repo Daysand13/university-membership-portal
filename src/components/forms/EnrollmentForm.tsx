@@ -652,22 +652,26 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
               // No `name`: like the passport field above, the bytes go straight
               // to R2 and only the signed ticket is submitted with the form.
               //
-              // Deliberately does NOT use the `image/*` wildcard here.
-              // Chrome on Android turns this list into a system intent, and
-              // a wildcard media type makes Android (Samsung's One UI in
-              // particular) treat this as a *media* picker — offering only
-              // Camera and "Photos & videos", with no way to reach a saved
-              // PDF in My Files or Drive. Listing concrete MIME types
-              // instead produces a document-picker intent that exposes the
-              // full file browser. Extensions are listed alongside each
-              // MIME type because some Android file providers match on one
-              // and some on the other.
+              // No `accept` either, and that is deliberate — do not add one
+              // back without testing on a Samsung device first.
               //
-              // This also brings the field in line with what the server
-              // actually accepts (see ALLOWED_DOCUMENT_TYPES): the old
-              // wildcard let people pick formats like .webp or .heic that
-              // the server would then reject after upload.
-              accept="application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,.jpg,.jpeg,image/png,.png"
+              // Chrome on Android turns `accept` into a system intent. The
+              // moment the list contains ANY image type, Samsung's One UI
+              // resolves it to a *media* picker: Camera and Photos only,
+              // with no way to reach a saved PDF in My Files or Drive. That
+              // is true even when concrete types are listed instead of the
+              // `image/*` wildcard — listing "image/jpeg,image/png"
+              // alongside the document types was tried and still produced
+              // the media-only picker for real users on Samsung phones.
+              //
+              // Since this field has to take both a PDF/Word report AND a
+              // photo of one, there is no accept list that covers both
+              // without tripping that behaviour. Omitting it entirely gives
+              // the full file chooser on every Android OEM, and Photos plus
+              // Browse on iOS. Nothing is lost by not filtering here: the
+              // server checks the real bytes against ALLOWED_DOCUMENT_TYPES
+              // and returns a clear message, which is a far better failure
+              // than a picker that cannot reach the file at all.
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 setMedicalUploadError(null);

@@ -586,7 +586,12 @@ export function FurtherStudiesForm({ alumni }: { alumni: AlumniProfile }) {
               ref={medicalInputRef}
               id="medicalReport"
               type="file"
-              accept="application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,image/jpeg,.jpg,.jpeg,image/png,.png"
+              // No `accept`, matching the enrollment form's medical field —
+              // see the comment there. Any image type in the list makes
+              // Samsung's One UI open a Camera/Photos-only picker with no
+              // way to reach a saved PDF, and this field has to accept both
+              // a document and a photo of one. The server validates the
+              // real bytes instead.
               onChange={(e) => handleFileChange("medical", e.target.files?.[0])}
               className="block w-full text-sm text-slate file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-sm file:font-semibold hover:file:bg-primary-100"
             />
