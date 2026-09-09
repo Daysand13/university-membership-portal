@@ -1,6 +1,7 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { AlumniProfile } from "@/generated/prisma/client";
 import { describeAlumniSource } from "@/lib/services/alumni-service";
+import { Letterhead } from "@/lib/pdf/Letterhead";
 
 const SOURCE_LABELS = {
   "graduated-member": "Graduated member",
@@ -51,17 +52,22 @@ export function AlumniListPdf({
   alumni,
   siteTitle,
   filterSummary,
+  logoDataUri = null,
 }: {
   alumni: (AlumniProfile & { sourceMember: { graduatedAt: Date | null } | null })[];
   siteTitle: string;
   filterSummary: string;
+  logoDataUri?: string | null;
 }) {
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
-        <Text style={styles.title}>{siteTitle}</Text>
-        <Text style={styles.subtitle}>Alumni List — {alumni.length} alumnus{alumni.length === 1 ? "" : "es"}</Text>
-        <Text style={styles.filterLine}>{filterSummary}</Text>
+        <Letterhead
+          logoDataUri={logoDataUri}
+          siteTitle={siteTitle}
+          documentTitle={`Alumni List — ${alumni.length} alumnus${alumni.length === 1 ? "" : "es"}`}
+          filterSummary={filterSummary}
+        />
 
         <View style={styles.table}>
           <View style={styles.headerRow} fixed>

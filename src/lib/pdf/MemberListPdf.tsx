@@ -2,6 +2,7 @@ import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { Member } from "@/generated/prisma/client";
 import { MEMBERSHIP_TYPE_LABELS } from "@/lib/validations/membership";
 import { formatFullName } from "@/lib/format";
+import { Letterhead } from "@/lib/pdf/Letterhead";
 
 const styles = StyleSheet.create({
   page: { padding: 28, fontSize: 8, fontFamily: "Helvetica" },
@@ -47,17 +48,22 @@ export function MemberListPdf({
   members,
   siteTitle,
   filterSummary,
+  logoDataUri = null,
 }: {
   members: Member[];
   siteTitle: string;
   filterSummary: string;
+  logoDataUri?: string | null;
 }) {
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
-        <Text style={styles.title}>{siteTitle}</Text>
-        <Text style={styles.subtitle}>Member List — {members.length} member{members.length === 1 ? "" : "s"}</Text>
-        <Text style={styles.filterLine}>{filterSummary}</Text>
+        <Letterhead
+          logoDataUri={logoDataUri}
+          siteTitle={siteTitle}
+          documentTitle={`Member List — ${members.length} member${members.length === 1 ? "" : "s"}`}
+          filterSummary={filterSummary}
+        />
 
         <View style={styles.table}>
           <View style={styles.headerRow} fixed>

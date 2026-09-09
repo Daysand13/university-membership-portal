@@ -4,6 +4,7 @@ import { getCurrentAdmin } from "@/lib/auth/admin";
 import { listAlumniForAdmin, ALUMNI_SORT_FIELDS, type AlumniSortField } from "@/lib/services/alumni-service";
 import { getEmailBrand } from "@/lib/services/content-service";
 import { AlumniListPdf } from "@/lib/pdf/AlumniListPdf";
+import { loadLogoDataUri } from "@/lib/pdf/logo";
 
 // @react-pdf/renderer needs the full Node runtime (it isn't Edge-compatible).
 export const runtime = "nodejs";
@@ -36,8 +37,17 @@ export async function GET(request: NextRequest) {
     getEmailBrand(),
   ]);
 
+  // Loaded before the render rather than during it, so a logo that can't be
+  // fetched costs the export its letterhead mark and nothing more.
+  const logoDataUri = await loadLogoDataUri(brand.logoUrl);
+
   const pdfBuffer = await renderToBuffer(
-    <AlumniListPdf alumni={alumni} siteTitle={brand.siteTitle} filterSummary={buildFilterSummary(sp)} />,
+    <AlumniListPdf
+      alumni={alumni}
+      siteTitle={brand.siteTitle}
+      filterSummary={buildFilterSummary(sp)}
+      logoDataUri={logoDataUri}
+    />,
   );
 
   const filename = `alumni-list-${new Date().toISOString().slice(0, 10)}.pdf`;
