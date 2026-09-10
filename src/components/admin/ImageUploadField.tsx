@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { requestAdminImageUpload } from "@/lib/actions/media-actions";
+import { uploadAdminFile } from "@/lib/client/admin-upload";
 import type { MediaCategory } from "@/generated/prisma/client";
 
 export function ImageUploadField({
@@ -26,25 +27,16 @@ export function ImageUploadField({
   function handleFile(file: File) {
     setError(null);
     startTransition(async () => {
-      try {
-        const ticket = await requestAdminImageUpload({
-          filename: file.name,
-          mimeType: file.type,
-          fileSize: file.size,
-          category,
-        });
-        const putResponse = await fetch(ticket.uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type },
-          body: file,
-        });
-        if (!putResponse.ok) throw new Error("Upload failed");
-        setUrl(ticket.publicUrl);
-      } catch {
-        setError(
-          "Upload failed. If Cloudflare R2 isn't configured in this environment yet, image uploads won't work until it is.",
-        );
+      const outcome = await uploadAdminFile({
+        file,
+        kind: "image",
+        requestTicket: (input) => requestAdminImageUpload({ ...input, category }),
+      });
+      if (!outcome.ok) {
+        setError(outcome.error);
+        return;
       }
+      setUrl(outcome.publicUrl);
     });
   }
 

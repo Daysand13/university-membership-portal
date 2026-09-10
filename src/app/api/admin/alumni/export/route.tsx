@@ -39,7 +39,10 @@ export async function GET(request: NextRequest) {
 
   // Loaded before the render rather than during it, so a logo that can't be
   // fetched costs the export its letterhead mark and nothing more.
-  const logoDataUri = await loadLogoDataUri(brand.logoUrl);
+  const [logoDataUri, universityLogoDataUri] = await Promise.all([
+    loadLogoDataUri(brand.logoUrl),
+    loadLogoDataUri(brand.universityLogoUrl),
+  ]);
 
   const pdfBuffer = await renderToBuffer(
     <AlumniListPdf
@@ -47,6 +50,7 @@ export async function GET(request: NextRequest) {
       siteTitle={brand.siteTitle}
       filterSummary={buildFilterSummary(sp)}
       logoDataUri={logoDataUri}
+      universityLogoDataUri={universityLogoDataUri}
     />,
   );
 

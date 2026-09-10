@@ -17,6 +17,7 @@ const styles = StyleSheet.create({
   header: { marginBottom: 10 },
   row: { flexDirection: "row", alignItems: "center" },
   logo: { width: 38, height: 38, marginRight: 10, objectFit: "contain" },
+  universityLogo: { width: 38, height: 38, marginLeft: 10, objectFit: "contain" },
   headings: { flex: 1 },
   title: { fontSize: 13, fontWeight: 700, color: "#14153d" },
   subtitle: { fontSize: 9, color: "#5b6b7c", marginTop: 2 },
@@ -26,11 +27,15 @@ const styles = StyleSheet.create({
 
 export function Letterhead({
   logoDataUri,
+  universityLogoDataUri = null,
   siteTitle,
   documentTitle,
   filterSummary,
 }: {
   logoDataUri: string | null;
+  /** The university's own crest, opposite the association's. Optional —
+   *  the letterhead is balanced with or without it. */
+  universityLogoDataUri?: string | null;
   siteTitle: string;
   documentTitle: string;
   filterSummary: string;
@@ -44,6 +49,8 @@ export function Letterhead({
           <Text style={styles.title}>{siteTitle}</Text>
           <Text style={styles.subtitle}>{documentTitle}</Text>
         </View>
+        {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer's Image takes no alt */}
+        {universityLogoDataUri && <Image style={styles.universityLogo} src={universityLogoDataUri} />}
       </View>
       <View style={styles.rule} />
       <Text style={styles.filterLine}>{filterSummary}</Text>

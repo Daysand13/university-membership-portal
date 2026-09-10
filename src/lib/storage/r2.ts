@@ -47,6 +47,7 @@ function getBucket(): string {
   return bucket;
 }
 
+
 /**
  * Object-key prefixes, matching the logical folders called out in the spec.
  * Keeping these as a typed union prevents typos from scattering objects

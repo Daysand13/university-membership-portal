@@ -19,6 +19,7 @@ import {
   Redo2,
 } from "lucide-react";
 import { requestAdminImageUpload } from "@/lib/actions/media-actions";
+import { uploadAdminFile } from "@/lib/client/admin-upload";
 
 function ToolbarButton({
   onClick,
@@ -70,19 +71,16 @@ export function RichTextEditor({ name, defaultValue }: { name: string; defaultVa
   }
 
   async function handleImageFile(file: File) {
-    try {
-      const ticket = await requestAdminImageUpload({
-        filename: file.name,
-        mimeType: file.type,
-        fileSize: file.size,
-        category: "NEWS",
-      });
-      const res = await fetch(ticket.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-      if (!res.ok) throw new Error("upload failed");
-      editor?.chain().focus().setImage({ src: ticket.publicUrl }).run();
-    } catch {
-      window.alert("Image upload failed. Check that Cloudflare R2 is configured for this environment.");
+    const outcome = await uploadAdminFile({
+      file,
+      kind: "image",
+      requestTicket: (input) => requestAdminImageUpload({ ...input, category: "NEWS" }),
+    });
+    if (!outcome.ok) {
+      window.alert(outcome.error);
+      return;
     }
+    editor?.chain().focus().setImage({ src: outcome.publicUrl }).run();
   }
 
   return (

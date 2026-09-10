@@ -169,6 +169,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsInput = {
     "The official membership and information portal of the Acme University Students' Association.",
   logoUrl: null,
   faviconUrl: null,
+  universityLogoUrl: null,
   copyrightText: `© ${new Date().getFullYear()} Acme University Students' Association. All rights reserved.`,
   generalEmail: "",
   membershipEmail: "",
@@ -211,9 +212,17 @@ export const getSiteSettings = cache(async (): Promise<SiteSettingsInput> => {
 
 /** The subset of Site Settings the email templates need, so template call
  * sites don't have to know the full settings shape. */
-export async function getEmailBrand(): Promise<{ siteTitle: string; logoUrl: string | null | undefined }> {
+export async function getEmailBrand(): Promise<{
+  siteTitle: string;
+  logoUrl: string | null | undefined;
+  universityLogoUrl: string | null | undefined;
+}> {
   const settings = await getSiteSettings();
-  return { siteTitle: settings.siteTitle, logoUrl: settings.logoUrl };
+  return {
+    siteTitle: settings.siteTitle,
+    logoUrl: settings.logoUrl,
+    universityLogoUrl: settings.universityLogoUrl,
+  };
 }
 
 export async function updateSiteSettings(data: SiteSettingsInput): Promise<SiteSettingsInput> {

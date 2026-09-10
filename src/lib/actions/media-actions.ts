@@ -12,11 +12,9 @@ import {
 } from "@/lib/services/media-service";
 import type { MediaCategory } from "@/generated/prisma/client";
 
-export interface UploadTicket {
-  uploadUrl: string;
-  objectKey: string;
-  publicUrl: string;
-}
+import type { UploadTicketResult } from "@/lib/services/media-service";
+
+export type { UploadTicketResult };
 
 /**
  * Returns a short-lived signed URL the browser uploads directly to R2 with.
@@ -29,7 +27,7 @@ async function requestAdminImageUploadImpl(input: {
   mimeType: string;
   fileSize: number;
   category: MediaCategory;
-}): Promise<UploadTicket> {
+}): Promise<UploadTicketResult> {
   await requireAdminUser();
   return requestImageUploadService(input);
 }
@@ -38,7 +36,7 @@ async function requestAdminDocumentUploadImpl(input: {
   filename: string;
   mimeType: string;
   fileSize: number;
-}): Promise<UploadTicket> {
+}): Promise<UploadTicketResult> {
   await requireAdminUser();
   return requestDocumentUploadService(input);
 }

@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { FileUp, Loader2, FileCheck2, X } from "lucide-react";
 import { requestAdminDocumentUpload } from "@/lib/actions/media-actions";
+import { uploadAdminFile } from "@/lib/client/admin-upload";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
@@ -18,27 +19,21 @@ export function DocumentUploadField() {
   function handleFile(selected: File) {
     setError(null);
     startTransition(async () => {
-      try {
-        const ticket = await requestAdminDocumentUpload({
-          filename: selected.name,
-          mimeType: selected.type || "application/octet-stream",
-          fileSize: selected.size,
-        });
-        const res = await fetch(ticket.uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": selected.type || "application/octet-stream" },
-          body: selected,
-        });
-        if (!res.ok) throw new Error("upload failed");
-        setFile({
-          name: selected.name,
-          size: selected.size,
-          objectKey: ticket.objectKey,
-          mimeType: selected.type || "application/octet-stream",
-        });
-      } catch {
-        setError("Upload failed. If Cloudflare R2 isn't configured in this environment yet, this won't work until it is.");
+      const outcome = await uploadAdminFile({
+        file: selected,
+        kind: "document",
+        requestTicket: requestAdminDocumentUpload,
+      });
+      if (!outcome.ok) {
+        setError(outcome.error);
+        return;
       }
+      setFile({
+        name: outcome.filename,
+        size: outcome.fileSize,
+        objectKey: outcome.objectKey,
+        mimeType: outcome.mimeType,
+      });
     });
   }
 

@@ -53,17 +53,20 @@ export function AlumniListPdf({
   siteTitle,
   filterSummary,
   logoDataUri = null,
+  universityLogoDataUri = null,
 }: {
   alumni: (AlumniProfile & { sourceMember: { graduatedAt: Date | null } | null })[];
   siteTitle: string;
   filterSummary: string;
   logoDataUri?: string | null;
+  universityLogoDataUri?: string | null;
 }) {
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
         <Letterhead
           logoDataUri={logoDataUri}
+          universityLogoDataUri={universityLogoDataUri}
           siteTitle={siteTitle}
           documentTitle={`Alumni List — ${alumni.length} alumnus${alumni.length === 1 ? "" : "es"}`}
           filterSummary={filterSummary}

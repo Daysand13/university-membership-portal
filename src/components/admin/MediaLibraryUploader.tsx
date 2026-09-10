@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ImagePlus, Loader2 } from "lucide-react";
 import { requestAdminImageUpload, confirmMediaLibraryUpload } from "@/lib/actions/media-actions";
+import { uploadAdminFile } from "@/lib/client/admin-upload";
 import { Button } from "@/components/ui/Button";
 
 export function MediaLibraryUploader() {
@@ -15,25 +16,29 @@ export function MediaLibraryUploader() {
   function handleFile(file: File) {
     setError(null);
     startTransition(async () => {
+      const outcome = await uploadAdminFile({
+        file,
+        kind: "image",
+        requestTicket: (input) => requestAdminImageUpload({ ...input, category: "OTHER" }),
+      });
+      if (!outcome.ok) {
+        setError(outcome.error);
+        return;
+      }
       try {
-        const ticket = await requestAdminImageUpload({
-          filename: file.name,
-          mimeType: file.type,
-          fileSize: file.size,
-          category: "OTHER",
-        });
-        const res = await fetch(ticket.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-        if (!res.ok) throw new Error("upload failed");
         await confirmMediaLibraryUpload({
-          objectKey: ticket.objectKey,
-          mimeType: file.type,
-          fileSize: file.size,
-          filename: file.name,
+          objectKey: outcome.objectKey,
+          mimeType: outcome.mimeType,
+          fileSize: outcome.fileSize,
+          filename: outcome.filename,
           category: "OTHER",
         });
         router.refresh();
-      } catch {
-        setError("Upload failed. Check that Cloudflare R2 is configured for this environment.");
+      } catch (err) {
+        // The file itself is safely in storage — only the library record
+        // failed, so say that rather than implying the upload was lost.
+        console.error("[media-library] upload stored but recording it failed", err);
+        setError("The image uploaded, but adding it to the library failed. Please refresh and try again.");
       }
     });
   }

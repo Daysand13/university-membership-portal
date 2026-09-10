@@ -49,17 +49,20 @@ export function MemberListPdf({
   siteTitle,
   filterSummary,
   logoDataUri = null,
+  universityLogoDataUri = null,
 }: {
   members: Member[];
   siteTitle: string;
   filterSummary: string;
   logoDataUri?: string | null;
+  universityLogoDataUri?: string | null;
 }) {
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
         <Letterhead
           logoDataUri={logoDataUri}
+          universityLogoDataUri={universityLogoDataUri}
           siteTitle={siteTitle}
           documentTitle={`Member List — ${members.length} member${members.length === 1 ? "" : "s"}`}
           filterSummary={filterSummary}

@@ -37,6 +37,20 @@ export function SiteSettingsForm({ settings }: { settings: SiteSettingsInput }) 
           <ImageUploadField name="logoUrl" category="LOGO" label="Logo" defaultUrl={settings.logoUrl} aspect="aspect-video max-w-[240px]" />
           <ImageUploadField name="faviconUrl" category="LOGO" label="Favicon" defaultUrl={settings.faviconUrl} aspect="aspect-square max-w-[100px]" />
           <div className="sm:col-span-2">
+            <ImageUploadField
+              name="universityLogoUrl"
+              category="LOGO"
+              label="University Logo (shown on exported PDFs)"
+              defaultUrl={settings.universityLogoUrl}
+              aspect="aspect-video max-w-[240px]"
+            />
+            <p className="mt-1.5 text-xs text-slate-light">
+              The university&apos;s own crest. It sits in the top-right corner of exported member and
+              alumni lists, opposite the association&apos;s logo. JPG or PNG — a PNG with a transparent
+              background works best. Leave empty to show only the association&apos;s logo.
+            </p>
+          </div>
+          <div className="sm:col-span-2">
             <Label htmlFor="copyrightText">Copyright Text</Label>
             <input id="copyrightText" name="copyrightText" defaultValue={settings.copyrightText} className={inputClasses} />
           </div>

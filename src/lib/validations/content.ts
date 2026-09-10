@@ -168,6 +168,9 @@ export const siteSettingsSchema = z.object({
   footerDescription: z.string().trim().max(500).optional().or(z.literal("")),
   logoUrl: z.string().optional().nullable(),
   faviconUrl: z.string().optional().nullable(),
+  // The university's own crest, shown alongside the association's mark on
+  // exported PDFs. Separate from logoUrl: that one is the association's.
+  universityLogoUrl: z.string().optional().nullable(),
   copyrightText: z.string().trim().max(200).optional().or(z.literal("")),
   generalEmail: z.string().trim().email().optional().or(z.literal("")),
   membershipEmail: z.string().trim().email().optional().or(z.literal("")),
