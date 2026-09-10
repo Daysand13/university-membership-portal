@@ -1262,3 +1262,14 @@ export async function updateMemberAdmin(params: {
 
   return updated;
 }
+
+/** Minimal member list for admin pickers (e.g. linking a Leadership team
+ *  entry to the account that pays dues) — not the full record, just enough
+ *  to identify someone in a dropdown. */
+export async function listActiveMembersForLinking() {
+  return db.member.findMany({
+    where: { status: "ACTIVE" },
+    select: { id: true, indexNumber: true, firstName: true, middleName: true, lastName: true },
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+  });
+}

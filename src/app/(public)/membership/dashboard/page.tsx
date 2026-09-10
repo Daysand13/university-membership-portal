@@ -4,28 +4,61 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { MemberProfileForm } from "@/components/forms/MemberProfileForm";
 import { DashboardStat } from "@/components/dashboard/DashboardStat";
 import { DualStatusBanner } from "@/components/dashboard/DualStatusBanner";
+import { DuesCard } from "@/components/dashboard/DuesCard";
 import { formatFullName } from "@/lib/format";
 import { getCurrentUser } from "@/lib/auth/user";
 import { memberHasAlumniStanding } from "@/lib/services/dual-status-service";
+import {
+  getCurrentAcademicYear,
+  getDuesFeeForMember,
+  getLatestDuesPayment,
+  formatPesewasAsCedis,
+} from "@/lib/services/dues-service";
 
 function formatDate(date: Date | null): string {
   if (!date) return "—";
   return new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "long", year: "numeric" }).format(date);
 }
 
-export default async function MemberDashboardPage() {
+export default async function MemberDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ dues?: string }>;
+}) {
   const member = await requireMember();
+  const sp = await searchParams;
   // Read from the records, not the session: someone signed in through the
   // older member-only login has no unified session, and reading roles off
   // that was why a genuinely dual member saw no badge at all.
-  const [isDualStatus, session] = await Promise.all([
+  const academicYear = getCurrentAcademicYear();
+  const [isDualStatus, session, duesFee, duesPayment] = await Promise.all([
     memberHasAlumniStanding(member),
     getCurrentUser(),
+    getDuesFeeForMember(member),
+    getLatestDuesPayment(member.id, academicYear),
   ]);
+  const duesPaid = duesPayment?.status === "SUCCESS" ? duesPayment : null;
 
   return (
     <div>
       {isDualStatus && <DualStatusBanner otherPortalLabel="Alumni" canSwitch={session !== null} />}
+
+      {sp.dues === "success" && (
+        <div className="mb-5 rounded-lg border border-success bg-success-light text-success px-4 py-3 text-sm font-medium">
+          Payment received — thank you! Your {academicYear} dues are now marked as paid.
+        </div>
+      )}
+      {sp.dues === "failed" && (
+        <div className="mb-5 rounded-lg border border-danger bg-danger-light text-danger px-4 py-3 text-sm font-medium">
+          That payment didn&apos;t go through. No dues have been charged — you can try again below.
+        </div>
+      )}
+      {sp.dues === "error" && (
+        <div className="mb-5 rounded-lg border border-warning bg-warning-light text-warning px-4 py-3 text-sm font-medium">
+          We couldn&apos;t confirm that payment right away. If you completed checkout, it will update shortly —
+          otherwise, try again below.
+        </div>
+      )}
 
       <div className="bg-white rounded-lg border border-line p-6 sm:p-7 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-5">
@@ -66,6 +99,13 @@ export default async function MemberDashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-1 space-y-6">
+        <DuesCard
+          academicYear={academicYear}
+          amountLabel={formatPesewasAsCedis(duesPaid ? duesPaid.amountPesewas : duesFee.amountPesewas)}
+          tierLabel={duesPaid ? duesPaid.tierLabel : duesFee.tierLabel}
+          paidAt={duesPaid?.paidAt ?? null}
+        />
+
         <div className="bg-white rounded-lg border border-line p-6">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-slate mb-4">Academic</h3>
           <dl className="space-y-3 text-sm">

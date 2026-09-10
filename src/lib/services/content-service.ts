@@ -52,6 +52,16 @@ export async function listTeamMembersForAdmin(type: TeamMemberType) {
   });
 }
 
+/** A member account can only be linked to one Leadership listing — thrown
+ *  as a plain Error so the action layer can show it as a normal form
+ *  message rather than a raw database constraint failure. */
+async function assertMemberNotAlreadyLinked(memberId: string, excludeTeamMemberId?: string): Promise<void> {
+  const existing = await db.teamMember.findUnique({ where: { memberId }, select: { id: true, name: true } });
+  if (existing && existing.id !== excludeTeamMemberId) {
+    throw new Error(`That member account is already linked to ${existing.name}'s listing.`);
+  }
+}
+
 export async function createTeamMember(data: {
   type: TeamMemberType;
   name: string;
@@ -60,7 +70,9 @@ export async function createTeamMember(data: {
   bio?: string;
   order?: number;
   isActive?: boolean;
+  memberId?: string | null;
 }) {
+  if (data.memberId) await assertMemberNotAlreadyLinked(data.memberId);
   return db.teamMember.create({ data });
 }
 
@@ -73,8 +85,10 @@ export async function updateTeamMember(
     bio: string | null;
     order: number;
     isActive: boolean;
+    memberId: string | null;
   }>,
 ) {
+  if (data.memberId) await assertMemberNotAlreadyLinked(data.memberId, id);
   return db.teamMember.update({ where: { id }, data });
 }
 

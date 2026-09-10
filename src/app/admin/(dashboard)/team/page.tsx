@@ -3,13 +3,20 @@ import { TeamMemberForm } from "@/components/admin/forms/TeamMemberForm";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { EmptyState } from "@/components/ui/Common";
 import { listTeamMembersForAdmin } from "@/lib/services/content-service";
+import { listActiveMembersForLinking } from "@/lib/services/membership-service";
 import { deleteTeamMemberAction } from "@/lib/actions/content-actions";
 
 export const metadata = { title: "Leadership & Patrons" };
 export const dynamic = "force-dynamic";
 
 async function TeamSection({ type, title, blurb }: { type: "LEADERSHIP" | "PATRON"; title: string; blurb: string }) {
-  const members = await listTeamMembersForAdmin(type);
+  const [members, linkableMembers] = await Promise.all([
+    listTeamMembersForAdmin(type),
+    // Only Leadership entries can be linked to a paying member account —
+    // linking a Patron has no effect on dues, so this list isn't fetched
+    // (or shown) for that section at all.
+    type === "LEADERSHIP" ? listActiveMembersForLinking() : Promise.resolve(undefined),
+  ]);
 
   return (
     <div className="mb-10">
@@ -40,7 +47,7 @@ async function TeamSection({ type, title, blurb }: { type: "LEADERSHIP" | "PATRO
                   <Trash2 size={15} />
                 </ConfirmButton>
               </div>
-              <TeamMemberForm type={type} member={member} />
+              <TeamMemberForm type={type} member={member} linkableMembers={linkableMembers} />
             </div>
           ))}
         </div>
@@ -48,7 +55,7 @@ async function TeamSection({ type, title, blurb }: { type: "LEADERSHIP" | "PATRO
 
       <div className="bg-surface-muted rounded-lg border border-dashed border-line p-5">
         <h3 className="text-sm font-semibold text-primary-950 mb-4">Add {title === "Our Patrons" ? "a Patron" : "a Leader"}</h3>
-        <TeamMemberForm type={type} />
+        <TeamMemberForm type={type} linkableMembers={linkableMembers} />
       </div>
     </div>
   );

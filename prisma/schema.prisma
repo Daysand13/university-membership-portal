@@ -178,6 +178,11 @@ model Member {
 
   passwordResetTokens PasswordResetToken[]
   alumniProfile       AlumniProfile?
+  duesPayments        DuesPayment[]
+  // The public Leadership/Patron listing this account is linked to, if any
+  // — the far side of TeamMember.memberId, used to charge the Executive
+  // dues rate instead of the level/track rate.
+  teamMemberLink      TeamMember?
 
   userId String? @unique
   user   User?   @relation(fields: [userId], references: [id])
@@ -471,6 +476,14 @@ model TeamMember {
   isActive  Boolean        @default(true)
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
+
+  // Optional link to the actual paying member account this listing
+  // represents, so dues can charge the Executive rate without a second,
+  // separate "who's an executive" record to keep in sync. Not every
+  // TeamMember has one — Patrons never do, and a Leadership entry can
+  // exist on the public page before (or without) a matching account.
+  memberId String? @unique
+  member   Member? @relation(fields: [memberId], references: [id])
 
   @@index([type])
   @@map("team_members")
@@ -880,4 +893,58 @@ model StudentEnrollment {
   @@index([userId])
   @@index([status])
   @@map("student_enrollments")
+}
+
+// ==================================================================
+// Membership dues (Paystack)
+// ==================================================================
+
+enum DuesPaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+/**
+ * One row per payment attempt, not per member-year — a failed or abandoned
+ * attempt is kept rather than overwritten, so retrying after a declined
+ * card doesn't erase the evidence of what happened. Whether a member "has
+ * paid" for a given academicYear is a query (a SUCCESS row for that year),
+ * not a flag anywhere.
+ */
+model DuesPayment {
+  id       String @id @default(cuid())
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  // e.g. "2026/2027" — see getCurrentAcademicYear() in dues-service.ts.
+  // Stored rather than derived from createdAt so a payment always reports
+  // the year it was FOR even if verification lands after the cutover.
+  academicYear String
+
+  // Human label for the tier this was charged at (e.g. "Level 100
+  // (Fresher)", "Executive"), captured at charge time so a later change to
+  // the fee schedule doesn't rewrite what someone actually paid for.
+  tierLabel String
+
+  // Smallest currency unit (pesewas — 100 = GHS 1.00), matching what
+  // Paystack's API itself expects and returns for GHS.
+  amountPesewas Int
+
+  status DuesPaymentStatus @default(PENDING)
+
+  // The value sent to Paystack as the transaction reference — generated
+  // here (not by Paystack) so it can be created before the API call and
+  // used to look the payment back up from the callback/webhook.
+  reference             String  @unique
+  paystackTransactionId String?
+  paidAt                DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([memberId])
+  @@index([academicYear])
+  @@index([status])
+  @@map("dues_payments")
 }

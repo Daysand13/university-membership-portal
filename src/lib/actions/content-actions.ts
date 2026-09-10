@@ -146,7 +146,7 @@ async function deleteSocialLinkActionImpl(id: string): Promise<void> {
 // Team Members (Executive Leadership + Our Patrons)
 // ---------------------------------------------------------------------------
 
-async function createTeamMemberActionImpl(formData: FormData): Promise<void> {
+async function createTeamMemberActionImpl(formData: FormData): Promise<ActionState> {
   await requireAdminRole(AdminRole.EDITOR);
   const parsed = teamMemberSchema.safeParse({
     type: formData.get("type"),
@@ -156,30 +156,46 @@ async function createTeamMemberActionImpl(formData: FormData): Promise<void> {
     order: formData.get("order") ?? 0,
     isActive: formData.get("isActive") === "on",
   });
-  if (!parsed.success) return;
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
   const photoUrl = formData.get("photoUrl");
-  await createTeamMember({
-    ...parsed.data,
-    photoUrl: typeof photoUrl === "string" && photoUrl ? photoUrl : undefined,
-  });
+  const memberId = formData.get("memberId");
+  try {
+    await createTeamMember({
+      ...parsed.data,
+      photoUrl: typeof photoUrl === "string" && photoUrl ? photoUrl : undefined,
+      memberId: typeof memberId === "string" && memberId ? memberId : null,
+    });
+  } catch (err) {
+    // The only thing this throws deliberately is the "already linked to
+    // someone else" check — a normal validation outcome, not a bug.
+    return { error: err instanceof Error ? err.message : "Could not save this entry." };
+  }
   revalidatePath("/about");
   revalidatePath("/admin/team");
+  return {};
 }
 
-async function updateTeamMemberActionImpl(id: string, formData: FormData): Promise<void> {
+async function updateTeamMemberActionImpl(id: string, formData: FormData): Promise<ActionState> {
   await requireAdminRole(AdminRole.EDITOR);
   const photoUrl = formData.get("photoUrl");
-  await updateTeamMember(id, {
-    name: String(formData.get("name") ?? ""),
-    position: String(formData.get("position") ?? ""),
-    bio: String(formData.get("bio") ?? "") || null,
-    photoUrl: typeof photoUrl === "string" && photoUrl ? photoUrl : null,
-    order: Number(formData.get("order") ?? 0),
-    isActive: formData.get("isActive") === "on",
-  });
+  const memberId = formData.get("memberId");
+  try {
+    await updateTeamMember(id, {
+      name: String(formData.get("name") ?? ""),
+      position: String(formData.get("position") ?? ""),
+      bio: String(formData.get("bio") ?? "") || null,
+      photoUrl: typeof photoUrl === "string" && photoUrl ? photoUrl : null,
+      order: Number(formData.get("order") ?? 0),
+      isActive: formData.get("isActive") === "on",
+      memberId: typeof memberId === "string" && memberId ? memberId : null,
+    });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not save this entry." };
+  }
   revalidatePath("/about");
   revalidatePath("/admin/team");
+  return {};
 }
 
 async function deleteTeamMemberActionImpl(id: string): Promise<void> {
@@ -203,6 +219,6 @@ export const deleteHeroSlideAction = withVoidActionErrorHandling("deleteHeroSlid
 export const updateSiteSettingsAction = withActionErrorHandling("updateSiteSettingsAction", updateSiteSettingsActionImpl);
 export const upsertSocialLinkAction = withActionErrorHandling("upsertSocialLinkAction", upsertSocialLinkActionImpl);
 export const deleteSocialLinkAction = withVoidActionErrorHandling("deleteSocialLinkAction", deleteSocialLinkActionImpl);
-export const createTeamMemberAction = withVoidActionErrorHandling("createTeamMemberAction", createTeamMemberActionImpl);
-export const updateTeamMemberAction = withVoidActionErrorHandling("updateTeamMemberAction", updateTeamMemberActionImpl);
+export const createTeamMemberAction = withActionErrorHandling("createTeamMemberAction", createTeamMemberActionImpl);
+export const updateTeamMemberAction = withActionErrorHandling("updateTeamMemberAction", updateTeamMemberActionImpl);
 export const deleteTeamMemberAction = withVoidActionErrorHandling("deleteTeamMemberAction", deleteTeamMemberActionImpl);

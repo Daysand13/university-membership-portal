@@ -3,25 +3,48 @@
 import { useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { createTeamMemberAction, updateTeamMemberAction } from "@/lib/actions/content-actions";
-import { Label, inputClasses } from "@/components/ui/Common";
+import { Label, inputClasses, FormAlert } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
+import { formatFullName } from "@/lib/format";
 import type { TeamMember, TeamMemberType } from "@/generated/prisma/client";
 
-export function TeamMemberForm({ type, member }: { type: TeamMemberType; member?: TeamMember }) {
+interface LinkableMember {
+  id: string;
+  indexNumber: string;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+}
+
+export function TeamMemberForm({
+  type,
+  member,
+  linkableMembers,
+}: {
+  type: TeamMemberType;
+  member?: TeamMember;
+  /** Only meaningful for LEADERSHIP — linking a Patron to a paying member
+   *  account has no effect on dues, so the picker is Leadership-only. */
+  linkableMembers?: LinkableMember[];
+}) {
   const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   async function handleSubmit(formData: FormData) {
     setIsPending(true);
+    setError(null);
     try {
       formData.set("type", type);
-      if (member) {
-        await updateTeamMemberAction(member.id, formData);
-      } else {
-        await createTeamMemberAction(formData);
-        formRef.current?.reset();
+      const result = member
+        ? await updateTeamMemberAction(member.id, formData)
+        : await createTeamMemberAction(formData);
+      if (result?.error) {
+        setError(result.error);
+        return;
       }
+      if (!member) formRef.current?.reset();
     } finally {
       setIsPending(false);
     }
@@ -31,6 +54,11 @@ export function TeamMemberForm({ type, member }: { type: TeamMemberType; member?
 
   return (
     <form ref={formRef} action={handleSubmit} className="grid sm:grid-cols-2 gap-4 items-start">
+      {error && (
+        <div className="sm:col-span-2">
+          <FormAlert message={error} />
+        </div>
+      )}
       <div className="sm:col-span-2">
         <ImageUploadField
           name="photoUrl"
@@ -59,6 +87,28 @@ export function TeamMemberForm({ type, member }: { type: TeamMemberType; member?
         <Label htmlFor={`bio-${idBase}`}>Brief Information</Label>
         <textarea id={`bio-${idBase}`} name="bio" rows={3} defaultValue={member?.bio ?? ""} className={inputClasses} />
       </div>
+      {linkableMembers && (
+        <div className="sm:col-span-2">
+          <Label htmlFor={`memberId-${idBase}`}>Linked Member Account</Label>
+          <select
+            id={`memberId-${idBase}`}
+            name="memberId"
+            defaultValue={member?.memberId ?? ""}
+            className={inputClasses}
+          >
+            <option value="">Not linked to an account</option>
+            {linkableMembers.map((m) => (
+              <option key={m.id} value={m.id}>
+                {formatFullName(m.firstName, m.middleName, m.lastName)} — {m.indexNumber}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-xs text-slate-light">
+            Links this listing to the person&apos;s actual member account, so their yearly dues are
+            charged at the Executive rate instead of their level/track rate.
+          </p>
+        </div>
+      )}
       <div>
         <Label htmlFor={`order-${idBase}`}>Display Order</Label>
         <input
