@@ -1,4 +1,5 @@
-import { GraduationCap, Trash2, FileDown, Users, UserCheck, Heart } from "lucide-react";
+import Link from "next/link";
+import { GraduationCap, Trash2, FileDown, Users, UserCheck, Heart, Star } from "lucide-react";
 import { EmptyState } from "@/components/ui/Common";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { listAlumniForAdmin, ALUMNI_SORT_FIELDS, describeAlumniSource, type AlumniSortField } from "@/lib/services/alumni-service";
@@ -109,6 +110,7 @@ export default async function AdminAlumniPage({
                 <th className="text-left px-5 py-3 font-semibold">Programme</th>
                 <th className="text-left px-5 py-3 font-semibold">Class of</th>
                 <th className="text-left px-5 py-3 font-semibold">Source</th>
+                <th className="text-left px-5 py-3 font-semibold">Public site</th>
                 <th className="text-left px-5 py-3 font-semibold">Status</th>
                 <th className="text-left px-5 py-3 font-semibold">Joined</th>
                 <th className="px-5 py-3" />
@@ -131,6 +133,22 @@ export default async function AdminAlumniPage({
                     }
                   </td>
                   <td className="px-5 py-3.5">
+                    {/* Three distinct states, not two: private, public, and
+                        public-and-featured. Showing them apart here is what
+                        stops "public" and "featured" being conflated. */}
+                    {a.spotlight?.published ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-2.5 py-1 bg-accent-100 text-accent-700">
+                        <Star size={11} /> Featured
+                      </span>
+                    ) : a.publicProfile ? (
+                      <span className="text-xs font-semibold rounded-full px-2.5 py-1 bg-primary-50 text-primary-800">
+                        Public
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-light">Private</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3.5">
                     <form action={setAlumniStatusAction.bind(null, a.id, a.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE")}>
                       <button
                         type="submit"
@@ -143,7 +161,13 @@ export default async function AdminAlumniPage({
                     </form>
                   </td>
                   <td className="px-5 py-3.5 text-slate-light text-xs">{formatDate(a.createdAt)}</td>
-                  <td className="px-5 py-3.5 text-right">
+                  <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                    <Link
+                      href={`/admin/alumni/${a.id}/feature`}
+                      className="text-sm font-semibold text-primary-800 hover:text-accent-600 mr-3"
+                    >
+                      {a.spotlight ? "Edit spotlight" : "Feature"}
+                    </Link>
                     {canDelete && (
                       <ConfirmButton
                         action={deleteAlumniAction.bind(null, a.id)}

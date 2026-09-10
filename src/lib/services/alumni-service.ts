@@ -353,7 +353,12 @@ export async function listAlumniForAdmin(filter?: { search?: string; sort?: Alum
       : {},
     // sourceMember.graduatedAt is what tells "graduated FROM this link" apart
     // from "currently ALSO a member via this link" — see describeAlumniSource.
-    include: { sourceMember: { select: { graduatedAt: true } } },
+    // The spotlight comes along so the list can show, at a glance, who is
+    // public and who is actually featured on the site.
+    include: {
+      sourceMember: { select: { graduatedAt: true } },
+      spotlight: { select: { published: true, displayOrder: true } },
+    },
     orderBy: ALUMNI_ORDER_BY[filter?.sort ?? "joined"],
   });
 }

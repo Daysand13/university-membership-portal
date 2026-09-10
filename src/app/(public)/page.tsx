@@ -9,15 +9,18 @@ import { EmptyState } from "@/components/ui/Common";
 import { getActiveHeroSlides, getSiteSettings } from "@/lib/services/content-service";
 import { getFeaturedNews } from "@/lib/services/news-service";
 import { getUpcomingEventsForHome } from "@/lib/services/event-service";
+import { listHomepageAlumni } from "@/lib/services/alumni-showcase-service";
+import { AlumniCard } from "@/components/alumni/AlumniCard";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [slides, news, events, siteSettings] = await Promise.all([
+  const [slides, news, events, siteSettings, homepageAlumni] = await Promise.all([
     getActiveHeroSlides(),
     getFeaturedNews(3),
     getUpcomingEventsForHome(3),
     getSiteSettings(),
+    listHomepageAlumni(4),
   ]);
 
   return (
@@ -73,6 +76,28 @@ export default async function HomePage() {
           )}
         </div>
       </section>
+
+      {/* Our Proud Alumni — the same featured records as the alumni page,
+          limited to those an admin ticked "show on homepage". Renders
+          nothing at all until someone is featured, so the homepage never
+          shows an empty shell. */}
+      {homepageAlumni.length > 0 && (
+        <section className="bg-surface-muted">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+            <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
+              <SectionHeading kicker="Life After Graduation" title="Our Proud Alumni" />
+              <LinkButton href="/alumni" variant="outline" size="sm">
+                Meet our alumni
+              </LinkButton>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {homepageAlumni.map((alumnus) => (
+                <AlumniCard key={alumnus.id} alumnus={alumnus} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Membership / Library / Elections / Donate */}
       <section className="bg-primary-950">

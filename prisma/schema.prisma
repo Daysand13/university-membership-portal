@@ -619,8 +619,35 @@ model AlumniProfile {
   profileImageUrl   String?
   bio               String?
   willingToMentor   Boolean      @default(false)
-  directoryVisible  Boolean      @default(true)
   status            AlumniStatus @default(ACTIVE)
+
+  // Visible in the members-only directory to other signed-in alumni. This
+  // has never meant "visible on the public web" and still doesn't — see
+  // publicProfile below, which is the separate, deliberately stricter gate.
+  directoryVisible Boolean @default(true)
+
+  // Opt-in to appearing anywhere on the PUBLIC site. Defaults to false for
+  // everyone, including every alumnus who already existed: nobody's details
+  // reach the open web without a deliberate decision. Being public is not
+  // the same as being featured — a public profile is reachable and listed,
+  // a featured one additionally gets a spotlight (see AlumniSpotlight).
+  publicProfile Boolean @default(false)
+  // Address of the public profile page, /alumni/[publicSlug]. Nullable
+  // because it's only minted when a profile is first made public.
+  publicSlug String? @unique
+
+  // Professional detail, shown publicly only when publicProfile is set.
+  currentPosition     String?
+  currentOrganization String?
+  industry            String?
+  country             String?
+  achievements        String[] @default([])
+
+  linkedinUrl  String?
+  twitterUrl   String?
+  facebookUrl  String?
+  instagramUrl String?
+  websiteUrl   String?
 
   // The Member row this alumni is currently also linked to, if any — either
   // set automatically because this profile was created FROM a graduating
@@ -643,11 +670,70 @@ model AlumniProfile {
   updatedAt DateTime @updatedAt
 
   passwordResetTokens AlumniPasswordResetToken[]
+  spotlight           AlumniSpotlight?
 
   @@index([status])
   @@index([willingToMentor])
   @@index([directoryVisible])
+  @@index([publicProfile])
   @@map("alumni_profiles")
+}
+
+/// The showcase presentation of an alumnus — the editorial layer on top of
+/// their account, not a second account. One identity, one AlumniProfile;
+/// this row exists only for the people an administrator has chosen to put
+/// forward, and deleting it removes the spotlight without touching their
+/// account or their ability to sign in.
+model AlumniSpotlight {
+  id       String        @id @default(cuid())
+  alumniId String        @unique
+  alumni   AlumniProfile @relation(fields: [alumniId], references: [id], onDelete: Cascade)
+
+  /// Short editorial line for the card, e.g. "Building accessible software".
+  headline String?
+  /// One or two sentences of achievement summary, shown on the card.
+  summary String?
+  /// Long-form spotlight story shown on the profile page.
+  story String?
+  /// Optional replacement for the account's own profile photo, so a casual
+  /// avatar doesn't have to double as a public feature image.
+  imageUrl String?
+  /// Achievement category, e.g. "Technology". Free text for now so admins
+  /// aren't blocked on a fixed list.
+  category String?
+  quote    String?
+
+  displayOrder   Int     @default(0)
+  showOnHomepage Boolean @default(false)
+  /// Nothing reaches the public site until this is true, independently of
+  /// whether the profile itself is public — so a spotlight can be drafted
+  /// and reviewed before anyone sees it.
+  published Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([published, displayOrder])
+  @@map("alumni_spotlights")
+}
+
+/// Admin-editable copy for the public /alumni page. Singleton, following
+/// the same "default" row pattern as AboutContent, so the wording is never
+/// hard-coded in the page.
+model AlumniPageContent {
+  id String @id @default("default")
+
+  heroKicker      String @default("Alumni Network")
+  heroTitle       String @default("Our Proud Alumni")
+  heroDescription String @default("Our alumni continue to make meaningful contributions across their professions, communities, and the world. Discover the people who represent the impact of our association beyond graduation.")
+  heroImageUrl    String?
+
+  showcaseTitle       String @default("Our Proud Alumni")
+  showcaseDescription String @default("Graduates of the association making an impact in their fields.")
+
+  updatedAt DateTime @updatedAt @default(now())
+
+  @@map("alumni_page_content")
 }
 
 model AlumniPasswordResetToken {

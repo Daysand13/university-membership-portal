@@ -225,7 +225,7 @@ async function alumniRegisterActionImpl(
   formData: FormData,
 ): Promise<ActionState> {
   // Silently pretend success for anything that looks automated.
-  if (isLikelyBot(formData)) redirect("/alumni?next=login");
+  if (isLikelyBot(formData)) redirect("/alumni/login");
 
   const ip = await getClientIp();
   const limit = await checkRateLimit(`alumni-register:ip:${ip}`, { max: 10, windowSeconds: 3600 });

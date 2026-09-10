@@ -83,7 +83,7 @@ export const getCurrentAlumni = cache(async (): Promise<AlumniProfile | null> =>
 export async function requireAlumni(): Promise<AlumniProfile> {
   const alumni = await getCurrentAlumni();
   if (!alumni) {
-    redirect("/alumni?next=login");
+    redirect("/alumni/login");
   }
   return alumni;
 }

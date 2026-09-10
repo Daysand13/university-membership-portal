@@ -86,7 +86,7 @@ async function alumniSetPasswordActionImpl(
     return { error: "Something went wrong. Please try again." };
   }
 
-  redirect("/alumni?next=login&passwordSet=1");
+  redirect("/alumni/login?passwordSet=1");
 }
 
 async function alumniChangePasswordActionImpl(
