@@ -8,6 +8,7 @@ import {
   readObjectHeadBytes,
   deleteObject,
   isR2Configured,
+  uploadBuffer,
 } from "@/lib/storage/r2";
 import { validateUploadRequest, bytesMatchDeclaredType } from "@/lib/storage/validation";
 import { MAX_PASSPORT_PICTURE_BYTES, MAX_MEDICAL_REPORT_BYTES } from "@/lib/validations/membership";
@@ -153,6 +154,70 @@ export async function requestEnrollmentUpload(params: {
     ok: true,
     mode: "upload",
     uploadUrl,
+    token: encodeToken({ k: objectKey, kind, ct: mimeType, exp: Date.now() + TOKEN_TTL_MS }),
+  };
+}
+
+export type EnrollmentStoreResult = { ok: true; token: string } | { ok: false; error: string };
+
+/**
+ * Same as step 1, except the bytes arrive here instead of going straight to
+ * R2 — the fallback for browsers that can't reach R2 directly.
+ *
+ * The direct-to-R2 PUT is cross-origin, so it depends on R2's CORS policy
+ * naming the page's exact origin. Android in-app browsers (a link opened
+ * inside WhatsApp or Facebook, which is how most people on Android open
+ * links) report `Origin: null` on cross-origin requests, R2 refuses that
+ * with a 403, and the browser blocks the upload before it leaves the phone.
+ * For an applicant that means the enrollment form simply will not accept
+ * their passport photo, with nothing they can do about it. Routing the
+ * bytes through our own server makes the request same-origin, where no
+ * CORS check applies at all.
+ *
+ * All four constraints in the header comment still hold, and two get
+ * stronger: the object key is still generated here and never accepted from
+ * the caller, the ticket is still HMAC-signed, and because the bytes are in
+ * hand the magic-byte sniff happens BEFORE anything is written rather than
+ * after. Submission still re-verifies independently via
+ * adoptEnrollmentUpload, so this path is not trusted any further than the
+ * presigned one.
+ */
+export async function storeEnrollmentUpload(params: {
+  kind: EnrollmentUploadKind;
+  filename: string;
+  mimeType: string;
+  bytes: Buffer;
+}): Promise<EnrollmentStoreResult> {
+  const { kind, filename, mimeType, bytes } = params;
+  const config = KIND_CONFIG[kind];
+  if (!config) return { ok: false, error: "Unknown upload type." };
+  if (!isR2Configured()) return { ok: false, error: "File storage isn't available right now." };
+
+  const check = validateUploadRequest({
+    filename,
+    mimeType,
+    fileSize: bytes.byteLength,
+    category: config.category,
+    maxSizeBytes: config.maxBytes,
+  });
+  if (!check.ok) return { ok: false, error: check.error };
+
+  // Refuse before writing rather than after: the bytes are already here, so
+  // there's no reason to put something in the bucket only to delete it.
+  if (!bytesMatchDeclaredType(bytes.subarray(0, SNIFF_BYTES), mimeType)) {
+    return {
+      ok: false,
+      error: `Your ${config.label} doesn't look like a valid ${
+        config.category === "image" ? "image" : "document"
+      }. Please attach a JPG, PNG or PDF.`,
+    };
+  }
+
+  const objectKey = generateObjectKey("members", filename, mimeType);
+  await uploadBuffer({ objectKey, contentType: mimeType, body: bytes });
+
+  return {
+    ok: true,
     token: encodeToken({ k: objectKey, kind, ct: mimeType, exp: Date.now() + TOKEN_TTL_MS }),
   };
 }
