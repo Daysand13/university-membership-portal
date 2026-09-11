@@ -255,16 +255,24 @@ export interface MemberDuesRow {
 }
 
 /**
- * Every ACTIVE member alongside whether they've paid dues for the given
+ * Every current member alongside whether they've paid dues for the given
  * academic year — the admin-facing view behind /admin/dues. Built as one
  * pass over the member list (fee is computed per member, same as the
  * dashboard) rather than a SQL join, since the fee itself depends on the
  * executive lookup, which isn't a column to join against.
+ *
+ * "Current member" is ACTIVE status AND no alumni profile — the same rule
+ * buildMemberWhere uses for /admin/members and the dashboard's Total
+ * Members count (see membership-service.ts). This used to check status
+ * alone, which counted a graduated dual-status member here while every
+ * other admin screen had already stopped counting them — the number on
+ * this page disagreed with "Total Members" by exactly the one person that
+ * distinction covers.
  */
 export async function listMemberDuesStatus(academicYear: string): Promise<MemberDuesRow[]> {
   const [members, successfulPayments] = await Promise.all([
     db.member.findMany({
-      where: { status: "ACTIVE" },
+      where: { status: "ACTIVE", alumniProfile: null },
       select: { id: true, firstName: true, middleName: true, lastName: true, indexNumber: true, level: true, applicationTrack: true },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),
