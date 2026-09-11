@@ -6,6 +6,7 @@ import {
   buildPublicUrl,
   deleteObject,
   isR2Configured,
+  uploadBuffer,
   type R2Prefix,
 } from "@/lib/storage/r2";
 import { validateUploadRequest } from "@/lib/storage/validation";
@@ -129,4 +130,48 @@ export async function requestDocumentUpload(params: {
   const objectKey = generateObjectKey("library", filename, mimeType);
   const uploadUrl = await getPresignedUploadUrl({ objectKey, contentType: mimeType, expiresInSeconds: 600 });
   return { ok: true, uploadUrl, objectKey, publicUrl: buildPublicUrl(objectKey) };
+}
+
+/**
+ * Uploads bytes to R2 from the server, as a fallback for when the browser
+ * can't reach R2 directly.
+ *
+ * The normal path is a presigned PUT straight from the browser, which
+ * exists to keep large files away from Vercel's 4.5MB request body cap.
+ * But that PUT is cross-origin, so it depends on R2's CORS policy naming
+ * the exact origin the page is served from — and some Android in-app
+ * browsers (a link opened inside WhatsApp or Facebook, which is how most
+ * people on Android open links) send `Origin: null` on cross-origin
+ * requests. R2 answers a null origin with 403, the browser blocks the PUT
+ * before it leaves the device, and the upload fails with what looks like a
+ * dropped connection. Verified directly against the live bucket: the
+ * canonical origins preflight fine, `null` gets 403.
+ *
+ * Routing those bytes through our own server instead makes the request
+ * same-origin, so no CORS check applies at all and it works in any
+ * browser, WebView, or restrictive proxy. The trade-off is that body cap,
+ * which is why this is a fallback rather than the default — see
+ * FALLBACK_MAX_BYTES in lib/client/admin-upload.ts for the ceiling the
+ * client keeps it under.
+ */
+export async function uploadAdminBytes(params: {
+  bytes: Buffer;
+  filename: string;
+  mimeType: string;
+  kind: "image" | "document";
+  category: MediaCategory;
+}): Promise<UploadTicketResult> {
+  const { bytes, filename, mimeType, kind, category } = params;
+
+  const check = validateUploadRequest({ filename, mimeType, fileSize: bytes.byteLength, category: kind });
+  if (!check.ok) return { ok: false, error: check.error };
+  if (!isR2Configured()) return { ok: false, error: STORAGE_UNCONFIGURED };
+
+  const prefix = kind === "document" ? "library" : CATEGORY_TO_PREFIX[category];
+  const objectKey = generateObjectKey(prefix, filename, mimeType);
+  await uploadBuffer({ objectKey, contentType: mimeType, body: bytes });
+
+  // Shaped like the presigned result so callers can treat both paths
+  // identically; uploadUrl is empty because the upload already happened.
+  return { ok: true, uploadUrl: "", objectKey, publicUrl: buildPublicUrl(objectKey) };
 }

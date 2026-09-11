@@ -19,6 +19,7 @@ export function MediaLibraryUploader() {
       const outcome = await uploadAdminFile({
         file,
         kind: "image",
+        category: "OTHER",
         requestTicket: (input) => requestAdminImageUpload({ ...input, category: "OTHER" }),
       });
       if (!outcome.ok) {

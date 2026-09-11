@@ -30,6 +30,7 @@ export function ImageUploadField({
       const outcome = await uploadAdminFile({
         file,
         kind: "image",
+        category,
         requestTicket: (input) => requestAdminImageUpload({ ...input, category }),
       });
       if (!outcome.ok) {

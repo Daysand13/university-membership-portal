@@ -74,6 +74,7 @@ export function RichTextEditor({ name, defaultValue }: { name: string; defaultVa
     const outcome = await uploadAdminFile({
       file,
       kind: "image",
+      category: "NEWS",
       requestTicket: (input) => requestAdminImageUpload({ ...input, category: "NEWS" }),
     });
     if (!outcome.ok) {

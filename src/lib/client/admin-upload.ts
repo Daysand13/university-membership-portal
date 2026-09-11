@@ -58,8 +58,92 @@ const ADMIN_IMAGE_TARGET_BYTES = Math.floor(4.5 * 1024 * 1024);
 const MAX_UPLOAD_ATTEMPTS = 3;
 const RETRY_DELAY_MS = [600, 1800]; // between attempt 1→2 and 2→3
 
+/**
+ * Ceiling for the same-origin fallback below. Vercel refuses a request
+ * body over 4.5MB before our code runs at all, so this leaves room for
+ * multipart overhead underneath that.
+ */
+const FALLBACK_MAX_BYTES = 4 * 1024 * 1024;
+
+/** Re-encode target when an image is too big for the fallback — smaller
+ *  than FALLBACK_MAX_BYTES so the multipart body clears the cap. */
+const FALLBACK_IMAGE_TARGET_BYTES = Math.floor(3.5 * 1024 * 1024);
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Sends the file to our own server, which puts it in R2 for us.
+ *
+ * This exists because the normal direct-to-R2 upload is cross-origin, and
+ * some Android in-app browsers — a link opened inside WhatsApp or
+ * Facebook, which is how most people on Android open links — send
+ * `Origin: null` on cross-origin requests. R2 refuses a null origin, so
+ * the browser blocks the PUT before it ever leaves the phone, and it
+ * surfaces as a dropped connection. Confirmed against the live bucket:
+ * the real site origins preflight fine, `null` gets a 403.
+ *
+ * A same-origin request has no CORS check at all, so it works in any
+ * browser or WebView. It's the fallback rather than the default only
+ * because everything sent this way counts against Vercel's body cap.
+ */
+async function uploadViaServer(params: {
+  file: File;
+  kind: "image" | "document";
+  mimeType: string;
+  category: string | undefined;
+}): Promise<AdminUploadResult> {
+  const { file, kind, mimeType, category } = params;
+
+  // Re-encode an oversized image rather than give up — losing PNG
+  // transparency beats not being able to upload at all, and this only
+  // happens once the direct path has already failed.
+  let prepared = file;
+  if (prepared.size > FALLBACK_MAX_BYTES && kind === "image") {
+    prepared = await downscaleImage(prepared, { targetBytes: FALLBACK_IMAGE_TARGET_BYTES });
+  }
+  if (prepared.size > FALLBACK_MAX_BYTES) {
+    return {
+      ok: false,
+      error:
+        "The upload didn't finish, and this file is too large to send another way. Please try a smaller file, or use a different browser.",
+    };
+  }
+
+  const body = new FormData();
+  body.append("file", prepared);
+  body.append("kind", kind);
+  body.append("mimeType", mimeType);
+  if (category) body.append("category", category);
+
+  try {
+    const response = await fetch("/api/admin/upload", { method: "POST", body });
+    const json = (await response.json().catch(() => null)) as
+      | { ok: true; publicUrl: string; objectKey: string; mimeType: string; fileSize: number; filename: string }
+      | { ok: false; error: string }
+      | null;
+
+    if (!response.ok || !json || !json.ok) {
+      const message = json && !json.ok ? json.error : "We couldn't save that file. Please try again.";
+      console.error("[admin-upload] same-origin fallback failed", response.status, message);
+      return { ok: false, error: message };
+    }
+    return {
+      ok: true,
+      publicUrl: json.publicUrl,
+      objectKey: json.objectKey,
+      mimeType: json.mimeType,
+      fileSize: json.fileSize,
+      filename: json.filename,
+    };
+  } catch (err) {
+    console.error("[admin-upload] same-origin fallback did not complete", err);
+    return {
+      ok: false,
+      error: "The upload didn't finish. Please check your connection and try again.",
+    };
+  }
 }
 
 export type AdminUploadResult =
@@ -69,13 +153,16 @@ export type AdminUploadResult =
 export async function uploadAdminFile(params: {
   file: File;
   kind: "image" | "document";
+  /** Which R2 folder an image belongs in. Passed through to the
+   *  same-origin fallback, which has to work it out server-side. */
+  category?: string;
   requestTicket: (input: {
     filename: string;
     mimeType: string;
     fileSize: number;
   }) => Promise<UploadTicketResult>;
 }): Promise<AdminUploadResult> {
-  const { file, kind, requestTicket } = params;
+  const { file, kind, category, requestTicket } = params;
 
   // Documents are uploaded untouched — only imagery can be re-encoded.
   const prepared = kind === "image" ? await downscaleImage(file, { targetBytes: ADMIN_IMAGE_TARGET_BYTES }) : file;
@@ -112,6 +199,7 @@ export async function uploadAdminFile(params: {
   // The same presigned URL can be PUT to more than once before it expires
   // (R2/S3 don't invalidate it after one use), so a retry needs no new
   // ticket — it just tries the exact same request again.
+  let directUploadWorked = false;
   for (let attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt++) {
     let response: Response;
     try {
@@ -122,30 +210,37 @@ export async function uploadAdminFile(params: {
       });
     } catch (err) {
       // fetch() rejects rather than returning a response when the request
-      // never completed — a dropped connection, not a rejection by the
-      // server. Worth retrying; a non-ok response below is not, since that
-      // means the server actually answered and said no.
+      // never completed. That's either a dropped connection or — the case
+      // that brought us here — the browser refusing to send it at all
+      // because R2's CORS policy doesn't cover this page's origin, which
+      // is what happens inside Android in-app browsers that report
+      // `Origin: null`. Retrying helps the first; only the same-origin
+      // fallback below helps the second, and from here they're
+      // indistinguishable, so try both in that order.
       console.error(`[admin-upload] upload request did not complete (attempt ${attempt}/${MAX_UPLOAD_ATTEMPTS})`, {
         pageOrigin: typeof location === "undefined" ? null : location.origin,
         err,
       });
-      if (attempt === MAX_UPLOAD_ATTEMPTS) {
-        return {
-          ok: false,
-          error: "The upload didn't finish after a few tries. Please check your connection and try again.",
-        };
-      }
+      if (attempt === MAX_UPLOAD_ATTEMPTS) break;
       await sleep(RETRY_DELAY_MS[attempt - 1]);
       continue;
     }
 
     if (!response.ok) {
+      // Storage answered and refused. Retrying the identical request won't
+      // change that, but the server-side path signs its own request and
+      // may well succeed, so fall through to it rather than stopping.
       const detail = await response.text().catch(() => "");
       console.error("[admin-upload] storage rejected the upload", response.status, detail.slice(0, 300));
-      return { ok: false, error: "The file didn't save. Please try uploading it again." };
+      break;
     }
 
+    directUploadWorked = true;
     break;
+  }
+
+  if (!directUploadWorked) {
+    return uploadViaServer({ file: prepared, kind, mimeType, category });
   }
 
   return {
