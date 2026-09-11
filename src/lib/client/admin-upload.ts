@@ -43,6 +43,25 @@ import type { UploadTicketResult } from "@/lib/actions/media-actions";
  */
 const ADMIN_IMAGE_TARGET_BYTES = Math.floor(4.5 * 1024 * 1024);
 
+/**
+ * A direct-to-R2 PUT is a real photo (often several MB even after
+ * downscaling) going straight from the admin's own connection to
+ * Cloudflare, with no server in between to retry on their behalf — so a
+ * single dropped packet, a WiFi hiccup, or a moment of campus-network
+ * congestion surfaces immediately as a failed upload. Confirmed this is
+ * not a CORS or configuration problem (a live test upload from the
+ * production domain succeeded cleanly); a brief connection blip mid-upload
+ * is the ordinary cause, and retrying automatically is the standard fix —
+ * the same thing a person does by hand when told to "try again", just
+ * without making them do it.
+ */
+const MAX_UPLOAD_ATTEMPTS = 3;
+const RETRY_DELAY_MS = [600, 1800]; // between attempt 1→2 and 2→3
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export type AdminUploadResult =
   | { ok: true; publicUrl: string; objectKey: string; mimeType: string; fileSize: number; filename: string }
   | { ok: false; error: string };
@@ -62,45 +81,71 @@ export async function uploadAdminFile(params: {
   const prepared = kind === "image" ? await downscaleImage(file, { targetBytes: ADMIN_IMAGE_TARGET_BYTES }) : file;
   const mimeType = resolveMimeType(prepared);
 
-  let ticket: UploadTicketResult;
-  try {
-    ticket = await requestTicket({ filename: prepared.name, mimeType, fileSize: prepared.size });
-  } catch (err) {
-    console.error("[admin-upload] could not get an upload ticket", err);
-    return {
-      ok: false,
-      error: "We couldn't start the upload. Please check your connection and try again.",
-    };
+  // Requesting the ticket is a normal network round trip too (a Server
+  // Action call), so it's just as exposed to a brief connection drop as
+  // the R2 PUT below — same retry treatment.
+  let ticket: UploadTicketResult | undefined;
+  for (let attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt++) {
+    try {
+      ticket = await requestTicket({ filename: prepared.name, mimeType, fileSize: prepared.size });
+      break;
+    } catch (err) {
+      console.error(`[admin-upload] could not get an upload ticket (attempt ${attempt}/${MAX_UPLOAD_ATTEMPTS})`, err);
+      if (attempt === MAX_UPLOAD_ATTEMPTS) {
+        return {
+          ok: false,
+          error: "We couldn't start the upload after a few tries. Please check your connection and try again.",
+        };
+      }
+      await sleep(RETRY_DELAY_MS[attempt - 1]);
+    }
+  }
+  if (!ticket) {
+    // Unreachable in practice — the loop above either returns or breaks
+    // with `ticket` set — but keeps TypeScript honest about the type.
+    return { ok: false, error: "We couldn't start the upload. Please try again." };
   }
 
   // A rejected file arrives as a normal answer carrying the actual reason.
   if (!ticket.ok) return { ok: false, error: ticket.error };
 
-  try {
-    const response = await fetch(ticket.uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": mimeType },
-      body: prepared,
-    });
+  // The same presigned URL can be PUT to more than once before it expires
+  // (R2/S3 don't invalidate it after one use), so a retry needs no new
+  // ticket — it just tries the exact same request again.
+  for (let attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt++) {
+    let response: Response;
+    try {
+      response = await fetch(ticket.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": mimeType },
+        body: prepared,
+      });
+    } catch (err) {
+      // fetch() rejects rather than returning a response when the request
+      // never completed — a dropped connection, not a rejection by the
+      // server. Worth retrying; a non-ok response below is not, since that
+      // means the server actually answered and said no.
+      console.error(`[admin-upload] upload request did not complete (attempt ${attempt}/${MAX_UPLOAD_ATTEMPTS})`, {
+        pageOrigin: typeof location === "undefined" ? null : location.origin,
+        err,
+      });
+      if (attempt === MAX_UPLOAD_ATTEMPTS) {
+        return {
+          ok: false,
+          error: "The upload didn't finish after a few tries. Please check your connection and try again.",
+        };
+      }
+      await sleep(RETRY_DELAY_MS[attempt - 1]);
+      continue;
+    }
+
     if (!response.ok) {
       const detail = await response.text().catch(() => "");
       console.error("[admin-upload] storage rejected the upload", response.status, detail.slice(0, 300));
       return { ok: false, error: "The file didn't save. Please try uploading it again." };
     }
-  } catch (err) {
-    // fetch() rejects rather than returning a response when the request
-    // never completed — offline, or blocked before it was sent. In practice
-    // the second usually means the bucket's CORS policy doesn't list this
-    // origin, so log the origin: it's the detail that tells them apart.
-    console.error("[admin-upload] upload request did not complete", {
-      pageOrigin: typeof location === "undefined" ? null : location.origin,
-      hint: "if this is a CORS block, add the origin above to the R2 bucket's AllowedOrigins",
-      err,
-    });
-    return {
-      ok: false,
-      error: "The upload didn't finish. Please check your connection and try again.",
-    };
+
+    break;
   }
 
   return {

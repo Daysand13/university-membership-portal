@@ -49,7 +49,14 @@ export async function listTeamMembersForAdmin(type: TeamMemberType) {
   return db.teamMember.findMany({
     where: { type },
     orderBy: { order: "asc" },
+    include: {
+      member: { select: { firstName: true, middleName: true, lastName: true, indexNumber: true } },
+    },
   });
+}
+
+export async function getTeamMemberById(id: string) {
+  return db.teamMember.findUnique({ where: { id } });
 }
 
 /** A member account can only be linked to one Leadership listing — thrown

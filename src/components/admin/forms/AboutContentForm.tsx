@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { updateAboutAction } from "@/lib/actions/content-actions";
 import { initialActionState } from "@/lib/actions/types";
@@ -25,9 +26,9 @@ export function AboutContentForm({ about }: { about: AboutContent }) {
 
       <p className="text-xs text-slate-light bg-surface-muted rounded-md px-3.5 py-2.5">
         Executive Leadership and Our Patrons have their own screen —{" "}
-        <a href="/admin/team" className="font-semibold text-primary-800 hover:underline">
+        <Link href="/admin/team" className="font-semibold text-primary-800 hover:underline">
           manage them here
-        </a>
+        </Link>
         .
       </p>
 

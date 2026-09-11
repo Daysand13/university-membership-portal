@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { createTeamMemberAction, updateTeamMemberAction } from "@/lib/actions/content-actions";
 import { Label, inputClasses, FormAlert } from "@/components/ui/Common";
@@ -30,21 +30,20 @@ export function TeamMemberForm({
 }) {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
-
   async function handleSubmit(formData: FormData) {
     setIsPending(true);
     setError(null);
     try {
       formData.set("type", type);
+      // On success, create redirects to the new entry's edit page itself
+      // (see createTeamMemberActionImpl) — nothing further to do here in
+      // that case. Update just returns {} and stays on this same page.
       const result = member
         ? await updateTeamMemberAction(member.id, formData)
         : await createTeamMemberAction(formData);
       if (result?.error) {
         setError(result.error);
-        return;
       }
-      if (!member) formRef.current?.reset();
     } finally {
       setIsPending(false);
     }
@@ -53,7 +52,7 @@ export function TeamMemberForm({
   const idBase = member?.id ?? `new-${type}`;
 
   return (
-    <form ref={formRef} action={handleSubmit} className="grid sm:grid-cols-2 gap-4 items-start">
+    <form action={handleSubmit} className="grid sm:grid-cols-2 gap-4 items-start">
       {error && (
         <div className="sm:col-span-2">
           <FormAlert message={error} />

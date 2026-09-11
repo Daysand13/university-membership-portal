@@ -3,6 +3,7 @@
 import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireAdminRole, requireAdminUser } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { aboutContentSchema, teamMemberSchema, donateContentSchema, siteSettingsSchema, socialLinkSchema } from "@/lib/validations/content";
@@ -160,8 +161,9 @@ async function createTeamMemberActionImpl(formData: FormData): Promise<ActionSta
 
   const photoUrl = formData.get("photoUrl");
   const memberId = formData.get("memberId");
+  let created;
   try {
-    await createTeamMember({
+    created = await createTeamMember({
       ...parsed.data,
       photoUrl: typeof photoUrl === "string" && photoUrl ? photoUrl : undefined,
       memberId: typeof memberId === "string" && memberId ? memberId : null,
@@ -173,7 +175,7 @@ async function createTeamMemberActionImpl(formData: FormData): Promise<ActionSta
   }
   revalidatePath("/about");
   revalidatePath("/admin/team");
-  return {};
+  redirect(`/admin/team/${created.id}`);
 }
 
 async function updateTeamMemberActionImpl(id: string, formData: FormData): Promise<ActionState> {
@@ -205,6 +207,13 @@ async function deleteTeamMemberActionImpl(id: string): Promise<void> {
   revalidatePath("/admin/team");
 }
 
+async function setTeamMemberActiveActionImpl(id: string, isActive: boolean): Promise<void> {
+  await requireAdminRole(AdminRole.EDITOR);
+  await updateTeamMember(id, { isActive });
+  revalidatePath("/about");
+  revalidatePath("/admin/team");
+}
+
 // ---------------------------------------------------------------------------
 // Exported actions, each wrapped so an unexpected failure surfaces as a
 // friendly message instead of a raw server-error page. See
@@ -222,3 +231,4 @@ export const deleteSocialLinkAction = withVoidActionErrorHandling("deleteSocialL
 export const createTeamMemberAction = withActionErrorHandling("createTeamMemberAction", createTeamMemberActionImpl);
 export const updateTeamMemberAction = withActionErrorHandling("updateTeamMemberAction", updateTeamMemberActionImpl);
 export const deleteTeamMemberAction = withVoidActionErrorHandling("deleteTeamMemberAction", deleteTeamMemberActionImpl);
+export const setTeamMemberActiveAction = withVoidActionErrorHandling("setTeamMemberActiveAction", setTeamMemberActiveActionImpl);
