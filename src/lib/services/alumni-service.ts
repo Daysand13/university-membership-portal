@@ -8,6 +8,14 @@ import { getEmailBrand } from "@/lib/services/content-service";
 import { alumniGraduationInviteEmail, alumniWelcomeEmail, alumniPasswordResetEmail } from "@/lib/email/templates";
 import type { AlumniRegisterInput } from "@/lib/validations/alumni";
 import { formatFullName } from "@/lib/format";
+import {
+  notifyAccountRemoved,
+  notifyAlumniProfileUpdated,
+  notifyAlumniStatusChange,
+  notifyGraduationRecorded,
+  notifyPasswordChanged,
+  firstNameOf,
+} from "@/lib/services/account-notification-service";
 
 export class DuplicateAlumniEmailError extends Error {
   constructor() {
@@ -206,6 +214,17 @@ export async function promoteMemberToAlumni(params: {
       entityType: "AlumniProfile",
       entityId: alumni.id,
     });
+  } else {
+    // No invite for a returning alumnus — but the graduation itself still
+    // changed their account, so they still hear about it.
+    await notifyGraduationRecorded({
+      alumniId: alumni.id,
+      email: alumni.email,
+      firstName: member.firstName,
+      graduationYear,
+      programme: member.programme,
+      studentMembershipClosed: false,
+    });
   }
 
   return alumni;
@@ -249,11 +268,28 @@ export async function setAlumniPasswordWithToken(rawToken: string, newPassword: 
   if (!record || record.usedAt || record.expiresAt.getTime() < Date.now()) {
     throw new InvalidOrExpiredAlumniTokenError();
   }
+  const before = await db.alumniProfile.findUniqueOrThrow({
+    where: { id: record.alumniId },
+    select: { passwordHash: true, mustSetPassword: true },
+  });
   const passwordHash = await hashPassword(newPassword);
-  await db.$transaction([
+  const [alumni] = await db.$transaction([
     db.alumniProfile.update({ where: { id: record.alumniId }, data: { passwordHash, mustSetPassword: false } }),
     db.alumniPasswordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
   ]);
+
+  // The same token flow sets a brand-new account's FIRST password (from the
+  // graduation invite). That's not a change worth an alert; a reset is.
+  const wasFirstPassword = !before.passwordHash || before.mustSetPassword;
+  if (!wasFirstPassword) {
+    await notifyPasswordChanged({
+      portal: "Alumni",
+      email: alumni.email,
+      firstName: firstNameOf(alumni.fullName),
+      entityType: "AlumniProfile",
+      entityId: alumni.id,
+    });
+  }
 }
 
 export async function changeAlumniPassword(params: {
@@ -268,6 +304,13 @@ export async function changeAlumniPassword(params: {
   if (!valid) throw new InvalidAlumniCredentialsError("Current password is incorrect.");
   const passwordHash = await hashPassword(newPassword);
   await db.alumniProfile.update({ where: { id: alumniId }, data: { passwordHash, mustSetPassword: false } });
+  await notifyPasswordChanged({
+    portal: "Alumni",
+    email: alumni.email,
+    firstName: firstNameOf(alumni.fullName),
+    entityType: "AlumniProfile",
+    entityId: alumni.id,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -285,15 +328,149 @@ const EDITABLE_ALUMNI_FIELDS = [
   "profileImageUrl",
 ] as const;
 
+const ALUMNI_FIELD_LABELS: Record<(typeof EDITABLE_ALUMNI_FIELDS)[number], string> = {
+  fullName: "Full Name",
+  phone: "Phone Number",
+  profession: "Profession",
+  currentLocation: "Current Location",
+  bio: "Short Bio",
+  willingToMentor: "Willing to Mentor",
+  directoryVisible: "Alumni Directory Visibility",
+  profileImageUrl: "Profile Picture",
+};
+
 export async function updateAlumniProfile(
   alumniId: string,
   updates: Partial<Pick<AlumniProfile, (typeof EDITABLE_ALUMNI_FIELDS)[number]>>,
 ): Promise<AlumniProfile> {
+  const before = await db.alumniProfile.findUniqueOrThrow({ where: { id: alumniId } });
+
   const safeUpdates: Record<string, unknown> = {};
+  const changedFields: string[] = [];
   for (const field of EDITABLE_ALUMNI_FIELDS) {
-    if (field in updates) safeUpdates[field] = updates[field];
+    if (!(field in updates)) continue;
+    safeUpdates[field] = updates[field];
+    // Blank and missing are the same thing on these optional fields.
+    if ((updates[field] ?? null) !== (before[field] ?? null) && !(updates[field] === "" && before[field] === null)) {
+      changedFields.push(ALUMNI_FIELD_LABELS[field]);
+    }
   }
-  return db.alumniProfile.update({ where: { id: alumniId }, data: safeUpdates });
+
+  const updated = await db.alumniProfile.update({ where: { id: alumniId }, data: safeUpdates });
+  await notifyAlumniProfileUpdated({ alumni: updated, changedFields });
+  return updated;
+}
+
+const CAREER_FIELD_LABELS = {
+  profession: "Profession",
+  currentPosition: "Current Position",
+  currentOrganization: "Organisation",
+  industry: "Industry",
+  currentLocation: "Current Location",
+  country: "Country",
+  linkedinUrl: "LinkedIn Profile",
+  websiteUrl: "Website",
+} as const;
+
+export type AlumniCareerUpdate = { [K in keyof typeof CAREER_FIELD_LABELS]: string | null };
+
+/** The alumnus's own "Career Updates" page. */
+export async function updateAlumniCareer(alumniId: string, updates: AlumniCareerUpdate): Promise<AlumniProfile> {
+  const before = await db.alumniProfile.findUniqueOrThrow({ where: { id: alumniId } });
+  const changedFields = (Object.keys(CAREER_FIELD_LABELS) as (keyof AlumniCareerUpdate)[])
+    .filter((field) => (updates[field] ?? null) !== (before[field] ?? null))
+    .map((field) => CAREER_FIELD_LABELS[field]);
+
+  const updated = await db.alumniProfile.update({ where: { id: alumniId }, data: updates });
+  await notifyAlumniProfileUpdated({ alumni: updated, changedFields });
+  return updated;
+}
+
+export interface StudyRecord {
+  id: string;
+  indexNumber: string;
+  programme: string;
+  academicDepartment: string | null;
+  level: string;
+  campus: string;
+  track: "UNDERGRADUATE" | "POSTGRADUATE" | null;
+  yearOfAdmission: number;
+  expectedGraduationYear: number | null;
+  status: "ACTIVE" | "GRADUATED" | "SUSPENDED" | "INACTIVE";
+  graduatedAt: Date | null;
+}
+
+/**
+ * An alumnus's periods of study as the association holds them, for the
+ * Academic Records page.
+ *
+ * The enrollment history (one row per period of study) is the complete
+ * record wherever it exists. Accounts older than that history have only the
+ * member record they graduated from, which stands in for it — never both,
+ * which would list the same studies twice.
+ */
+export async function getAlumniStudyRecords(alumni: Pick<AlumniProfile, "id" | "userId" | "sourceMemberId">) {
+  const [enrollments, sourceMember, furtherStudiesApplications] = await Promise.all([
+    alumni.userId
+      ? db.studentEnrollment.findMany({
+          where: { userId: alumni.userId },
+          orderBy: [{ yearOfAdmission: "desc" }, { createdAt: "desc" }],
+        })
+      : Promise.resolve([]),
+    alumni.sourceMemberId ? db.member.findUnique({ where: { id: alumni.sourceMemberId } }) : Promise.resolve(null),
+    db.membershipApplication.findMany({
+      where: { submittedByAlumniId: alumni.id },
+      orderBy: { submittedAt: "desc" },
+      select: { id: true, status: true, programme: true, level: true, indexNumber: true, submittedAt: true },
+    }),
+  ]);
+
+  let records: StudyRecord[];
+  if (enrollments.length > 0) {
+    records = enrollments.map((e) => ({
+      id: e.id,
+      indexNumber: e.indexNumber,
+      programme: e.programme,
+      academicDepartment: e.academicDepartment,
+      level: e.level,
+      campus: e.campus,
+      track: e.applicationTrack,
+      yearOfAdmission: e.yearOfAdmission,
+      expectedGraduationYear: e.expectedGraduationYear,
+      status: e.status,
+      graduatedAt: e.graduatedAt,
+    }));
+  } else if (sourceMember) {
+    records = [
+      {
+        id: sourceMember.id,
+        indexNumber: sourceMember.indexNumber,
+        programme: sourceMember.programme,
+        academicDepartment: sourceMember.academicDepartment,
+        level: sourceMember.level,
+        campus: sourceMember.campus,
+        track: sourceMember.applicationTrack,
+        yearOfAdmission: sourceMember.yearOfAdmission,
+        expectedGraduationYear: sourceMember.expectedGraduationYear,
+        status: sourceMember.graduatedAt ? "GRADUATED" : sourceMember.status,
+        graduatedAt: sourceMember.graduatedAt,
+      },
+    ];
+  } else {
+    records = [];
+  }
+
+  return { records, furtherStudiesApplications };
+}
+
+/** Headline numbers for the Alumni Portal's network card. */
+export async function getAlumniNetworkCounts() {
+  const visible = { status: AlumniStatus.ACTIVE, directoryVisible: true };
+  const [directoryCount, mentorCount] = await Promise.all([
+    db.alumniProfile.count({ where: visible }),
+    db.alumniProfile.count({ where: { ...visible, willingToMentor: true } }),
+  ]);
+  return { directoryCount, mentorCount };
 }
 
 // ---------------------------------------------------------------------------
@@ -379,11 +556,20 @@ export function describeAlumniSource(alumni: { sourceMember: { graduatedAt: Date
 }
 
 export async function setAlumniStatus(params: { alumniId: string; status: AlumniStatus }): Promise<AlumniProfile> {
-  return db.alumniProfile.update({ where: { id: params.alumniId }, data: { status: params.status } });
+  const before = await db.alumniProfile.findUniqueOrThrow({ where: { id: params.alumniId }, select: { status: true } });
+  const updated = await db.alumniProfile.update({ where: { id: params.alumniId }, data: { status: params.status } });
+  await notifyAlumniStatusChange(updated, before.status, updated.status);
+  return updated;
 }
 
-export async function deleteAlumni(params: { alumniId: string; adminId: string; note?: string }): Promise<void> {
-  const { alumniId, adminId, note } = params;
+export async function deleteAlumni(params: {
+  alumniId: string;
+  adminId: string;
+  note?: string;
+  /** False when the caller sends its own, combined notice (see deleteUserAccount). */
+  notify?: boolean;
+}): Promise<void> {
+  const { alumniId, adminId, note, notify = true } = params;
   const alumni = await db.alumniProfile.findUniqueOrThrow({ where: { id: alumniId } });
 
   await db.$transaction([
@@ -399,4 +585,13 @@ export async function deleteAlumni(params: { alumniId: string; adminId: string; 
       },
     }),
   ]);
+
+  if (notify) {
+    await notifyAccountRemoved({
+      recipient: { email: alumni.email, firstName: firstNameOf(alumni.fullName) },
+      accountKind: "alumni",
+      entityType: "AlumniProfile",
+      entityId: alumniId,
+    });
+  }
 }

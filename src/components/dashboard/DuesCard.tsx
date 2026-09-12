@@ -21,17 +21,20 @@ export function DuesCard({
   amountLabel,
   tierLabel,
   paidAt,
+  bare = false,
 }: {
   academicYear: string;
   amountLabel: string;
   tierLabel: string;
   paidAt: Date | null;
+  /** Just the contents, for placing inside a card that already has its own frame and heading. */
+  bare?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(initiateDuesPaymentAction, initialActionState);
 
   return (
-    <div className="bg-white rounded-lg border border-line p-6">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate mb-4">Membership Dues</h3>
+    <div className={bare ? "" : "bg-white rounded-lg border border-line p-6"}>
+      {!bare && <h3 className="text-xs font-semibold uppercase tracking-wide text-slate mb-4">Membership Dues</h3>}
 
       {paidAt ? (
         <div className="flex items-start gap-3">

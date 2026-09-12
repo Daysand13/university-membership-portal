@@ -38,6 +38,35 @@ export const alumniProfileUpdateSchema = z.object({
   directoryVisible: z.coerce.boolean().optional().default(false),
 });
 
+function isWebLink(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+/** These links end up as hrefs on public profile pages, so only http(s) —
+ *  a `javascript:` link typed here must never become clickable there. */
+const optionalWebLink = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((value) => value === "" || isWebLink(value), "Enter a full link starting with https://")
+  .optional();
+
+export const alumniCareerUpdateSchema = z.object({
+  profession: z.string().trim().max(150).optional().or(z.literal("")),
+  currentPosition: z.string().trim().max(200).optional().or(z.literal("")),
+  currentOrganization: z.string().trim().max(200).optional().or(z.literal("")),
+  industry: z.string().trim().max(150).optional().or(z.literal("")),
+  currentLocation: z.string().trim().max(150).optional().or(z.literal("")),
+  country: z.string().trim().max(100).optional().or(z.literal("")),
+  linkedinUrl: optionalWebLink,
+  websiteUrl: optionalWebLink,
+});
+
 export const alumniChangePasswordSchema = z
   .object({
     currentPassword: z.string().trim().min(1, "Current password is required"),

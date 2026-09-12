@@ -7,6 +7,7 @@ import {
   initializeTransaction,
   verifyTransaction,
 } from "@/lib/services/paystack-client";
+import { notifyDuesPaymentReceived } from "@/lib/services/account-notification-service";
 
 /**
  * Yearly membership dues, charged through Paystack.
@@ -103,6 +104,19 @@ export async function hasPaidDuesForYear(memberId: string, academicYear: string)
     select: { id: true },
   });
   return paid !== null;
+}
+
+/**
+ * Every payment attempt this member has made, newest first, for their Dues &
+ * Payments page. Failed and abandoned attempts are included and labelled as
+ * such, so someone whose checkout failed can see that nothing went through.
+ */
+export async function listDuesPaymentsForMember(memberId: string) {
+  return db.duesPayment.findMany({
+    where: { memberId },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
 }
 
 export type InitiateDuesPaymentResult =
@@ -207,11 +221,24 @@ export async function verifyAndRecordDuesPayment(reference: string): Promise<Ver
     // Guarded by the WHERE on status: if the webhook and the callback race
     // each other here, only the first one's update actually changes a row,
     // so only the first writes the audit log below.
+    const paidAt = new Date();
     const { count } = await db.duesPayment.updateMany({
       where: { id: payment.id, status: { not: "SUCCESS" } },
-      data: { status: "SUCCESS", paidAt: new Date(), paystackTransactionId: String(verified.transactionId) },
+      data: { status: "SUCCESS", paidAt, paystackTransactionId: String(verified.transactionId) },
     });
     if (count > 0) {
+      // Inside the same "only the first writer" guard as the audit entry,
+      // so the webhook and the callback racing each other can't send the
+      // member two receipts.
+      await notifyDuesPaymentReceived({
+        memberId: payment.memberId,
+        paymentId: payment.id,
+        academicYear: payment.academicYear,
+        tierLabel: payment.tierLabel,
+        amountLabel: formatPesewasAsCedis(payment.amountPesewas),
+        reference,
+        paidAt,
+      });
       await db.auditLog.create({
         data: {
           action: "DUES_PAYMENT_SUCCESS",

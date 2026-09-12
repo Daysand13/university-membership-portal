@@ -27,6 +27,12 @@ import {
 } from "@/lib/email/templates";
 import type { EnrollmentInput, MemberAdminEditInput, AlumniFurtherStudiesInput } from "@/lib/validations/membership";
 import { formatFullName } from "@/lib/format";
+import {
+  notifyAccountRemoved,
+  notifyMemberRecordCorrected,
+  notifyMemberStatusChange,
+  notifyPasswordChanged,
+} from "@/lib/services/account-notification-service";
 
 export class DuplicateIndexNumberError extends Error {
   constructor() {
@@ -793,6 +799,13 @@ export async function changeMemberPassword(params: {
     where: { id: memberId },
     data: { passwordHash, mustChangePassword: false },
   });
+  await notifyPasswordChanged({
+    portal: "Member",
+    email: member.email,
+    firstName: member.firstName,
+    entityType: "Member",
+    entityId: member.id,
+  });
 }
 
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000; // 30 minutes
@@ -831,10 +844,17 @@ export async function resetPasswordWithToken(rawToken: string, newPassword: stri
     throw new InvalidOrExpiredTokenError();
   }
   const passwordHash = await hashPassword(newPassword);
-  await db.$transaction([
+  const [member] = await db.$transaction([
     db.member.update({ where: { id: record.memberId }, data: { passwordHash, mustChangePassword: false } }),
     db.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
   ]);
+  await notifyPasswordChanged({
+    portal: "Member",
+    email: member.email,
+    firstName: member.firstName,
+    entityType: "Member",
+    entityId: member.id,
+  });
 }
 
 const EDITABLE_MEMBER_FIELDS = [
@@ -995,8 +1015,14 @@ export async function getMemberFilterOptions() {
   };
 }
 
-export async function deleteMember(params: { memberId: string; adminId: string; note?: string }): Promise<void> {
-  const { memberId, adminId, note } = params;
+export async function deleteMember(params: {
+  memberId: string;
+  adminId: string;
+  note?: string;
+  /** False when the caller sends its own, combined notice (see deleteUserAccount). */
+  notify?: boolean;
+}): Promise<void> {
+  const { memberId, adminId, note, notify = true } = params;
   const member = await db.member.findUniqueOrThrow({ where: { id: memberId } });
 
   // Deleting only the member left its original application record behind
@@ -1031,6 +1057,15 @@ export async function deleteMember(params: { memberId: string; adminId: string; 
   ];
 
   await db.$transaction(operations);
+
+  if (notify) {
+    await notifyAccountRemoved({
+      recipient: { email: member.email, firstName: member.firstName },
+      accountKind: "membership",
+      entityType: "Member",
+      entityId: memberId,
+    });
+  }
 }
 
 /** Only rejected or suspended applications can be deleted this way — a
@@ -1086,6 +1121,7 @@ export async function setMemberStatus(params: {
       newValue: { status },
     },
   });
+  await notifyMemberStatusChange(member, previous.status, status);
   return member;
 }
 
@@ -1235,29 +1271,16 @@ export async function updateMemberAdmin(params: {
     });
 
     // A member should never learn their own details changed by noticing it
-    // themselves — the same confirmation their own self-service edit sends
-    // (see updateMemberProfile above), reused here so an admin correction
-    // isn't silent just because the member didn't make it. Best-effort: a
+    // themselves. If the email address itself was changed, the old address
+    // is told as well, so that change can't happen silently. Best-effort: a
     // stalled email must never make an otherwise-successful edit look like
     // it failed to the admin who made it.
-    try {
-      const changedFields = Object.keys(newValue).map((key) => ADMIN_EDITABLE_FIELD_LABELS[key] ?? key);
-      const { subject, html } = profileUpdatedEmail({
-        firstName: updated.firstName,
-        changedFields,
-        brand: await getEmailBrand(),
-      });
-      await sendEmail({
-        to: updated.email,
-        subject,
-        html,
-        template: "profile-updated",
-        entityType: "Member",
-        entityId: updated.id,
-      });
-    } catch (err) {
-      console.error(`[update-member-admin] ${memberId} updated, but notification email failed:`, err);
-    }
+    await notifyMemberRecordCorrected({
+      member: updated,
+      previousEmail: before.email,
+      previousIndexNumber: before.indexNumber,
+      changedFields: Object.keys(newValue).map((key) => ADMIN_EDITABLE_FIELD_LABELS[key] ?? key),
+    });
   }
 
   return updated;

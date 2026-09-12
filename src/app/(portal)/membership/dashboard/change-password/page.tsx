@@ -14,7 +14,7 @@ export default function ChangePasswordPage() {
   return (
     <div className="max-w-md">
       <div className="bg-white rounded-lg border border-line p-6 sm:p-7">
-        <h2 className="font-display font-bold text-lg text-primary-950 mb-1">Change Password</h2>
+        <h1 className="font-display font-bold text-2xl text-primary-950 mb-1">Change Password</h1>
         <p className="text-sm text-slate mb-6">
           Choose a strong, unique password you don&apos;t use anywhere else. You&apos;ll stay signed in — this
           page will redirect to your dashboard once it&apos;s done.

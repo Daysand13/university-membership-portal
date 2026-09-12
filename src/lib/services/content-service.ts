@@ -69,6 +69,24 @@ async function assertMemberNotAlreadyLinked(memberId: string, excludeTeamMemberI
   }
 }
 
+/**
+ * Tells a linked member about a change to their executive listing — being
+ * appointed, their position changing, being removed. Loaded lazily because
+ * the notification service reads site branding from this module, and a
+ * static import each way would be a circular dependency.
+ */
+async function notifyListingChange(
+  before: Parameters<typeof import("@/lib/services/account-notification-service").notifyTeamListingChange>[0],
+  after: Parameters<typeof import("@/lib/services/account-notification-service").notifyTeamListingChange>[1],
+) {
+  try {
+    const { notifyTeamListingChange } = await import("@/lib/services/account-notification-service");
+    await notifyTeamListingChange(before, after);
+  } catch (err) {
+    console.error("[team] listing saved, but notifying the linked member failed:", err);
+  }
+}
+
 export async function createTeamMember(data: {
   type: TeamMemberType;
   name: string;
@@ -80,7 +98,9 @@ export async function createTeamMember(data: {
   memberId?: string | null;
 }) {
   if (data.memberId) await assertMemberNotAlreadyLinked(data.memberId);
-  return db.teamMember.create({ data });
+  const created = await db.teamMember.create({ data });
+  await notifyListingChange(null, created);
+  return created;
 }
 
 export async function updateTeamMember(
@@ -96,11 +116,17 @@ export async function updateTeamMember(
   }>,
 ) {
   if (data.memberId) await assertMemberNotAlreadyLinked(data.memberId, id);
-  return db.teamMember.update({ where: { id }, data });
+  const before = await db.teamMember.findUnique({ where: { id } });
+  const updated = await db.teamMember.update({ where: { id }, data });
+  await notifyListingChange(before, updated);
+  return updated;
 }
 
 export async function deleteTeamMember(id: string) {
-  return db.teamMember.delete({ where: { id } });
+  const before = await db.teamMember.findUnique({ where: { id } });
+  const deleted = await db.teamMember.delete({ where: { id } });
+  await notifyListingChange(before, null);
+  return deleted;
 }
 
 // ---------------------------------------------------------------------------

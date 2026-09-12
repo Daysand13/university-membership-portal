@@ -7,6 +7,12 @@ import { alumniGraduationInviteEmail } from "@/lib/email/templates";
 import { formatFullName } from "@/lib/format";
 import { deleteMember } from "@/lib/services/membership-service";
 import { deleteAlumni } from "@/lib/services/alumni-service";
+import {
+  notifyAccountRemoved,
+  notifyGraduationRecorded,
+  notifyNewEnrollmentCycle,
+  notifyStandingRestored,
+} from "@/lib/services/account-notification-service";
 import { Prisma, type UserRoleName } from "@/generated/prisma/client";
 
 /**
@@ -219,6 +225,17 @@ export async function pushToAlumniArchive(params: {
     if (profile) {
       await sendAlumniInvite({ alumniProfileId: profile.id, email: user.email, firstName: member.firstName, inviteBaseUrl });
     }
+  } else if (user.alumniProfile) {
+    // They already have a working alumni login, so no invite — but their
+    // student membership just closed, and they should hear that from us.
+    await notifyGraduationRecorded({
+      alumniId: user.alumniProfile.id,
+      email: user.alumniProfile.email,
+      firstName: member.firstName,
+      graduationYear,
+      programme: member.programme,
+      studentMembershipClosed: true,
+    });
   }
 }
 
@@ -322,6 +339,22 @@ export async function grantDualStatus(params: {
       email: user.email,
       firstName: user.firstName,
       inviteBaseUrl,
+    });
+  } else if (role === "ALUMNI" && user.alumniProfile) {
+    await notifyStandingRestored({
+      role,
+      email: user.alumniProfile.email,
+      firstName: user.firstName,
+      entityType: "AlumniProfile",
+      entityId: user.alumniProfile.id,
+    });
+  } else if (role === "MEMBER" && user.member) {
+    await notifyStandingRestored({
+      role,
+      email: user.member.email,
+      firstName: user.member.firstName,
+      entityType: "Member",
+      entityId: user.member.id,
     });
   }
 }
@@ -435,6 +468,15 @@ export async function approveNewEnrollmentCycle(params: {
       },
     });
   });
+
+  await notifyNewEnrollmentCycle({
+    userId,
+    email: user.member?.email ?? user.email,
+    firstName: user.firstName,
+    indexNumber,
+    programme: cycle.programme,
+    level: cycle.level,
+  });
 }
 
 /**
@@ -478,14 +520,21 @@ export async function deleteUserAccount(params: { userId: string; adminId: strin
     enrollments: user.enrollments.map((e) => e.indexNumber),
   };
 
+  // One combined notice below rather than one per record removed.
   if (user.member) {
-    await deleteMember({ memberId: user.member.id, adminId, note: "Removed via Delete Account in the user matrix." });
+    await deleteMember({
+      memberId: user.member.id,
+      adminId,
+      note: "Removed via Delete Account in the user matrix.",
+      notify: false,
+    });
   }
   if (user.alumniProfile) {
     await deleteAlumni({
       alumniId: user.alumniProfile.id,
       adminId,
       note: "Removed via Delete Account in the user matrix.",
+      notify: false,
     });
   }
 
@@ -503,4 +552,15 @@ export async function deleteUserAccount(params: { userId: string; adminId: strin
       },
     }),
   ]);
+
+  // Only someone who actually held a member or alumni account has lost
+  // something they used; clearing stray identity rows alone isn't news.
+  if (user.member || user.alumniProfile) {
+    await notifyAccountRemoved({
+      recipient: { email: user.email, firstName: user.firstName },
+      accountKind: "portal",
+      entityType: "User",
+      entityId: userId,
+    });
+  }
 }

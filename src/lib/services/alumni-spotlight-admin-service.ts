@@ -1,5 +1,9 @@
 import "server-only";
 import { db } from "@/lib/db";
+import {
+  notifyAlumniVisibilityChange,
+  type AlumniVisibilityChange,
+} from "@/lib/services/account-notification-service";
 
 /**
  * Administrator side of the alumni showcase: making an existing alumnus
@@ -19,6 +23,9 @@ import { db } from "@/lib/db";
  */
 const RESERVED_SLUGS = new Set([
   "dashboard",
+  "career",
+  "records",
+  "events",
   "directory",
   "login",
   "register",
@@ -97,8 +104,9 @@ export async function upsertAlumniSpotlight(params: {
 
   const alumni = await db.alumniProfile.findUniqueOrThrow({
     where: { id: alumniId },
-    select: { id: true, fullName: true, graduationYear: true, publicSlug: true, publicProfile: true },
+    select: { id: true, fullName: true, email: true, graduationYear: true, publicSlug: true, publicProfile: true },
   });
+  const existingSpotlight = await db.alumniSpotlight.findUnique({ where: { alumniId }, select: { published: true } });
 
   const publicSlug =
     alumni.publicSlug ?? (await mintPublicSlug(alumni.fullName, alumni.graduationYear, alumni.id));
@@ -125,6 +133,15 @@ export async function upsertAlumniSpotlight(params: {
       },
     }),
   ]);
+
+  // Saving a draft changes nothing the person can see, unless it was also
+  // what made their profile public.
+  const changes: AlumniVisibilityChange[] = [];
+  if (!alumni.publicProfile) changes.push("made-public");
+  const wasFeatured = existingSpotlight?.published === true;
+  if (data.published === true && !wasFeatured) changes.push("featured");
+  if (data.published === false && wasFeatured) changes.push("unfeatured");
+  await notifyAlumniVisibilityChange({ alumni: { ...alumni, publicSlug }, changes });
 }
 
 /**
@@ -134,6 +151,10 @@ export async function upsertAlumniSpotlight(params: {
  */
 export async function removeAlumniSpotlight(params: { alumniId: string; adminId: string }): Promise<void> {
   const { alumniId, adminId } = params;
+  const existing = await db.alumniSpotlight.findUnique({
+    where: { alumniId },
+    select: { published: true, alumni: { select: { id: true, email: true, fullName: true, publicSlug: true } } },
+  });
   await db.$transaction([
     db.alumniSpotlight.deleteMany({ where: { alumniId } }),
     db.auditLog.create({
@@ -145,6 +166,10 @@ export async function removeAlumniSpotlight(params: { alumniId: string; adminId:
       },
     }),
   ]);
+
+  if (existing?.published) {
+    await notifyAlumniVisibilityChange({ alumni: existing.alumni, changes: ["unfeatured"] });
+  }
 }
 
 /**
@@ -161,7 +186,15 @@ export async function setAlumniPublicProfile(params: {
 
   const alumni = await db.alumniProfile.findUniqueOrThrow({
     where: { id: alumniId },
-    select: { fullName: true, graduationYear: true, publicSlug: true, publicProfile: true },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      graduationYear: true,
+      publicSlug: true,
+      publicProfile: true,
+      spotlight: { select: { published: true } },
+    },
   });
 
   const publicSlug = isPublic
@@ -185,6 +218,14 @@ export async function setAlumniPublicProfile(params: {
       },
     }),
   ]);
+
+  const changes: AlumniVisibilityChange[] = [];
+  if (isPublic && !alumni.publicProfile) changes.push("made-public");
+  if (!isPublic && alumni.publicProfile) {
+    changes.push("made-private");
+    if (alumni.spotlight?.published) changes.push("unfeatured");
+  }
+  await notifyAlumniVisibilityChange({ alumni: { ...alumni, publicSlug }, changes });
 }
 
 /** Professional/public detail an admin can fill in on an alumnus's behalf. */

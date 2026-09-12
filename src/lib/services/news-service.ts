@@ -64,6 +64,17 @@ export async function getFeaturedNews(limit = 3) {
   });
 }
 
+/** Newest announcements first — for the portal news feed, where recency
+ *  matters more than the homepage's featured-first ordering. */
+export async function getLatestNews(limit = 4) {
+  return db.news.findMany({
+    where: { status: ContentStatus.PUBLISHED },
+    orderBy: { publishedAt: "desc" },
+    take: limit,
+    select: { id: true, title: true, slug: true, excerpt: true, publishedAt: true },
+  });
+}
+
 export async function getPublishedNewsBySlug(slug: string) {
   return db.news.findFirst({
     where: { slug, status: ContentStatus.PUBLISHED },
