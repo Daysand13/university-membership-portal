@@ -18,7 +18,6 @@ import {
   Undo2,
   Redo2,
 } from "lucide-react";
-import { requestAdminImageUpload } from "@/lib/actions/media-actions";
 import { uploadAdminFile } from "@/lib/client/admin-upload";
 
 function ToolbarButton({
@@ -75,7 +74,6 @@ export function RichTextEditor({ name, defaultValue }: { name: string; defaultVa
       file,
       kind: "image",
       category: "NEWS",
-      requestTicket: (input) => requestAdminImageUpload({ ...input, category: "NEWS" }),
     });
     if (!outcome.ok) {
       window.alert(outcome.error);

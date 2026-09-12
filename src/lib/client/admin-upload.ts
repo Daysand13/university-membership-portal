@@ -2,253 +2,355 @@
 
 import { downscaleImage } from "@/lib/client/downscale-image";
 import { resolveMimeType } from "@/lib/client/upload-attachment";
+import { readFileIntoMemory, FILE_READ_FAILED_MESSAGE } from "@/lib/client/read-file";
+import { sendWithProgress, describeTransfer } from "@/lib/client/xhr-upload";
 import type { UploadTicketResult } from "@/lib/actions/media-actions";
 
 /**
  * Shared upload path for every admin file field (news cover, event banner,
  * team photo, hero slide, logo, library document, rich-text image).
  *
- * It exists because each field previously rolled its own handler and they
- * all had the same two faults:
+ * Images are re-encoded in the browser first, and every failure says what
+ * actually happened rather than one generic message.
  *
- *   1. A photo straight off a phone is routinely 4–12MB, over the 5MB image
- *      limit, so the upload was refused. The public enrollment form had
- *      solved this a long time ago by re-encoding in the browser; the admin
- *      fields never got that, so admins hit a wall the applicants didn't.
- *      Images are downscaled here first, so an ordinary camera photo just
- *      works instead of needing an external compression tool.
+ * Admins kept seeing "the upload didn't finish" after a few tries, mostly on
+ * Android. There was no single cause, so each one gets its own layer, and
+ * each layer is cheap on a connection where nothing goes wrong:
  *
- *   2. Every failure was reported as "Cloudflare R2 isn't configured",
- *      whatever had actually gone wrong — an oversized file, an unsupported
- *      format, a dropped connection. That message sent people to check
- *      Cloudflare for problems that had nothing to do with it. Each failure
- *      now says what actually happened.
- *
- * Some Android file providers hand back a File with an empty `type`, which
- * fails the server's format check for no good reason, so the mime type is
- * resolved from the extension the same way the enrollment upload does.
+ *   1. The ticket comes from a route handler, not a Server Action. Action IDs
+ *      change with every deployment, so a phone tab left open across a deploy
+ *      failed every attempt identically. See api/admin/upload/ticket.
+ *   2. The chosen file is read into memory before anything is sent. Android
+ *      file handles (Google Photos, Drive, gallery apps) can stop being
+ *      readable mid-upload, which looks exactly like a dropped connection and
+ *      fails every retry the same way. See lib/client/read-file.ts.
+ *   3. Camera photos are shrunk to a size that suits the web (see
+ *      prepareImage). A 1.5MB upload finishes on a weak mobile signal where a
+ *      4.5MB one keeps dying partway.
+ *   4. Uploads report progress and detect stalls rather than hanging on a
+ *      spinner (lib/client/xhr-upload.ts).
+ *   5. If the direct-to-R2 upload still fails — including when an Android
+ *      in-app browser's `Origin: null` gets it refused by R2's CORS policy —
+ *      the same bytes go through our own server instead.
+ *   6. A failure that survives all of that is reported back with its details
+ *      (api/admin/upload/diagnostics), so the next diagnosis has evidence.
  */
 
-/**
- * Set just under the server's 5MB image limit rather than at some tidier,
- * smaller number, because downscaleImage leaves a file alone entirely when
- * it is already under target and re-encodes to JPEG when it isn't.
- *
- * A lower target would mean routinely re-encoding files that were fine —
- * and re-encoding a transparent PNG to JPEG replaces the transparency with
- * a solid background. A logo silently gaining a black box behind it is a
- * far worse outcome than a large upload. At this threshold, anything the
- * server would have accepted passes through untouched, and only a file
- * that would otherwise be rejected outright gets re-encoded.
- */
-const ADMIN_IMAGE_TARGET_BYTES = Math.floor(4.5 * 1024 * 1024);
+/** Camera photos (JPEG) above this are re-encoded. JPEG to JPEG, so nothing
+ *  is lost that the source had — just resolution and bytes the web page
+ *  never needed. 1.5MB at 2560px is visually indistinguishable on a page. */
+const JPEG_TARGET_BYTES = Math.floor(1.5 * 1024 * 1024);
 
 /**
- * A direct-to-R2 PUT is a real photo (often several MB even after
- * downscaling) going straight from the admin's own connection to
- * Cloudflare, with no server in between to retry on their behalf — so a
- * single dropped packet, a WiFi hiccup, or a moment of campus-network
- * congestion surfaces immediately as a failed upload. Confirmed this is
- * not a CORS or configuration problem (a live test upload from the
- * production domain succeeded cleanly); a brief connection blip mid-upload
- * is the ordinary cause, and retrying automatically is the standard fix —
- * the same thing a person does by hand when told to "try again", just
- * without making them do it.
+ * Other formats are left alone unless the server would refuse them outright.
+ * Re-encoding outputs JPEG, and a transparent PNG logo silently gaining a
+ * solid box behind it is a far worse outcome than a large upload — so only a
+ * file that would otherwise be rejected is touched.
  */
-const MAX_UPLOAD_ATTEMPTS = 3;
-const RETRY_DELAY_MS = [600, 1800]; // between attempt 1→2 and 2→3
+const OTHER_IMAGE_TARGET_BYTES = Math.floor(4.5 * 1024 * 1024);
+
+/** Longest edge after re-encoding; wide enough for a full-width hero image. */
+const IMAGE_MAX_DIMENSION = 2560;
+
+const TICKET_ATTEMPTS = 3;
+const DIRECT_ATTEMPTS = 2;
+const FALLBACK_ATTEMPTS = 2;
+const RETRY_DELAY_MS = [800, 2000]; // before attempt 2, before attempt 3
+
+/** No bytes moving for this long means the connection has hung. */
+const STALL_TIMEOUT_MS = 45_000;
 
 /**
- * Ceiling for the same-origin fallback below. Vercel refuses a request
- * body over 4.5MB before our code runs at all, so this leaves room for
- * multipart overhead underneath that.
+ * Ceiling for the same-origin fallback. Vercel refuses a request body over
+ * 4.5MB before our code runs at all, so this leaves room for multipart
+ * overhead underneath that.
  */
 const FALLBACK_MAX_BYTES = 4 * 1024 * 1024;
 
-/** Re-encode target when an image is too big for the fallback — smaller
- *  than FALLBACK_MAX_BYTES so the multipart body clears the cap. */
+/** Re-encode target when an image is too big for the fallback. */
 const FALLBACK_IMAGE_TARGET_BYTES = Math.floor(3.5 * 1024 * 1024);
+
+const OFFLINE_MESSAGE = "You're offline. Reconnect to the internet, then try the upload again.";
+const SESSION_EXPIRED_MESSAGE = "Your admin session has expired. Sign in again in a new tab, then retry the upload.";
+const GAVE_UP_MESSAGE =
+  "The upload couldn't be completed after several attempts, so nothing was saved. Please check your connection and try again — switching between Wi-Fi and mobile data can help.";
+const TOO_LARGE_FOR_FALLBACK_MESSAGE =
+  "This file couldn't be uploaded over your current connection, and it's too large to send another way. Please try a file under 4 MB, or try again on a different network.";
+
+export type AdminUploadResult =
+  | { ok: true; publicUrl: string; objectKey: string; mimeType: string; fileSize: number; filename: string }
+  | { ok: false; error: string };
+
+type TrailEntry = { stage: "read" | "ticket" | "direct" | "fallback"; attempt: number; outcome: string };
+
+type TicketOutcome =
+  | { kind: "ticket"; ticket: UploadTicketResult }
+  | { kind: "session-expired" }
+  | { kind: "unreachable" };
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isOffline(): boolean {
+  return typeof navigator !== "undefined" && navigator.onLine === false;
+}
+
+function parseJson<T>(text: string): T | null {
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+}
+
+function describeError(err: unknown): string {
+  return err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+}
+
+function prepareImage(file: File): Promise<File> {
+  const targetBytes = file.type === "image/jpeg" ? JPEG_TARGET_BYTES : OTHER_IMAGE_TARGET_BYTES;
+  return downscaleImage(file, { targetBytes, maxDimension: IMAGE_MAX_DIMENSION });
+}
+
+/** Fire-and-forget: a failed report must never become a second error. */
+function reportFailure(details: {
+  kind: string;
+  category?: string;
+  mimeType?: string;
+  fileSize?: number;
+  originalSize?: number;
+  finalError: string;
+  trail: TrailEntry[];
+}) {
+  try {
+    const connection = (navigator as Navigator & { connection?: { effectiveType?: string } }).connection;
+    const body = JSON.stringify({
+      ...details,
+      online: navigator.onLine,
+      connection: connection?.effectiveType ?? null,
+      userAgent: navigator.userAgent,
+      page: location.pathname,
+    });
+    void fetch("/api/admin/upload/diagnostics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // Nothing useful to do — the person already has their error message.
+  }
+}
+
+async function requestTicket(
+  input: { kind: "image" | "document"; category?: string; filename: string; mimeType: string; fileSize: number },
+  trail: TrailEntry[],
+): Promise<TicketOutcome> {
+  for (let attempt = 1; attempt <= TICKET_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch("/api/admin/upload/ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+        cache: "no-store",
+      });
+      if (response.status === 401) return { kind: "session-expired" };
+
+      const json = (await response.json().catch(() => null)) as UploadTicketResult | null;
+      if (response.ok && json && typeof json.ok === "boolean") return { kind: "ticket", ticket: json };
+
+      trail.push({ stage: "ticket", attempt, outcome: `HTTP ${response.status}` });
+      // Any other 4xx is a request the server will refuse however often it
+      // is sent; the fallback path validates independently, so go there.
+      if (response.status >= 400 && response.status < 500) return { kind: "unreachable" };
+    } catch (err) {
+      trail.push({ stage: "ticket", attempt, outcome: `network-error (${describeError(err)})` });
+    }
+    if (attempt < TICKET_ATTEMPTS) await sleep(RETRY_DELAY_MS[attempt - 1]);
+  }
+  return { kind: "unreachable" };
+}
+
+async function uploadDirect(params: {
+  uploadUrl: string;
+  file: File;
+  mimeType: string;
+  onProgress?: (fraction: number) => void;
+  trail: TrailEntry[];
+}): Promise<boolean> {
+  const { uploadUrl, file, mimeType, onProgress, trail } = params;
+
+  // The same presigned URL can be PUT to more than once before it expires,
+  // so a retry needs no new ticket.
+  for (let attempt = 1; attempt <= DIRECT_ATTEMPTS; attempt++) {
+    onProgress?.(0);
+    const outcome = await sendWithProgress({
+      method: "PUT",
+      url: uploadUrl,
+      body: file,
+      headers: { "Content-Type": mimeType },
+      stallTimeoutMs: STALL_TIMEOUT_MS,
+      onProgress,
+    });
+
+    if (outcome.kind === "response" && outcome.status >= 200 && outcome.status < 300) return true;
+
+    const detail = outcome.kind === "response" ? ` ${outcome.body.slice(0, 200)}` : "";
+    trail.push({ stage: "direct", attempt, outcome: `${describeTransfer(outcome)}${detail}` });
+    console.error(`[admin-upload] direct upload failed (attempt ${attempt}/${DIRECT_ATTEMPTS})`, outcome);
+
+    // Storage answered and refused (an expired or mismatched signature).
+    // The identical request will be refused again; the server path signs
+    // its own, so move on to it.
+    if (outcome.kind === "response") return false;
+    if (attempt < DIRECT_ATTEMPTS) await sleep(RETRY_DELAY_MS[attempt - 1]);
+  }
+  return false;
+}
+
 /**
- * Sends the file to our own server, which puts it in R2 for us.
+ * Sends the file to our own server, which puts it in R2.
  *
- * This exists because the normal direct-to-R2 upload is cross-origin, and
- * some Android in-app browsers — a link opened inside WhatsApp or
- * Facebook, which is how most people on Android open links — send
- * `Origin: null` on cross-origin requests. R2 refuses a null origin, so
- * the browser blocks the PUT before it ever leaves the phone, and it
- * surfaces as a dropped connection. Confirmed against the live bucket:
- * the real site origins preflight fine, `null` gets a 403.
- *
- * A same-origin request has no CORS check at all, so it works in any
- * browser or WebView. It's the fallback rather than the default only
- * because everything sent this way counts against Vercel's body cap.
+ * Same-origin, so no CORS check applies — this is what rescues an Android
+ * in-app browser whose `Origin: null` R2 refuses. It's the fallback rather
+ * than the default only because everything sent this way counts against
+ * Vercel's request body cap.
  */
 async function uploadViaServer(params: {
   file: File;
   kind: "image" | "document";
   mimeType: string;
   category: string | undefined;
+  onProgress?: (fraction: number) => void;
+  trail: TrailEntry[];
 }): Promise<AdminUploadResult> {
-  const { file, kind, mimeType, category } = params;
+  const { kind, category, onProgress, trail } = params;
 
-  // Re-encode an oversized image rather than give up — losing PNG
-  // transparency beats not being able to upload at all, and this only
-  // happens once the direct path has already failed.
-  let prepared = file;
-  if (prepared.size > FALLBACK_MAX_BYTES && kind === "image") {
-    prepared = await downscaleImage(prepared, { targetBytes: FALLBACK_IMAGE_TARGET_BYTES });
+  let file = params.file;
+  let mimeType = params.mimeType;
+  if (file.size > FALLBACK_MAX_BYTES && kind === "image") {
+    // Losing PNG transparency beats not being able to upload at all, and
+    // this only happens once the direct path has already failed.
+    file = await downscaleImage(file, { targetBytes: FALLBACK_IMAGE_TARGET_BYTES, maxDimension: IMAGE_MAX_DIMENSION });
+    mimeType = resolveMimeType(file);
   }
-  if (prepared.size > FALLBACK_MAX_BYTES) {
-    return {
-      ok: false,
-      error:
-        "The upload didn't finish, and this file is too large to send another way. Please try a smaller file, or use a different browser.",
-    };
+  if (file.size > FALLBACK_MAX_BYTES) {
+    return { ok: false, error: TOO_LARGE_FOR_FALLBACK_MESSAGE };
   }
 
   const body = new FormData();
-  body.append("file", prepared);
+  body.append("file", file);
   body.append("kind", kind);
   body.append("mimeType", mimeType);
   if (category) body.append("category", category);
 
-  try {
-    const response = await fetch("/api/admin/upload", { method: "POST", body });
-    const json = (await response.json().catch(() => null)) as
-      | { ok: true; publicUrl: string; objectKey: string; mimeType: string; fileSize: number; filename: string }
-      | { ok: false; error: string }
-      | null;
+  type FallbackResponse =
+    | { ok: true; publicUrl: string; objectKey: string; mimeType: string; fileSize: number; filename: string }
+    | { ok: false; error: string };
 
-    if (!response.ok || !json || !json.ok) {
-      const message = json && !json.ok ? json.error : "We couldn't save that file. Please try again.";
-      console.error("[admin-upload] same-origin fallback failed", response.status, message);
-      return { ok: false, error: message };
+  for (let attempt = 1; attempt <= FALLBACK_ATTEMPTS; attempt++) {
+    onProgress?.(0);
+    const outcome = await sendWithProgress({
+      method: "POST",
+      url: "/api/admin/upload",
+      body,
+      stallTimeoutMs: STALL_TIMEOUT_MS,
+      onProgress,
+    });
+
+    if (outcome.kind === "response") {
+      const json = parseJson<FallbackResponse>(outcome.body);
+      if (outcome.status >= 200 && outcome.status < 300 && json?.ok) {
+        onProgress?.(1);
+        return {
+          ok: true,
+          publicUrl: json.publicUrl,
+          objectKey: json.objectKey,
+          mimeType: json.mimeType,
+          fileSize: json.fileSize,
+          filename: json.filename,
+        };
+      }
+      trail.push({ stage: "fallback", attempt, outcome: describeTransfer(outcome) });
+      if (outcome.status === 401) return { ok: false, error: SESSION_EXPIRED_MESSAGE };
+      if (outcome.status === 413) return { ok: false, error: TOO_LARGE_FOR_FALLBACK_MESSAGE };
+      // A 4xx with a reason is the file being refused — say why, don't retry.
+      if (outcome.status < 500 && json && !json.ok) return { ok: false, error: json.error };
+    } else {
+      trail.push({ stage: "fallback", attempt, outcome: describeTransfer(outcome) });
     }
-    return {
-      ok: true,
-      publicUrl: json.publicUrl,
-      objectKey: json.objectKey,
-      mimeType: json.mimeType,
-      fileSize: json.fileSize,
-      filename: json.filename,
-    };
-  } catch (err) {
-    console.error("[admin-upload] same-origin fallback did not complete", err);
-    return {
-      ok: false,
-      error: "The upload didn't finish. Please check your connection and try again.",
-    };
-  }
-}
 
-export type AdminUploadResult =
-  | { ok: true; publicUrl: string; objectKey: string; mimeType: string; fileSize: number; filename: string }
-  | { ok: false; error: string };
+    console.error(`[admin-upload] same-origin fallback failed (attempt ${attempt}/${FALLBACK_ATTEMPTS})`, outcome);
+    if (attempt < FALLBACK_ATTEMPTS) await sleep(RETRY_DELAY_MS[attempt - 1]);
+  }
+
+  return { ok: false, error: isOffline() ? OFFLINE_MESSAGE : GAVE_UP_MESSAGE };
+}
 
 export async function uploadAdminFile(params: {
   file: File;
   kind: "image" | "document";
-  /** Which R2 folder an image belongs in. Passed through to the
-   *  same-origin fallback, which has to work it out server-side. */
+  /** Which R2 folder an image belongs in (a MediaCategory). */
   category?: string;
-  requestTicket: (input: {
-    filename: string;
-    mimeType: string;
-    fileSize: number;
-  }) => Promise<UploadTicketResult>;
+  /** 0–1 for whichever transfer is currently running. */
+  onProgress?: (fraction: number) => void;
 }): Promise<AdminUploadResult> {
-  const { file, kind, category, requestTicket } = params;
+  const { file, kind, category, onProgress } = params;
+  const trail: TrailEntry[] = [];
+
+  if (isOffline()) return { ok: false, error: OFFLINE_MESSAGE };
+
+  const read = await readFileIntoMemory(file, resolveMimeType(file));
+  if (!read.ok) {
+    trail.push({ stage: "read", attempt: 1, outcome: "unreadable" });
+    reportFailure({ kind, category, mimeType: file.type, originalSize: file.size, finalError: FILE_READ_FAILED_MESSAGE, trail });
+    return { ok: false, error: FILE_READ_FAILED_MESSAGE };
+  }
+  if (read.file.size === 0) {
+    return { ok: false, error: "That file is empty. Please choose a different file." };
+  }
 
   // Documents are uploaded untouched — only imagery can be re-encoded.
-  const prepared = kind === "image" ? await downscaleImage(file, { targetBytes: ADMIN_IMAGE_TARGET_BYTES }) : file;
+  const prepared = kind === "image" ? await prepareImage(read.file) : read.file;
   const mimeType = resolveMimeType(prepared);
 
-  // Requesting the ticket is a normal network round trip too (a Server
-  // Action call), so it's just as exposed to a brief connection drop as
-  // the R2 PUT below — same retry treatment.
-  let ticket: UploadTicketResult | undefined;
-  for (let attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt++) {
-    try {
-      ticket = await requestTicket({ filename: prepared.name, mimeType, fileSize: prepared.size });
-      break;
-    } catch (err) {
-      console.error(`[admin-upload] could not get an upload ticket (attempt ${attempt}/${MAX_UPLOAD_ATTEMPTS})`, err);
-      if (attempt === MAX_UPLOAD_ATTEMPTS) {
-        return {
-          ok: false,
-          error: "We couldn't start the upload after a few tries. Please check your connection and try again.",
-        };
-      }
-      await sleep(RETRY_DELAY_MS[attempt - 1]);
+  const ticketOutcome = await requestTicket(
+    { kind, category, filename: prepared.name, mimeType, fileSize: prepared.size },
+    trail,
+  );
+  if (ticketOutcome.kind === "session-expired") return { ok: false, error: SESSION_EXPIRED_MESSAGE };
+
+  if (ticketOutcome.kind === "ticket") {
+    const { ticket } = ticketOutcome;
+    // A rejected file arrives as a normal answer carrying the actual reason.
+    if (!ticket.ok) return { ok: false, error: ticket.error };
+
+    const worked = await uploadDirect({ uploadUrl: ticket.uploadUrl, file: prepared, mimeType, onProgress, trail });
+    if (worked) {
+      onProgress?.(1);
+      return {
+        ok: true,
+        publicUrl: ticket.publicUrl,
+        objectKey: ticket.objectKey,
+        mimeType,
+        fileSize: prepared.size,
+        filename: prepared.name,
+      };
     }
   }
-  if (!ticket) {
-    // Unreachable in practice — the loop above either returns or breaks
-    // with `ticket` set — but keeps TypeScript honest about the type.
-    return { ok: false, error: "We couldn't start the upload. Please try again." };
+
+  const result = await uploadViaServer({ file: prepared, kind, mimeType, category, onProgress, trail });
+  if (!result.ok) {
+    reportFailure({
+      kind,
+      category,
+      mimeType,
+      fileSize: prepared.size,
+      originalSize: file.size,
+      finalError: result.error,
+      trail,
+    });
   }
-
-  // A rejected file arrives as a normal answer carrying the actual reason.
-  if (!ticket.ok) return { ok: false, error: ticket.error };
-
-  // The same presigned URL can be PUT to more than once before it expires
-  // (R2/S3 don't invalidate it after one use), so a retry needs no new
-  // ticket — it just tries the exact same request again.
-  let directUploadWorked = false;
-  for (let attempt = 1; attempt <= MAX_UPLOAD_ATTEMPTS; attempt++) {
-    let response: Response;
-    try {
-      response = await fetch(ticket.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": mimeType },
-        body: prepared,
-      });
-    } catch (err) {
-      // fetch() rejects rather than returning a response when the request
-      // never completed. That's either a dropped connection or — the case
-      // that brought us here — the browser refusing to send it at all
-      // because R2's CORS policy doesn't cover this page's origin, which
-      // is what happens inside Android in-app browsers that report
-      // `Origin: null`. Retrying helps the first; only the same-origin
-      // fallback below helps the second, and from here they're
-      // indistinguishable, so try both in that order.
-      console.error(`[admin-upload] upload request did not complete (attempt ${attempt}/${MAX_UPLOAD_ATTEMPTS})`, {
-        pageOrigin: typeof location === "undefined" ? null : location.origin,
-        err,
-      });
-      if (attempt === MAX_UPLOAD_ATTEMPTS) break;
-      await sleep(RETRY_DELAY_MS[attempt - 1]);
-      continue;
-    }
-
-    if (!response.ok) {
-      // Storage answered and refused. Retrying the identical request won't
-      // change that, but the server-side path signs its own request and
-      // may well succeed, so fall through to it rather than stopping.
-      const detail = await response.text().catch(() => "");
-      console.error("[admin-upload] storage rejected the upload", response.status, detail.slice(0, 300));
-      break;
-    }
-
-    directUploadWorked = true;
-    break;
-  }
-
-  if (!directUploadWorked) {
-    return uploadViaServer({ file: prepared, kind, mimeType, category });
-  }
-
-  return {
-    ok: true,
-    publicUrl: ticket.publicUrl,
-    objectKey: ticket.objectKey,
-    mimeType,
-    fileSize: prepared.size,
-    filename: prepared.name,
-  };
+  return result;
 }

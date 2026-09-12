@@ -1,4 +1,5 @@
 import { downscaleImage } from "@/lib/client/downscale-image";
+import { readFileIntoMemory, FILE_READ_FAILED_MESSAGE } from "@/lib/client/read-file";
 import type { EnrollmentUploadKind, EnrollmentUploadTicket } from "@/lib/services/enrollment-upload-service";
 
 const MIME_BY_EXTENSION: Record<string, string> = {
@@ -56,7 +57,13 @@ export async function prepareAndUpload(
   targetBytes: number,
   requestTicket: RequestUploadTicket,
 ): Promise<UploadOutcome> {
-  const prepared = await downscaleImage(file, { targetBytes });
+  // Read once, up front: an Android file handle can stop being readable
+  // mid-upload, which fails every retry like a dropped connection would.
+  // See lib/client/read-file.ts.
+  const read = await readFileIntoMemory(file, resolveMimeType(file));
+  if (!read.ok) return { status: "error", message: FILE_READ_FAILED_MESSAGE };
+
+  const prepared = await downscaleImage(read.file, { targetBytes });
   const mimeType = resolveMimeType(prepared);
 
   let ticket: EnrollmentUploadTicket;

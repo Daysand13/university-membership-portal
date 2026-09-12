@@ -1,23 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentAdmin } from "@/lib/auth/admin";
-import { uploadAdminBytes } from "@/lib/services/media-service";
-import type { MediaCategory } from "@/generated/prisma/client";
+import { uploadAdminBytes, parseMediaCategory } from "@/lib/services/media-service";
 
 // Needs the full Node runtime for the R2 client.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const VALID_CATEGORIES = [
-  "HERO",
-  "LOGO",
-  "NEWS",
-  "EVENT",
-  "ELECTION",
-  "PROFILE",
-  "LIBRARY_THUMBNAIL",
-  "DONATION",
-  "OTHER",
-] as const satisfies readonly MediaCategory[];
 
 /**
  * Same-origin upload fallback for the admin file fields.
@@ -57,13 +44,7 @@ export async function POST(request: NextRequest) {
   }
 
   const kind = formData.get("kind") === "document" ? "document" : "image";
-  // Checked against the real enum rather than cast: an unrecognised value
-  // would otherwise reach the prefix lookup as a miss and put the object
-  // under a folder literally named "undefined".
-  const rawCategory = String(formData.get("category") ?? "");
-  const category: MediaCategory = (VALID_CATEGORIES as readonly string[]).includes(rawCategory)
-    ? (rawCategory as MediaCategory)
-    : "OTHER";
+  const category = parseMediaCategory(formData.get("category"));
   // The browser resolved this already (some Android file providers hand
   // back a File with an empty type), so prefer what it sent and fall back
   // to the File's own type.

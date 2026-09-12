@@ -24,6 +24,18 @@ const CATEGORY_TO_PREFIX: Record<MediaCategory, R2Prefix> = {
   OTHER: "media",
 };
 
+const MEDIA_CATEGORIES = Object.keys(CATEGORY_TO_PREFIX) as MediaCategory[];
+
+/**
+ * Reads a category from untrusted request input. Checked against the real
+ * list rather than cast: an unrecognised value would otherwise reach the
+ * prefix lookup as a miss and put the object under a folder literally named
+ * "undefined".
+ */
+export function parseMediaCategory(raw: unknown): MediaCategory {
+  return typeof raw === "string" && (MEDIA_CATEGORIES as string[]).includes(raw) ? (raw as MediaCategory) : "OTHER";
+}
+
 /**
  * The outcome of asking for an upload ticket.
  *
