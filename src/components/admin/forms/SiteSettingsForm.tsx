@@ -94,8 +94,24 @@ export function SiteSettingsForm({ settings }: { settings: SiteSettingsInput }) 
             <input id="postalAddress" name="postalAddress" defaultValue={settings.postalAddress} className={inputClasses} />
           </div>
           <div className="sm:col-span-2">
-            <Label htmlFor="mapEmbedUrl">Google Maps Embed URL</Label>
-            <input id="mapEmbedUrl" name="mapEmbedUrl" type="url" defaultValue={settings.mapEmbedUrl} className={inputClasses} />
+            <Label htmlFor="mapEmbedUrl">Google Maps Location Link</Label>
+            {/* type="text", not "url": Google's "Embed a map" option gives an
+                <iframe> snippet, which the browser would refuse as a URL. */}
+            <input
+              id="mapEmbedUrl"
+              name="mapEmbedUrl"
+              type="text"
+              inputMode="url"
+              placeholder="https://maps.app.goo.gl/…"
+              aria-describedby="mapEmbedUrl-help"
+              defaultValue={settings.mapEmbedUrl}
+              className={inputClasses}
+            />
+            <p id="mapEmbedUrl-help" className="mt-1.5 text-xs text-slate">
+              Open the office location in Google Maps, tap <strong>Share</strong>, and paste the link here. A place link
+              or the <strong>Embed a map</strong> code works too. It appears as a mini map on the About Us and Contact
+              Us pages.
+            </p>
             <FieldError messages={fe.mapEmbedUrl} />
           </div>
         </div>

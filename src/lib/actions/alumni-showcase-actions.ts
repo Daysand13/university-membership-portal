@@ -33,10 +33,12 @@ function revalidateShowcase(alumniId: string) {
   revalidatePath("/");
 }
 
+// A ceiling against a runaway paste, not an editorial limit — a spotlight
+// story is long-form writing, and 4,000 characters was cutting it short.
 const optionalText = z
   .string()
   .trim()
-  .max(4000)
+  .max(100_000)
   .optional()
   .transform((v) => (v ? v : null));
 

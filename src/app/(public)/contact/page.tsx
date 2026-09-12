@@ -3,13 +3,17 @@ import { Mail, Phone, MapPin, Clock, Send } from "lucide-react";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ContactForm } from "@/components/forms/ContactForm";
 import { SocialIcon } from "@/components/layout/SocialIcon";
+import { LocationMap } from "@/components/ui/LocationMap";
 import { getSiteSettings, getActiveSocialLinks } from "@/lib/services/content-service";
+import { getMapLocation } from "@/lib/services/map-service";
 
 export const metadata: Metadata = { title: "Contact Us" };
 export const dynamic = "force-dynamic";
 
-export default async function ContactPage() {
-  const [settings, socialLinks] = await Promise.all([getSiteSettings(), getActiveSocialLinks()]);
+export default async function ContactPage({ searchParams }: { searchParams: Promise<{ subject?: string | string[] }> }) {
+  const [settings, socialLinks, sp] = await Promise.all([getSiteSettings(), getActiveSocialLinks(), searchParams]);
+  const defaultSubject = typeof sp.subject === "string" ? sp.subject.slice(0, 200) : undefined;
+  const mapLocation = await getMapLocation(settings.mapEmbedUrl);
 
   return (
     <div className="bg-white">
@@ -94,10 +98,12 @@ export default async function ContactPage() {
             </div>
           )}
 
-          {settings.mapEmbedUrl && (
-            <div className="rounded-lg overflow-hidden border border-line aspect-video mt-2">
-              <iframe src={settings.mapEmbedUrl} className="w-full h-full" loading="lazy" title="Location map" />
-            </div>
+          {mapLocation && (
+            <LocationMap
+              location={mapLocation}
+              placeName={settings.physicalAddress || settings.siteTitle}
+              className="mt-2"
+            />
           )}
         </div>
 
@@ -107,7 +113,7 @@ export default async function ContactPage() {
               <Send size={18} className="text-accent-500" />
               <h2 className="font-display font-bold text-lg text-primary-950">Send us a message</h2>
             </div>
-            <ContactForm />
+            <ContactForm defaultSubject={defaultSubject} />
           </div>
         </div>
       </div>

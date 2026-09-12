@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Mail, Phone, MapPin, ArrowRight } from "lucide-react";
 import { SectionHeading } from "@/components/ui/SectionHeading";
+import { LocationMap } from "@/components/ui/LocationMap";
 import { getAboutContent, getActiveTeamMembers, getSiteSettings } from "@/lib/services/content-service";
+import { getMapLocation } from "@/lib/services/map-service";
 
 export const metadata: Metadata = { title: "About Us" };
 export const dynamic = "force-dynamic";
@@ -51,6 +53,7 @@ export default async function AboutPage() {
     about.partnersStakeholders,
   ].some(Boolean);
 
+  const mapLocation = await getMapLocation(settings.mapEmbedUrl);
   const hasContactInfo = !!(settings.physicalAddress || settings.phonePrimary || settings.generalEmail);
 
   return (
@@ -118,26 +121,35 @@ export default async function AboutPage() {
         <Section title="Membership Eligibility and Categories" content={about.membershipEligibility} />
         <Section title="Partners and Stakeholders" content={about.partnersStakeholders} />
 
-        {hasContactInfo && (
+        {(hasContactInfo || mapLocation) && (
           <div className="py-8">
             <h2 className="font-display font-bold text-xl text-primary-950 mb-4">Contact Information and Location</h2>
-            <div className="space-y-2.5 text-sm text-slate">
-              {settings.physicalAddress && (
-                <p className="flex items-start gap-2.5">
-                  <MapPin size={16} className="text-primary-700 shrink-0 mt-0.5" /> {settings.physicalAddress}
-                </p>
-              )}
-              {settings.phonePrimary && (
-                <p className="flex items-center gap-2.5">
-                  <Phone size={16} className="text-primary-700 shrink-0" /> {settings.phonePrimary}
-                </p>
-              )}
-              {settings.generalEmail && (
-                <p className="flex items-center gap-2.5">
-                  <Mail size={16} className="text-primary-700 shrink-0" /> {settings.generalEmail}
-                </p>
-              )}
-            </div>
+            {hasContactInfo && (
+              <div className="space-y-2.5 text-sm text-slate">
+                {settings.physicalAddress && (
+                  <p className="flex items-start gap-2.5">
+                    <MapPin size={16} className="text-primary-700 shrink-0 mt-0.5" /> {settings.physicalAddress}
+                  </p>
+                )}
+                {settings.phonePrimary && (
+                  <p className="flex items-center gap-2.5">
+                    <Phone size={16} className="text-primary-700 shrink-0" /> {settings.phonePrimary}
+                  </p>
+                )}
+                {settings.generalEmail && (
+                  <p className="flex items-center gap-2.5">
+                    <Mail size={16} className="text-primary-700 shrink-0" /> {settings.generalEmail}
+                  </p>
+                )}
+              </div>
+            )}
+            {mapLocation && (
+              <LocationMap
+                location={mapLocation}
+                placeName={settings.physicalAddress || settings.siteTitle}
+                className={`${hasContactInfo ? "mt-5" : ""} max-w-2xl`}
+              />
+            )}
             <Link
               href="/contact"
               className="inline-flex items-center gap-1.5 mt-4 text-sm font-semibold text-primary-800 hover:text-accent-600"

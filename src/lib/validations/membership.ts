@@ -545,15 +545,17 @@ export const grantDualStatusSchema = z.object({
     .optional(),
 });
 
+// Admin-entered, so limits sit well above anything real — see the note on
+// memberAdminEditSchema below.
 export const newEnrollmentCycleSchema = z.object({
   userId: z.string().min(1),
-  indexNumber: z.string().trim().min(3, "Index number is required").max(50),
+  indexNumber: z.string().trim().min(3, "Index number is required").max(100),
   applicationTrack: z.enum(APPLICATION_TRACKS).optional().or(z.literal("")),
-  programme: z.string().trim().min(1, "Programme is required").max(200),
-  academicDepartment: z.string().trim().max(150).optional().or(z.literal("")),
-  level: z.string().trim().min(1, "Level is required").max(50),
-  campus: z.string().trim().min(1, "Campus is required").max(100),
-  department: z.string().trim().min(1, "Category of special needs is required").max(150),
+  programme: z.string().trim().min(1, "Programme is required").max(500),
+  academicDepartment: z.string().trim().max(500).optional().or(z.literal("")),
+  level: z.string().trim().min(1, "Level is required").max(100),
+  campus: z.string().trim().min(1, "Campus is required").max(200),
+  department: z.string().trim().min(1, "Category of special needs is required").max(500),
   yearOfAdmission: z.coerce
     .number()
     .int()
@@ -601,7 +603,7 @@ export const resetPasswordSchema = z
 export const applicationReviewSchema = z.object({
   applicationId: z.string().min(1),
   action: z.enum(["APPROVE", "REJECT", "UNDER_REVIEW", "SUSPEND", "REQUEST_CHANGES"]),
-  adminNote: z.string().max(1000).optional().or(z.literal("")),
+  adminNote: z.string().max(10_000).optional().or(z.literal("")),
 });
 
 /**
@@ -618,12 +620,17 @@ export const applicationReviewSchema = z.object({
  * application's fields are not. Values are still checked for shape (email
  * format, phone pattern) — just not re-forced through every one-time-only
  * enrollment rule.
+ *
+ * Length limits here are sanity ceilings against a runaway paste, set well
+ * above any real value (the columns are unbounded text). The tighter limits
+ * an applicant gets on the public form don't belong on an admin correcting
+ * a record — a long programme or department name was being refused.
  */
 export const memberAdminEditSchema = z.object({
-  indexNumber: z.string().trim().min(3, "Index number is required").max(50),
-  firstName: z.string().trim().min(1, "First name is required").max(100),
-  middleName: z.string().trim().max(100).optional().or(z.literal("")),
-  lastName: z.string().trim().min(1, "Surname is required").max(100),
+  indexNumber: z.string().trim().min(3, "Index number is required").max(100),
+  firstName: z.string().trim().min(1, "First name is required").max(200),
+  middleName: z.string().trim().max(200).optional().or(z.literal("")),
+  lastName: z.string().trim().min(1, "Surname is required").max(200),
   email: z.string().trim().toLowerCase().email("Enter a valid email address"),
   phone: z.string().trim().regex(phoneRegex, "Enter a valid phone / WhatsApp number"),
   dateOfBirth: z.coerce.date().optional().or(z.literal("")),
@@ -631,21 +638,21 @@ export const memberAdminEditSchema = z.object({
   membershipType: z.enum(MembershipType).optional().or(z.literal("")),
 
   applicationTrack: z.enum(APPLICATION_TRACKS).optional().or(z.literal("")),
-  campus: z.string().trim().min(1, "Select a campus").max(100),
-  hallOfAffiliation: z.string().trim().max(100).optional().or(z.literal("")),
-  degreeCategory: z.string().trim().max(50).optional().or(z.literal("")),
-  academicDepartment: z.string().trim().max(150).optional().or(z.literal("")),
-  programme: z.string().trim().min(1, "Programme is required").max(200),
-  level: z.string().trim().min(1, "Level is required").max(50),
+  campus: z.string().trim().min(1, "Select a campus").max(200),
+  hallOfAffiliation: z.string().trim().max(200).optional().or(z.literal("")),
+  degreeCategory: z.string().trim().max(200).optional().or(z.literal("")),
+  academicDepartment: z.string().trim().max(500).optional().or(z.literal("")),
+  programme: z.string().trim().min(1, "Programme is required").max(500),
+  level: z.string().trim().min(1, "Level is required").max(100),
   yearOfAdmission: z.coerce.number().int().min(2000).max(new Date().getFullYear() + 1),
   expectedGraduationYear: z.coerce.number().int().min(2000).max(2100).optional(),
 
-  department: z.string().trim().min(1, "Select a category of special needs").max(150),
+  department: z.string().trim().min(1, "Select a category of special needs").max(500),
   specificSupportNeeds: z.array(z.string()).optional().default([]),
 
-  residentialAddress: z.string().trim().max(300).optional().or(z.literal("")),
-  region: z.string().trim().max(100).optional().or(z.literal("")),
-  emergencyContactName: z.string().trim().max(150).optional().or(z.literal("")),
+  residentialAddress: z.string().trim().max(2000).optional().or(z.literal("")),
+  region: z.string().trim().max(200).optional().or(z.literal("")),
+  emergencyContactName: z.string().trim().max(300).optional().or(z.literal("")),
   emergencyContactPhone: z.string().trim().regex(phoneRegex, "Enter a valid phone number").optional().or(z.literal("")),
 });
 

@@ -8,7 +8,9 @@ import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Comm
 import { Button } from "@/components/ui/Button";
 import { BotProtectionFields } from "@/components/forms/BotProtectionFields";
 
-export function ContactForm() {
+/** `defaultSubject` pre-fills the subject when a page links here for a
+ *  specific reason, e.g. the portal's "Request accessibility support". */
+export function ContactForm({ defaultSubject }: { defaultSubject?: string }) {
   const [state, formAction, isPending] = useActionState(submitContactMessageAction, initialActionState);
 
   if (state.success) {
@@ -51,7 +53,7 @@ export function ContactForm() {
         <Label htmlFor="subject" required>
           Subject
         </Label>
-        <input id="subject" name="subject" required className={inputClasses} />
+        <input id="subject" name="subject" required defaultValue={defaultSubject} className={inputClasses} />
         <FieldError messages={state.fieldErrors?.subject} />
       </div>
       <div>

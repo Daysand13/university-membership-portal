@@ -20,6 +20,7 @@ import {
   upsertSocialLink,
   deleteSocialLink,
 } from "@/lib/services/content-service";
+import { resolveMapLocation, MapLinkUnreachableError } from "@/lib/services/map-service";
 import type { ActionState } from "./types";
 
 async function updateAboutActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
@@ -112,6 +113,27 @@ async function updateSiteSettingsActionImpl(_prevState: ActionState, formData: F
     faviconUrl: typeof faviconUrl === "string" && faviconUrl ? faviconUrl : null,
   });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  // Catch a link that isn't a map now, while the admin is looking at the
+  // field, rather than as a silently missing map on the public pages later.
+  if (parsed.data.mapEmbedUrl) {
+    try {
+      const location = await resolveMapLocation(parsed.data.mapEmbedUrl);
+      if (!location) {
+        return {
+          fieldErrors: {
+            mapEmbedUrl: [
+              "That link doesn't point to a place on Google Maps. Open the location in Google Maps, tap Share, and paste that link here.",
+            ],
+          },
+        };
+      }
+    } catch (err) {
+      // Google couldn't be reached to check a short link just now. That says
+      // nothing about the link itself, so save it — the pages retry.
+      if (!(err instanceof MapLinkUnreachableError)) throw err;
+    }
+  }
 
   await updateSiteSettings(parsed.data);
   revalidatePath("/", "layout");
