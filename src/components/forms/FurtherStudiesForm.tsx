@@ -11,15 +11,12 @@ import {
   SUPPORT_NEEDS,
   CAMPUSES,
   HALLS_OF_AFFILIATION,
-  ACADEMIC_DEPARTMENTS,
-  PROGRAMS_OF_STUDY,
   LEVELS,
   POSTGRAD_DEGREE_CATEGORIES,
-  POSTGRAD_DEPARTMENTS,
-  POSTGRAD_PROGRAMS,
   POSTGRAD_LEVELS,
   MEMBERSHIP_TYPE_LABELS,
   GHANA_REGIONS,
+  type AcademicOptions,
 } from "@/lib/validations/membership";
 import { prepareAndUpload, type UploadOutcome } from "@/lib/client/upload-attachment";
 import { loadDraft, saveDraft, clearDraft } from "@/lib/client/form-draft";
@@ -93,7 +90,14 @@ interface FormValues {
   agreedToTerms: boolean;
 }
 
-export function FurtherStudiesForm({ alumni }: { alumni: AlumniProfile }) {
+export function FurtherStudiesForm({
+  alumni,
+  academicOptions,
+}: {
+  alumni: AlumniProfile;
+  /** The departments and programmes administrators currently offer, for both tracks. */
+  academicOptions: AcademicOptions;
+}) {
   const [state, formAction, isPending] = useActionState(submitFurtherStudiesAction, initialActionState);
   const fe = state.fieldErrors ?? {};
 
@@ -148,8 +152,9 @@ export function FurtherStudiesForm({ alumni }: { alumni: AlumniProfile }) {
   const [level, setLevel] = useState("");
   const [degreeCategory, setDegreeCategory] = useState("");
   const isPg = track === "POSTGRADUATE";
-  const departmentOptions = isPg ? POSTGRAD_DEPARTMENTS : ACADEMIC_DEPARTMENTS;
-  const programmeOptions = isPg ? POSTGRAD_PROGRAMS : PROGRAMS_OF_STUDY;
+  const trackOptions = academicOptions[isPg ? "POSTGRADUATE" : "UNDERGRADUATE"];
+  const departmentOptions = trackOptions.departments;
+  const programmeOptions = trackOptions.programmes;
   const levelOptions = isPg ? POSTGRAD_LEVELS : LEVELS;
 
   const passportInputRef = useRef<HTMLInputElement>(null);

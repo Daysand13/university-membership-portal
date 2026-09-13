@@ -10,7 +10,8 @@ import {
   alumniChangePasswordSchema,
   alumniProfileUpdateSchema,
 } from "@/lib/validations/alumni";
-import { alumniFurtherStudiesSchema } from "@/lib/validations/membership";
+import { alumniFurtherStudiesSchema, academicChoiceErrors } from "@/lib/validations/membership";
+import { getAcademicOptions } from "@/lib/services/academic-options-service";
 import {
   requestAlumniPasswordReset,
   setAlumniPasswordWithToken,
@@ -215,6 +216,10 @@ async function submitFurtherStudiesActionImpl(
   if (!parsed.success) {
     return { fieldErrors: parsed.error.flatten().fieldErrors };
   }
+
+  // Department and programme must be ones administrators currently offer.
+  const choiceErrors = academicChoiceErrors(await getAcademicOptions(), parsed.data.track, parsed.data);
+  if (choiceErrors) return { fieldErrors: choiceErrors };
 
   if (attachmentsRequired && !passportToken) {
     return { fieldErrors: { profilePicture: ["Please attach a passport picture."] } };

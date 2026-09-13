@@ -341,6 +341,46 @@ export const POSTGRAD_PROGRAMS = [
 
 export const POSTGRAD_LEVELS = ["Year 1", "Year 2", "Year 3", "Year 4"] as const;
 
+// ---------------------------------------------------------------------------
+// Administrator-managed academic options
+// ---------------------------------------------------------------------------
+
+/**
+ * The academic departments and programmes of study the registration forms
+ * offer are managed by administrators (Admin > Departments & Programmes) and
+ * stored in the database, so adding a new programme doesn't need a code
+ * change. The four lists above are the starting point: what the forms offer
+ * until an administrator first edits a list.
+ */
+export interface TrackAcademicOptions {
+  departments: string[];
+  programmes: string[];
+}
+
+export type AcademicOptions = Record<ApplicationTrack, TrackAcademicOptions>;
+
+export const DEFAULT_ACADEMIC_OPTIONS: AcademicOptions = {
+  UNDERGRADUATE: { departments: [...ACADEMIC_DEPARTMENTS], programmes: [...PROGRAMS_OF_STUDY] },
+  POSTGRADUATE: { departments: [...POSTGRAD_DEPARTMENTS], programmes: [...POSTGRAD_PROGRAMS] },
+};
+
+/** Field errors when the chosen department or programme isn't currently offered for this track; null when both are. */
+export function academicChoiceErrors(
+  options: AcademicOptions,
+  track: ApplicationTrack,
+  choice: { academicDepartment: string; programme: string },
+): Record<string, string[]> | null {
+  const offered = options[track];
+  const errors: Record<string, string[]> = {};
+  if (!offered.departments.includes(choice.academicDepartment)) {
+    errors.academicDepartment = ["Select a valid academic department"];
+  }
+  if (!offered.programmes.includes(choice.programme)) {
+    errors.programme = ["Select a valid program of study"];
+  }
+  return Object.keys(errors).length > 0 ? errors : null;
+}
+
 export const MEMBERSHIP_TYPE_LABELS: Record<MembershipType, string> = {
   REGULAR: "Regular",
   DISTANCE: "Distance",
@@ -407,17 +447,12 @@ export const enrollmentSchema = z
     }),
   })
   .superRefine((data, ctx) => {
+    // Department and programme aren't checked here: administrators manage
+    // those lists in the database, so the submit action checks them against
+    // the current lists with academicChoiceErrors below.
     const isPg = data.track === "POSTGRADUATE";
-    const validDepartments = isPg ? POSTGRAD_DEPARTMENTS : ACADEMIC_DEPARTMENTS;
-    const validProgrammes = isPg ? POSTGRAD_PROGRAMS : PROGRAMS_OF_STUDY;
     const validLevels = isPg ? POSTGRAD_LEVELS : LEVELS;
 
-    if (!(validDepartments as readonly string[]).includes(data.academicDepartment)) {
-      ctx.addIssue({ code: "custom", path: ["academicDepartment"], message: "Select a valid academic department" });
-    }
-    if (!(validProgrammes as readonly string[]).includes(data.programme)) {
-      ctx.addIssue({ code: "custom", path: ["programme"], message: "Select a valid program of study" });
-    }
     if (!(validLevels as readonly string[]).includes(data.level)) {
       ctx.addIssue({ code: "custom", path: ["level"], message: "Select a valid level" });
     }
@@ -495,17 +530,12 @@ export const alumniFurtherStudiesSchema = z
     }),
   })
   .superRefine((data, ctx) => {
+    // Department and programme aren't checked here: administrators manage
+    // those lists in the database, so the submit action checks them against
+    // the current lists with academicChoiceErrors below.
     const isPg = data.track === "POSTGRADUATE";
-    const validDepartments = isPg ? POSTGRAD_DEPARTMENTS : ACADEMIC_DEPARTMENTS;
-    const validProgrammes = isPg ? POSTGRAD_PROGRAMS : PROGRAMS_OF_STUDY;
     const validLevels = isPg ? POSTGRAD_LEVELS : LEVELS;
 
-    if (!(validDepartments as readonly string[]).includes(data.academicDepartment)) {
-      ctx.addIssue({ code: "custom", path: ["academicDepartment"], message: "Select a valid academic department" });
-    }
-    if (!(validProgrammes as readonly string[]).includes(data.programme)) {
-      ctx.addIssue({ code: "custom", path: ["programme"], message: "Select a valid program of study" });
-    }
     if (!(validLevels as readonly string[]).includes(data.level)) {
       ctx.addIssue({ code: "custom", path: ["level"], message: "Select a valid level" });
     }

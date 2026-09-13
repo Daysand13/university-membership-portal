@@ -4,7 +4,8 @@ import { withActionErrorHandling, withVoidActionErrorHandling, withTypedActionEr
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { enrollmentSchema, applicationReviewSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, memberAdminEditSchema } from "@/lib/validations/membership";
+import { enrollmentSchema, applicationReviewSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, memberAdminEditSchema, academicChoiceErrors } from "@/lib/validations/membership";
+import { getAcademicOptions } from "@/lib/services/academic-options-service";
 import {
   submitApplication,
   approveApplication,
@@ -89,6 +90,10 @@ async function submitEnrollmentActionImpl(
   if (!parsed.success) {
     return { fieldErrors: parsed.error.flatten().fieldErrors };
   }
+
+  // Department and programme must be ones administrators currently offer.
+  const choiceErrors = academicChoiceErrors(await getAcademicOptions(), parsed.data.track, parsed.data);
+  if (choiceErrors) return { fieldErrors: choiceErrors };
 
   // Catches the exact mistake that locked a real member out of email-only
   // login elsewhere in this system (gmail.cim instead of gmail.com) — a

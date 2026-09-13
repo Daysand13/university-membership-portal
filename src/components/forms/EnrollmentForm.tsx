@@ -12,18 +12,15 @@ import {
   SUPPORT_NEEDS,
   CAMPUSES,
   HALLS_OF_AFFILIATION,
-  ACADEMIC_DEPARTMENTS,
-  PROGRAMS_OF_STUDY,
   LEVELS,
   POSTGRAD_DEGREE_CATEGORIES,
-  POSTGRAD_DEPARTMENTS,
-  POSTGRAD_PROGRAMS,
   POSTGRAD_LEVELS,
   MEMBERSHIP_TYPE_LABELS,
   MAX_PASSPORT_PICTURE_BYTES,
   MAX_MEDICAL_REPORT_BYTES,
   GHANA_REGIONS,
   type ApplicationTrack,
+  type TrackAcademicOptions,
 } from "@/lib/validations/membership";
 import { prepareAndUpload } from "@/lib/client/upload-attachment";
 import { loadDraft, saveDraft } from "@/lib/client/form-draft";
@@ -140,7 +137,14 @@ function formatBytes(bytes: number): string {
 }
 
 
-export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
+export function EnrollmentForm({
+  track,
+  academicOptions,
+}: {
+  track: ApplicationTrack;
+  /** The departments and programmes administrators currently offer for this track. */
+  academicOptions: TrackAcademicOptions;
+}) {
   const [state, formAction, isPending] = useActionState(submitEnrollmentAction, initialActionState);
   const formRef = useRef<HTMLFormElement>(null);
   const passportInputRef = useRef<HTMLInputElement>(null);
@@ -219,8 +223,8 @@ export function EnrollmentForm({ track }: { track: ApplicationTrack }) {
     passportTooLarge || medicalTooLarge || Boolean(passportUploadError) || Boolean(medicalUploadError);
 
   const isPg = track === "POSTGRADUATE";
-  const departmentOptions = isPg ? POSTGRAD_DEPARTMENTS : ACADEMIC_DEPARTMENTS;
-  const programmeOptions = isPg ? POSTGRAD_PROGRAMS : PROGRAMS_OF_STUDY;
+  const departmentOptions = academicOptions.departments;
+  const programmeOptions = academicOptions.programmes;
   const levelOptions = isPg ? POSTGRAD_LEVELS : LEVELS;
   const levelLabel = isPg ? "Year of Study" : "Level / Year of Study";
 

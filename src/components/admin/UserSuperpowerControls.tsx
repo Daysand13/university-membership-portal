@@ -15,12 +15,9 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import {
   CAMPUSES,
   DISABILITY_CATEGORIES,
-  ACADEMIC_DEPARTMENTS,
-  PROGRAMS_OF_STUDY,
   LEVELS,
-  POSTGRAD_DEPARTMENTS,
-  POSTGRAD_PROGRAMS,
   POSTGRAD_LEVELS,
+  type AcademicOptions,
 } from "@/lib/validations/membership";
 
 type Panel = "archive" | "dual" | "cycle" | null;
@@ -60,7 +57,15 @@ function ActionButton({
   );
 }
 
-export function UserSuperpowerControls({ target, canDelete }: { target: SuperpowerTarget; canDelete: boolean }) {
+export function UserSuperpowerControls({
+  target,
+  canDelete,
+  academicOptions,
+}: {
+  target: SuperpowerTarget;
+  canDelete: boolean;
+  academicOptions: AcademicOptions;
+}) {
   const [panel, setPanel] = useState<Panel>(null);
 
   const isAlumni = target.roles.includes("ALUMNI");
@@ -115,7 +120,7 @@ export function UserSuperpowerControls({ target, canDelete }: { target: Superpow
 
           {panel === "archive" && <ArchiveForm target={target} thisYear={thisYear} />}
           {panel === "dual" && <DualStatusForm target={target} thisYear={thisYear} />}
-          {panel === "cycle" && <NewCycleForm target={target} thisYear={thisYear} />}
+          {panel === "cycle" && <NewCycleForm target={target} thisYear={thisYear} academicOptions={academicOptions} />}
         </div>
       )}
     </div>
@@ -212,15 +217,22 @@ function DualStatusForm({ target, thisYear }: { target: SuperpowerTarget; thisYe
   );
 }
 
-function NewCycleForm({ target, thisYear }: { target: SuperpowerTarget; thisYear: number }) {
+function NewCycleForm({
+  target,
+  thisYear,
+  academicOptions,
+}: {
+  target: SuperpowerTarget;
+  thisYear: number;
+  academicOptions: AcademicOptions;
+}) {
   const [state, formAction, isPending] = useActionState(approveNewEnrollmentCycleAction, initialActionState);
   const [track, setTrack] = useState("UNDERGRADUATE");
   const fe = state.fieldErrors ?? {};
 
 
   const isPg = track === "POSTGRADUATE";
-  const departments = isPg ? POSTGRAD_DEPARTMENTS : ACADEMIC_DEPARTMENTS;
-  const programmes = isPg ? POSTGRAD_PROGRAMS : PROGRAMS_OF_STUDY;
+  const { departments, programmes } = academicOptions[isPg ? "POSTGRADUATE" : "UNDERGRADUATE"];
   const levels = isPg ? POSTGRAD_LEVELS : LEVELS;
 
   return (

@@ -12,14 +12,11 @@ import {
   GHANA_REGIONS,
   DISABILITY_CATEGORIES,
   SUPPORT_NEEDS,
-  ACADEMIC_DEPARTMENTS,
-  PROGRAMS_OF_STUDY,
   LEVELS,
   POSTGRAD_DEGREE_CATEGORIES,
-  POSTGRAD_DEPARTMENTS,
-  POSTGRAD_PROGRAMS,
   POSTGRAD_LEVELS,
   MEMBERSHIP_TYPE_LABELS,
+  type AcademicOptions,
 } from "@/lib/validations/membership";
 import type { Member } from "@/generated/prisma/client";
 
@@ -133,7 +130,7 @@ function ControlledSelectField({
  * their own dedicated, separately-audited controls elsewhere on this page,
  * and the two file attachments, which have no admin re-upload path yet.
  */
-export function EditMemberForm({ member }: { member: Member }) {
+export function EditMemberForm({ member, academicOptions }: { member: Member; academicOptions: AcademicOptions }) {
   const [isEditing, setIsEditing] = useState(false);
   const [state, formAction, isPending] = useActionState(updateMemberAdminAction, initialActionState);
   const fe = state.fieldErrors ?? {};
@@ -162,8 +159,9 @@ export function EditMemberForm({ member }: { member: Member }) {
   const [degreeCategory, setDegreeCategory] = useState(member.degreeCategory ?? "");
 
   const isPg = track === "POSTGRADUATE";
-  const departmentOptions = isPg ? POSTGRAD_DEPARTMENTS : ACADEMIC_DEPARTMENTS;
-  const programmeOptions = isPg ? POSTGRAD_PROGRAMS : PROGRAMS_OF_STUDY;
+  const trackOptions = academicOptions[isPg ? "POSTGRADUATE" : "UNDERGRADUATE"];
+  const departmentOptions = trackOptions.departments;
+  const programmeOptions = trackOptions.programmes;
   const levelOptions = isPg ? POSTGRAD_LEVELS : LEVELS;
 
   function startEditing() {

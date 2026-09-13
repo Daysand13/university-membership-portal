@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { EnrollmentForm } from "@/components/forms/EnrollmentForm";
+import { getAcademicOptions } from "@/lib/services/academic-options-service";
 
 export const metadata: Metadata = { title: "Postgraduate Membership Registration" };
+export const dynamic = "force-dynamic";
 
-export default function PostgraduateEnrollPage() {
+export default async function PostgraduateEnrollPage() {
+  const options = await getAcademicOptions();
+
   return (
     <div className="bg-surface-muted">
       <div className="bg-white border-b border-line">
@@ -17,7 +21,7 @@ export default function PostgraduateEnrollPage() {
         </div>
       </div>
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12">
-        <EnrollmentForm track="POSTGRADUATE" />
+        <EnrollmentForm track="POSTGRADUATE" academicOptions={options.POSTGRADUATE} />
       </div>
     </div>
   );
