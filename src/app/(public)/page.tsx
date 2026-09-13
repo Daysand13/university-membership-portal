@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const [slides, news, events, siteSettings, homepageAlumni] = await Promise.all([
     getActiveHeroSlides(),
-    getFeaturedNews(3),
+    getFeaturedNews(6),
     getUpcomingEventsForHome(3),
     getSiteSettings(),
     listHomepageAlumni(4),
