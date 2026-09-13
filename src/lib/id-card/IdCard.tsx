@@ -61,36 +61,34 @@ const RULE_HEIGHT = 7;
 const FOOTER_HEIGHT = 52;
 const PADDING_X = 30;
 
-const FRONT_PADDING_TOP = 22;
-const FRONT_PADDING_BOTTOM = 25;
-const PHOTO_HEIGHT = DESIGN_HEIGHT - HEADER_HEIGHT - RULE_HEIGHT - FOOTER_HEIGHT - FRONT_PADDING_TOP - FRONT_PADDING_BOTTOM; // 386
-const PHOTO_WIDTH = 300; // 300 × 386 ≈ a 35 × 45 mm passport photo
+const FRONT_PADDING_Y = 30;
+const PHOTO_HEIGHT = DESIGN_HEIGHT - HEADER_HEIGHT - RULE_HEIGHT - FOOTER_HEIGHT - FRONT_PADDING_Y * 2; // 373
+const PHOTO_WIDTH = 290; // 290 × 373 ≈ a 35 × 45 mm passport photo
 const PHOTO_BORDER = 4;
-const PHOTO_GAP = 32;
-const DETAILS_WIDTH = DESIGN_WIDTH - PADDING_X * 2 - PHOTO_WIDTH - PHOTO_GAP; // 619
+const PHOTO_GAP = 28;
+const QR_PANEL_WIDTH = 214;
+const QR_PANEL_PADDING = 9;
+const QR_PANEL_BORDER = 4;
+const QR_SIZE = QR_PANEL_WIDTH - (QR_PANEL_PADDING + QR_PANEL_BORDER) * 2; // 188
+const QR_GAP = 26;
+const DETAILS_WIDTH = DESIGN_WIDTH - PADDING_X * 2 - PHOTO_WIDTH - PHOTO_GAP - QR_GAP - QR_PANEL_WIDTH; // 393
 
 const LOGO_DISC = 112;
 const LOGO_RING = 3;
 
 const BACK_HEADER_HEIGHT = 66;
-const BACK_PADDING_TOP = 24;
-const BACK_PADDING_BOTTOM = 20;
-const PICTURE_WIDTH = 540;
-const PICTURE_HEIGHT = 400;
-const PICTURE_BORDER = 4;
-const QR_SIZE = 290;
+const BACK_PADDING_Y = 30;
+const BACK_LOGO = 400;
+const BACK_LOGO_COLUMN = 420;
+const BACK_DIVIDER_GAP = 20;
+const BACK_TEXT_WIDTH = DESIGN_WIDTH - PADDING_X * 2 - BACK_LOGO_COLUMN - BACK_DIVIDER_GAP * 2 - 2; // 489
 
 /** Pixel sizes the prepared images should be, so nothing is scaled at render time. */
 export const ID_CARD_IMAGE_SIZES = {
   photo: { width: (PHOTO_WIDTH - PHOTO_BORDER * 2) * ID_CARD_SCALE, height: (PHOTO_HEIGHT - PHOTO_BORDER * 2) * ID_CARD_SCALE },
   logoDisc: (LOGO_DISC - LOGO_RING * 2) * ID_CARD_SCALE,
-  watermark: 360 * ID_CARD_SCALE,
-  /** The logo on the back when there's no association picture to show. */
-  medallion: 320 * ID_CARD_SCALE,
-  picture: {
-    width: (PICTURE_WIDTH - PICTURE_BORDER * 2) * ID_CARD_SCALE,
-    height: (PICTURE_HEIGHT - PICTURE_BORDER * 2) * ID_CARD_SCALE,
-  },
+  /** The association logo on the back, on a transparent backdrop. */
+  backLogo: BACK_LOGO * ID_CARD_SCALE,
   qr: QR_SIZE * ID_CARD_SCALE,
 } as const;
 
@@ -106,9 +104,8 @@ export interface IdCardData {
   /** Round, transparent-cornered logos for the header frames. */
   associationBadge: string | null;
   universityBadge: string | null;
-  /** The association logo as a plain image, for the faint watermark. */
-  watermark: string | null;
-  backPicture: { src: string; fit: "cover" | "contain" } | null;
+  /** The association logo with its backdrop cleared, for the back. */
+  associationLogo: string | null;
   qrCode: string;
   /** e.g. "31 JULY 2027" */
   validUntil: string;
@@ -322,22 +319,7 @@ export function IdCardFront({ data }: { data: IdCardData }) {
 
       <AccentRule />
 
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          position: "relative",
-          padding: `${s(FRONT_PADDING_TOP)}px ${s(PADDING_X)}px ${s(FRONT_PADDING_BOTTOM)}px`,
-        }}
-      >
-        {data.watermark && (
-          <img
-            src={data.watermark}
-            width={s(360)}
-            height={s(360)}
-            style={{ position: "absolute", right: s(-50), bottom: s(-70), opacity: 0.07 }}
-          />
-        )}
+      <div style={{ flex: 1, display: "flex", padding: `${s(FRONT_PADDING_Y)}px ${s(PADDING_X)}px` }}>
         <PhotoFrame photo={data.photo} />
         <div
           style={{
@@ -354,6 +336,31 @@ export function IdCardFront({ data }: { data: IdCardData }) {
           <DetailField label="PROGRAMME OF STUDY" value={programme.text} size={programme.size} />
           <DetailField label="CATEGORY OF SPECIAL NEEDS" value={category.text} size={category.size} />
         </div>
+        <div
+          style={{
+            width: s(QR_PANEL_WIDTH),
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            marginLeft: s(QR_GAP),
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              padding: s(QR_PANEL_PADDING),
+              background: COLOR.paper,
+              border: `${s(QR_PANEL_BORDER)}px solid ${COLOR.indigo}`,
+              borderRadius: s(18),
+            }}
+          >
+            <img src={data.qrCode} width={s(QR_SIZE)} height={s(QR_SIZE)} />
+          </div>
+          <div style={{ marginTop: s(12), fontSize: s(12), fontWeight: 800, letterSpacing: s(2.4), color: COLOR.label }}>
+            SCAN TO VERIFY
+          </div>
+        </div>
       </div>
 
       <FooterBand
@@ -369,52 +376,8 @@ export function IdCardFront({ data }: { data: IdCardData }) {
 // Back
 // ---------------------------------------------------------------------------
 
-function PictureFrame({ picture }: { picture: IdCardData["backPicture"] }) {
-  const cover = picture?.fit === "cover";
-  const innerWidth = PICTURE_WIDTH - PICTURE_BORDER * 2;
-  const innerHeight = PICTURE_HEIGHT - PICTURE_BORDER * 2;
-  return (
-    <div
-      style={{
-        width: s(PICTURE_WIDTH),
-        height: s(PICTURE_HEIGHT),
-        borderRadius: s(18),
-        border: `${s(PICTURE_BORDER)}px solid ${COLOR.indigo}`,
-        background: cover ? COLOR.indigo : COLOR.paper,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "hidden",
-      }}
-    >
-      {picture ? (
-        <img
-          src={picture.src}
-          width={cover ? s(innerWidth) : s(320)}
-          height={cover ? s(innerHeight) : s(320)}
-          style={cover ? { borderRadius: s(14) } : { objectFit: "contain" }}
-        />
-      ) : (
-        <div
-          style={{
-            fontFamily: "Source Serif",
-            fontWeight: 700,
-            fontSize: s(28),
-            color: COLOR.indigo,
-            textAlign: "center",
-            padding: `0 ${s(40)}px`,
-          }}
-        >
-          ASSOCIATION OF STUDENTS WITH SPECIAL NEEDS
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function IdCardBack({ data }: { data: IdCardData }) {
-  const rightWidth = DESIGN_WIDTH - PADDING_X * 2 - PICTURE_WIDTH - PADDING_X;
-  const phone = fitText(data.phone, { sizes: [34, 30, 26, 22], lines: 1, widthFactor: 0.64, width: rightWidth });
+  const phone = fitText(data.phone, { sizes: [40, 36, 32, 28], lines: 1, widthFactor: 0.64, width: BACK_TEXT_WIDTH });
 
   return (
     <div
@@ -447,49 +410,74 @@ export function IdCardBack({ data }: { data: IdCardData }) {
 
       <AccentRule />
 
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          padding: `${s(BACK_PADDING_TOP)}px ${s(PADDING_X)}px ${s(BACK_PADDING_BOTTOM)}px`,
-        }}
-      >
-        <div style={{ width: s(PICTURE_WIDTH), display: "flex", flexDirection: "column" }}>
-          <PictureFrame picture={data.backPicture} />
-          <div style={{ marginTop: s(14), fontSize: s(13), lineHeight: 1.45, color: COLOR.muted }}>
-            This card is the property of the Association of Students with Special Needs, University of Education,
-            Winneba, and is not transferable.
-          </div>
+      <div style={{ flex: 1, display: "flex", padding: `${s(BACK_PADDING_Y)}px ${s(PADDING_X)}px` }}>
+        <div style={{ width: s(BACK_LOGO_COLUMN), display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {data.associationLogo ? (
+            <img src={data.associationLogo} width={s(BACK_LOGO)} height={s(BACK_LOGO)} />
+          ) : (
+            <div
+              style={{
+                fontFamily: "Source Serif",
+                fontWeight: 700,
+                fontSize: s(30),
+                color: COLOR.indigo,
+                textAlign: "center",
+                lineHeight: 1.2,
+              }}
+            >
+              ASSOCIATION OF STUDENTS WITH SPECIAL NEEDS
+            </div>
+          )}
         </div>
+
+        <div style={{ width: s(2), margin: `${s(10)}px ${s(BACK_DIVIDER_GAP)}px`, background: COLOR.mist, display: "flex" }} />
 
         <div
           style={{
-            width: s(rightWidth),
+            width: s(BACK_TEXT_WIDTH),
             display: "flex",
             flexDirection: "column",
-            alignItems: "center",
-            marginLeft: s(PADDING_X),
+            justifyContent: "space-between",
+            padding: `${s(6)}px 0`,
           }}
         >
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ fontSize: s(12), fontWeight: 700, letterSpacing: s(2.2), color: COLOR.label }}>PROPERTY NOTICE</div>
+            <div
+              style={{
+                marginTop: s(8),
+                fontFamily: "Source Serif",
+                fontWeight: 700,
+                fontSize: s(24),
+                lineHeight: 1.3,
+                color: COLOR.ink,
+              }}
+            >
+              This card is the property of the Association of Students with Special Needs, University of Education,
+              Winneba.
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ width: s(64), height: s(5), borderRadius: s(3), background: COLOR.orange, display: "flex" }} />
+            <div style={{ marginTop: s(18), fontSize: s(14.5), fontWeight: 800, letterSpacing: s(2.6), color: COLOR.label }}>
+              IF FOUND, PLEASE CONTACT
+            </div>
+            <div style={{ marginTop: s(4), fontSize: s(phone.size), fontWeight: 800, color: COLOR.ink, letterSpacing: s(1) }}>
+              {phone.text}
+            </div>
+          </div>
+
           <div
             style={{
-              display: "flex",
-              padding: s(12),
-              background: COLOR.paper,
-              border: `${s(4)}px solid ${COLOR.indigo}`,
-              borderRadius: s(20),
+              fontFamily: "Source Serif",
+              fontStyle: "italic",
+              fontWeight: 600,
+              fontSize: s(24),
+              color: COLOR.violet,
             }}
           >
-            <img src={data.qrCode} width={s(QR_SIZE)} height={s(QR_SIZE)} />
-          </div>
-          <div style={{ marginTop: s(20), fontSize: s(14.5), fontWeight: 800, letterSpacing: s(2.6), color: COLOR.label }}>
-            IF FOUND, PLEASE CONTACT
-          </div>
-          <div style={{ marginTop: s(4), fontSize: s(phone.size), fontWeight: 800, color: COLOR.ink, letterSpacing: s(1) }}>
-            {phone.text}
-          </div>
-          <div style={{ marginTop: s(10), fontSize: s(13), fontWeight: 600, color: COLOR.muted, textAlign: "center" }}>
-            Scan the code to verify this membership
+            {`“${ID_CARD_MOTTO}”`}
           </div>
         </div>
       </div>

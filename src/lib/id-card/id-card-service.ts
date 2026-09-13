@@ -2,9 +2,9 @@ import "server-only";
 import QRCode from "qrcode";
 import { db } from "@/lib/db";
 import { formatFullName } from "@/lib/format";
-import { getAboutContent, getSiteSettings } from "@/lib/services/content-service";
+import { getSiteSettings } from "@/lib/services/content-service";
 import { endOfAcademicYear, memberCardVerificationUrl } from "@/lib/services/member-card-service";
-import { containedPngDataUri, coverJpegDataUri, discLogoDataUri, fetchImageBytes } from "./images";
+import { coverJpegDataUri, discLogoDataUri, fetchImageBytes, transparentLogoDataUri } from "./images";
 import { ID_CARD_IMAGE_SIZES, type IdCardData } from "./IdCard";
 
 /**
@@ -24,31 +24,22 @@ export function idCardValidUntil(now: Date = new Date()): string {
 }
 
 export async function loadIdCardData(memberId: string, origin: string): Promise<IdCardData | null> {
-  const [member, settings, about] = await Promise.all([
-    db.member.findUnique({ where: { id: memberId } }),
-    getSiteSettings(),
-    getAboutContent(),
-  ]);
+  const [member, settings] = await Promise.all([db.member.findUnique({ where: { id: memberId } }), getSiteSettings()]);
   if (!member) return null;
 
-  const [photoBytes, associationLogoBytes, universityLogoBytes, pictureBytes] = await Promise.all([
+  const [photoBytes, associationLogoBytes, universityLogoBytes] = await Promise.all([
     fetchImageBytes(member.profileImageUrl),
     fetchImageBytes(settings.logoUrl),
     fetchImageBytes(settings.universityLogoUrl),
-    fetchImageBytes(about.imageUrl),
   ]);
 
   const size = ID_CARD_IMAGE_SIZES;
-  const [photo, associationBadge, universityBadge, watermark, picture] = await Promise.all([
+  const [photo, associationBadge, universityBadge, associationLogo] = await Promise.all([
     photoBytes ? coverJpegDataUri(photoBytes, size.photo.width, size.photo.height, "north") : null,
     associationLogoBytes ? discLogoDataUri(associationLogoBytes, size.logoDisc) : null,
     universityLogoBytes ? discLogoDataUri(universityLogoBytes, size.logoDisc) : null,
-    associationLogoBytes ? containedPngDataUri(associationLogoBytes, size.watermark) : null,
-    pictureBytes ? coverJpegDataUri(pictureBytes, size.picture.width, size.picture.height) : null,
+    associationLogoBytes ? transparentLogoDataUri(associationLogoBytes, size.backLogo) : null,
   ]);
-  // Only needed when there's no association picture. Cut round like the header
-  // logos, so a logo on an off-white square doesn't show a faint box.
-  const medallion = !picture && associationLogoBytes ? await discLogoDataUri(associationLogoBytes, size.medallion, 0.98) : null;
 
   // The same link the member's dashboard QR code opens.
   const qrPng = await QRCode.toBuffer(memberCardVerificationUrl(origin, member.id), {
@@ -76,13 +67,7 @@ export async function loadIdCardData(memberId: string, origin: string): Promise<
     photo,
     associationBadge,
     universityBadge,
-    watermark,
-    // The association's picture from the About Us page; its logo if there isn't one.
-    backPicture: picture
-      ? { src: picture, fit: "cover" }
-      : medallion
-        ? { src: medallion, fit: "contain" }
-        : null,
+    associationLogo,
     qrCode: `data:image/png;base64,${qrPng.toString("base64")}`,
     validUntil: idCardValidUntil(),
     website,

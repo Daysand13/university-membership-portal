@@ -98,17 +98,85 @@ export async function discLogoDataUri(bytes: Buffer, size: number, fill = 0.9): 
   }
 }
 
-/** A logo fitted inside a size × size square, transparency kept, as a PNG data URI. */
-export async function containedPngDataUri(bytes: Buffer, size: number): Promise<string | null> {
+/**
+ * A logo fitted inside a size × size square with its backdrop made
+ * transparent, as a PNG data URI.
+ *
+ * The association's logo is a JPEG on a white square, which has no
+ * transparency to keep. The white is cleared by filling inward from the
+ * edges, so only backdrop connected to the outside goes clear; white that's
+ * part of the badge itself, enclosed by its artwork, stays white.
+ */
+export async function transparentLogoDataUri(bytes: Buffer, size: number): Promise<string | null> {
   try {
-    const out = await sharp(bytes)
-      .rotate()
+    const oriented = await sharp(bytes).rotate().toBuffer();
+    let trimmed = oriented;
+    try {
+      trimmed = await sharp(oriented).trim({ threshold: 12 }).toBuffer();
+    } catch {
+      // Nothing to trim — use it as it is.
+    }
+
+    const { data, info } = await sharp(trimmed)
       .resize(size, size, { fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } })
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    clearBackdrop(data, info.width, info.height);
+
+    const out = await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
       .png()
       .toBuffer();
     return `data:image/png;base64,${out.toString("base64")}`;
   } catch (err) {
     console.error("[id-card] logo could not be processed", err);
     return null;
+  }
+}
+
+/** Every channel at or above this counts as backdrop white. */
+const BACKDROP_MIN = 232;
+/** Every channel at or above this is fully cleared; between the two, faded, so edges stay smooth. */
+const BACKDROP_CLEAR = 250;
+
+/** Clears near-white (or already transparent) pixels reachable from the image edge. RGBA, in place. */
+export function clearBackdrop(data: Buffer | Uint8Array, width: number, height: number): void {
+  const pixels = width * height;
+  const seen = new Uint8Array(pixels);
+  const queue = new Int32Array(pixels);
+  let head = 0;
+  let tail = 0;
+
+  const isBackdrop = (p: number) => {
+    const i = p * 4;
+    return data[i + 3] < 16 || Math.min(data[i], data[i + 1], data[i + 2]) >= BACKDROP_MIN;
+  };
+  const visit = (p: number) => {
+    if (seen[p] || !isBackdrop(p)) return;
+    seen[p] = 1;
+    queue[tail++] = p;
+  };
+
+  for (let x = 0; x < width; x++) {
+    visit(x);
+    visit((height - 1) * width + x);
+  }
+  for (let y = 0; y < height; y++) {
+    visit(y * width);
+    visit(y * width + width - 1);
+  }
+
+  while (head < tail) {
+    const p = queue[head++];
+    const i = p * 4;
+    const lightest = Math.min(data[i], data[i + 1], data[i + 2]);
+    const fade = lightest >= BACKDROP_CLEAR ? 0 : (BACKDROP_CLEAR - lightest) / (BACKDROP_CLEAR - BACKDROP_MIN);
+    data[i + 3] = Math.min(data[i + 3], Math.round(255 * fade));
+
+    const x = p % width;
+    if (x > 0) visit(p - 1);
+    if (x < width - 1) visit(p + 1);
+    if (p >= width) visit(p - width);
+    if (p < pixels - width) visit(p + width);
   }
 }

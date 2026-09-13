@@ -8,7 +8,7 @@ import { EditMemberForm } from "@/components/admin/EditMemberForm";
 import { db } from "@/lib/db";
 import { formatFullName } from "@/lib/format";
 import { getAcademicOptions } from "@/lib/services/academic-options-service";
-import { getAboutContent, getSiteSettings } from "@/lib/services/content-service";
+import { getSiteSettings } from "@/lib/services/content-service";
 import { IdCardPanel, type IdCardIssue } from "@/components/admin/IdCardPanel";
 
 export const metadata = { title: "Member Details" };
@@ -16,11 +16,10 @@ export const dynamic = "force-dynamic";
 
 export default async function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [member, academicOptions, settings, about] = await Promise.all([
+  const [member, academicOptions, settings] = await Promise.all([
     db.member.findUnique({ where: { id }, include: { alumniProfile: true } }),
     getAcademicOptions(),
     getSiteSettings(),
-    getAboutContent(),
   ]);
   if (!member) notFound();
 
@@ -34,13 +33,6 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
   }
   if (!settings.universityLogoUrl) {
     idCardIssues.push({ message: "The university logo isn't set.", href: "/admin/settings", linkLabel: "Add it in Settings" });
-  }
-  if (!about.imageUrl) {
-    idCardIssues.push({
-      message: "There's no association picture on the About Us page, so the back of the card shows the logo instead.",
-      href: "/admin/about",
-      linkLabel: "Add one on About Us",
-    });
   }
   if (member.status !== "ACTIVE" || member.graduatedAt) {
     idCardIssues.push({
@@ -94,7 +86,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
         memberId={member.id}
         memberName={formatFullName(member.firstName, member.middleName, member.lastName)}
         issues={idCardIssues}
-        version={`${member.updatedAt.toISOString()}|${settings.logoUrl ?? ""}|${settings.universityLogoUrl ?? ""}|${about.imageUrl ?? ""}`}
+        version={`${member.updatedAt.toISOString()}|${settings.logoUrl ?? ""}|${settings.universityLogoUrl ?? ""}`}
       />
 
       <div className="bg-white rounded-lg border border-line p-6 mb-6">
