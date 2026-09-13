@@ -275,14 +275,27 @@ export async function notifyMemberStatusChange(
  * that don't belong in an email. The exceptions are the index number and the
  * email address, which the person needs to know to keep signing in.
  */
+export type ProfilePictureChange = "added" | "replaced" | "removed";
+
+const PROFILE_PICTURE_PARAGRAPHS: Record<ProfilePictureChange, string> = {
+  added:
+    "An administrator has added a profile picture to your membership account. It appears on your member dashboard and on your association ID card.",
+  replaced:
+    "An administrator has replaced the profile picture on your membership account, usually because the previous one wasn't clear enough to identify you. The new picture appears on your member dashboard and on your association ID card.",
+  removed:
+    "An administrator has removed the profile picture from your membership account, usually because it wasn't clear enough to identify you. Please send the association a clear, passport-style photo of yourself so it can be added to your record and your ID card.",
+};
+
 export async function notifyMemberRecordCorrected(params: {
   member: { id: string; email: string; firstName: string; indexNumber: string };
   previousEmail: string;
   previousIndexNumber: string;
   changedFields: string[];
+  profilePictureChange?: ProfilePictureChange | null;
 }): Promise<void> {
-  const { member, previousEmail, previousIndexNumber, changedFields } = params;
+  const { member, previousEmail, previousIndexNumber, changedFields, profilePictureChange } = params;
   if (changedFields.length === 0) return;
+  const pictureOnly = profilePictureChange && changedFields.length === 1;
 
   const details: NoticeDetail[] = [];
   if (member.indexNumber !== previousIndexNumber) {
@@ -298,13 +311,26 @@ export async function notifyMemberRecordCorrected(params: {
       template: "member-record-corrected",
       entityType: "Member",
       entityId: member.id,
-      build: () => ({
-        subject: "Your membership record has been updated",
-        paragraphs: ["An administrator has updated the following details on your membership record:"],
-        bullets: changedFields,
-        details,
-        securityNote: true,
-      }),
+      build: () =>
+        pictureOnly
+          ? {
+              subject: "Your profile picture has been updated",
+              paragraphs: [PROFILE_PICTURE_PARAGRAPHS[profilePictureChange]],
+              closingParagraphs: [CONTACT_LINE],
+              cta: { path: "/membership/dashboard", label: "View Your Dashboard" },
+            }
+          : {
+              subject: profilePictureChange
+                ? "Your membership record and profile picture have been updated"
+                : "Your membership record has been updated",
+              paragraphs: [
+                ...(profilePictureChange ? [PROFILE_PICTURE_PARAGRAPHS[profilePictureChange]] : []),
+                "An administrator has updated the following details on your membership record:",
+              ],
+              bullets: changedFields,
+              details,
+              securityNote: true,
+            },
     }),
   ];
 
@@ -481,23 +507,30 @@ export async function notifyDuesPaymentReceived(params: {
   amountLabel: string;
   reference: string;
   paidAt: Date;
+  /** Cash handed to the association, recorded by an administrator. Defaults to online (Paystack). */
+  method?: "online" | "cash";
 }): Promise<void> {
-  const { memberId, paymentId, academicYear, tierLabel, amountLabel, reference, paidAt } = params;
+  const { memberId, paymentId, academicYear, tierLabel, amountLabel, reference, paidAt, method = "online" } = params;
   const member = await memberRecipient(memberId);
   if (!member) return;
 
   await deliver({
     to: member,
-    template: "dues-payment-received",
+    template: method === "cash" ? "dues-cash-payment-recorded" : "dues-payment-received",
     entityType: "DuesPayment",
     entityId: paymentId,
     build: () => ({
       subject: `Payment received — ${academicYear} membership dues`,
-      paragraphs: ["Thank you — we have received your membership dues payment. Please keep this email as your receipt."],
+      paragraphs: [
+        method === "cash"
+          ? "Thank you — the association has recorded your cash payment of membership dues, so your dues for this academic year are now marked as paid. Please keep this email as your receipt."
+          : "Thank you — we have received your membership dues payment. Please keep this email as your receipt.",
+      ],
       details: [
         { label: "Academic Year", value: academicYear },
         { label: "Dues Tier", value: tierLabel },
         { label: "Amount Paid", value: amountLabel },
+        { label: "Payment Method", value: method === "cash" ? "Cash" : "Online (Paystack)" },
         { label: "Payment Reference", value: reference },
         {
           label: "Date Paid",
@@ -505,6 +538,41 @@ export async function notifyDuesPaymentReceived(params: {
         },
       ],
       cta: { path: "/membership/dashboard/dues", label: "View Your Payments" },
+    }),
+  });
+}
+
+/** A cash payment recorded by mistake was taken back off the member's account. */
+export async function notifyCashDuesPaymentRemoved(params: {
+  memberId: string;
+  paymentId: string;
+  academicYear: string;
+  amountLabel: string;
+  reference: string;
+}): Promise<void> {
+  const { memberId, paymentId, academicYear, amountLabel, reference } = params;
+  const member = await memberRecipient(memberId);
+  if (!member) return;
+
+  await deliver({
+    to: member,
+    template: "dues-cash-payment-removed",
+    entityType: "DuesPayment",
+    entityId: paymentId,
+    build: () => ({
+      subject: `Cash payment removed — ${academicYear} membership dues`,
+      paragraphs: [
+        "An administrator has removed a cash dues payment that was recorded on your membership account, so your dues for this academic year are no longer marked as paid. This usually means the payment was recorded by mistake.",
+      ],
+      details: [
+        { label: "Academic Year", value: academicYear },
+        { label: "Amount", value: amountLabel },
+        { label: "Payment Reference", value: reference },
+      ],
+      closingParagraphs: [
+        "If you did pay this in cash, please contact the association with your receipt so it can be recorded again.",
+      ],
+      cta: { path: "/membership/dashboard/dues", label: "View Your Dues" },
     }),
   });
 }

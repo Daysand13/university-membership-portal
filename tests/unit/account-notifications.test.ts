@@ -22,6 +22,8 @@ vi.mock("@/lib/services/content-service", () => ({
 }));
 
 import {
+  notifyCashDuesPaymentRemoved,
+  notifyDuesPaymentReceived,
   notifyMemberRecordCorrected,
   notifyMemberStatusChange,
   notifyTeamListingChange,
@@ -163,5 +165,89 @@ describe("member account notices", () => {
     await notifyMemberStatusChange({ id: "m1", email: "ama@example.com", firstName: "Ama" }, "ACTIVE", "SUSPENDED");
     expect(sent()).toHaveLength(1);
     expect(sent()[0].html).toContain("Suspended");
+  });
+});
+
+describe("profile picture notices", () => {
+  const member = { id: "m1", email: "ama@example.com", firstName: "Ama", indexNumber: "5211040123" };
+
+  it("sends a picture-specific email when only the picture was replaced", async () => {
+    await notifyMemberRecordCorrected({
+      member,
+      previousEmail: member.email,
+      previousIndexNumber: member.indexNumber,
+      changedFields: ["Profile Picture"],
+      profilePictureChange: "replaced",
+    });
+
+    expect(sent()).toHaveLength(1);
+    const [email] = sent();
+    expect(email.subject).toBe("Your profile picture has been updated");
+    expect(email.html).toContain("replaced the profile picture");
+    expect(email.html).toContain("ID card");
+  });
+
+  it("asks for a clear photo when the picture was removed", async () => {
+    await notifyMemberRecordCorrected({
+      member,
+      previousEmail: member.email,
+      previousIndexNumber: member.indexNumber,
+      changedFields: ["Profile Picture"],
+      profilePictureChange: "removed",
+    });
+    expect(sent()[0].html).toContain("passport-style photo");
+  });
+
+  it("mentions the picture alongside other corrected fields in one email", async () => {
+    await notifyMemberRecordCorrected({
+      member,
+      previousEmail: member.email,
+      previousIndexNumber: member.indexNumber,
+      changedFields: ["Profile Picture", "Phone Number"],
+      profilePictureChange: "added",
+    });
+
+    expect(sent()).toHaveLength(1);
+    const [email] = sent();
+    expect(email.subject).toContain("profile picture");
+    expect(email.html).toContain("added a profile picture");
+    expect(email.html).toContain("Phone Number");
+  });
+});
+
+describe("cash dues notices", () => {
+  it("sends a receipt that says the payment was cash", async () => {
+    await notifyDuesPaymentReceived({
+      memberId: "m1",
+      paymentId: "p1",
+      academicYear: "2026/2027",
+      tierLabel: "Level 200",
+      amountLabel: "GHS 50.00",
+      reference: "CASH-ABC123DEF456",
+      paidAt: new Date("2026-09-13T10:00:00Z"),
+      method: "cash",
+    });
+
+    const [email] = sent();
+    expect(email.to).toBe("ama@example.com");
+    expect(email.template).toBe("dues-cash-payment-recorded");
+    expect(email.html).toContain("cash payment");
+    expect(email.html).toContain("CASH-ABC123DEF456");
+    expect(email.html).not.toContain("Paystack");
+  });
+
+  it("tells the member when a cash payment is taken back off their account", async () => {
+    await notifyCashDuesPaymentRemoved({
+      memberId: "m2",
+      paymentId: "p1",
+      academicYear: "2026/2027",
+      amountLabel: "GHS 50.00",
+      reference: "CASH-ABC123DEF456",
+    });
+
+    const [email] = sent();
+    expect(email.to).toBe("kofi@example.com");
+    expect(email.template).toBe("dues-cash-payment-removed");
+    expect(email.html).toContain("no longer marked as paid");
   });
 });

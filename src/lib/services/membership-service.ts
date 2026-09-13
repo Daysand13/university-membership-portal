@@ -32,7 +32,9 @@ import {
   notifyMemberRecordCorrected,
   notifyMemberStatusChange,
   notifyPasswordChanged,
+  type ProfilePictureChange,
 } from "@/lib/services/account-notification-service";
+import { extractObjectKeyFromPublicUrl } from "@/lib/storage/r2";
 
 export class DuplicateIndexNumberError extends Error {
   constructor() {
@@ -1167,7 +1169,15 @@ const ADMIN_EDITABLE_FIELD_LABELS: Record<string, string> = {
   region: "Region",
   emergencyContactName: "Emergency Contact Name",
   emergencyContactPhone: "Emergency Contact Phone",
+  profileImageUrl: "Profile Picture",
 };
+
+export class InvalidProfilePictureError extends Error {
+  constructor() {
+    super("Upload the new picture here rather than pasting a link to it.");
+    this.name = "InvalidProfilePictureError";
+  }
+}
 
 export async function updateMemberAdmin(params: {
   memberId: string;
@@ -1179,6 +1189,21 @@ export async function updateMemberAdmin(params: {
     where: { id: memberId },
     include: { alumniProfile: true },
   });
+
+  // A new picture has to be one uploaded to the association's own storage —
+  // it's printed on the member's ID card, so it can't be an arbitrary link.
+  const profileImageUrl = updates.profileImageUrl === undefined ? before.profileImageUrl : updates.profileImageUrl || null;
+  if (profileImageUrl && profileImageUrl !== before.profileImageUrl && !extractObjectKeyFromPublicUrl(profileImageUrl)) {
+    throw new InvalidProfilePictureError();
+  }
+  const profilePictureChange: ProfilePictureChange | null =
+    profileImageUrl === before.profileImageUrl
+      ? null
+      : !profileImageUrl
+        ? "removed"
+        : before.profileImageUrl
+          ? "replaced"
+          : "added";
 
   const data = {
     indexNumber: updates.indexNumber,
@@ -1205,6 +1230,7 @@ export async function updateMemberAdmin(params: {
     region: updates.region || null,
     emergencyContactName: updates.emergencyContactName || null,
     emergencyContactPhone: updates.emergencyContactPhone || null,
+    profileImageUrl,
   };
 
   let updated: Member;
@@ -1226,6 +1252,9 @@ export async function updateMemberAdmin(params: {
             email: updates.email,
             phone: updates.phone,
             programme: updates.programme,
+            // Only when the alumni profile is still showing the picture it
+            // was copied with; one the graduate chose themselves is theirs.
+            ...(before.alumniProfile.profileImageUrl === before.profileImageUrl ? { profileImageUrl } : {}),
           },
         }),
       ]);
@@ -1280,6 +1309,7 @@ export async function updateMemberAdmin(params: {
       previousEmail: before.email,
       previousIndexNumber: before.indexNumber,
       changedFields: Object.keys(newValue).map((key) => ADMIN_EDITABLE_FIELD_LABELS[key] ?? key),
+      profilePictureChange,
     });
   }
 

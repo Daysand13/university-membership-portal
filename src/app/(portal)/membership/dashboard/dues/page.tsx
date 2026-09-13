@@ -7,6 +7,7 @@ import {
   formatPesewasAsCedis,
   getCurrentAcademicYear,
   getDuesFeeForMember,
+  isCashDuesReference,
   listDuesPaymentsForMember,
 } from "@/lib/services/dues-service";
 
@@ -73,7 +74,9 @@ export default async function MemberDuesPage() {
                     <p className="text-sm text-slate">
                       {p.paidAt ? `Paid ${dateFormat.format(p.paidAt)}` : `Started ${dateFormat.format(p.createdAt)}`}
                     </p>
-                    <p className="text-xs text-slate font-data break-all mt-0.5">Ref: {p.reference}</p>
+                    <p className="text-xs text-slate font-data break-all mt-0.5">
+                      {isCashDuesReference(p.reference) ? "Paid in cash · " : ""}Ref: {p.reference}
+                    </p>
                   </li>
                 ))}
               </ul>
@@ -103,7 +106,10 @@ export default async function MemberDuesPage() {
                         <td className="py-3 pr-4 text-ink whitespace-nowrap">
                           {dateFormat.format(p.paidAt ?? p.createdAt)}
                         </td>
-                        <td className="py-3 text-xs text-slate font-data break-all">{p.reference}</td>
+                        <td className="py-3 text-xs text-slate font-data break-all">
+                          {p.reference}
+                          {isCashDuesReference(p.reference) && <span className="block font-sans">Paid in cash</span>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

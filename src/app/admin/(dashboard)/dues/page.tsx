@@ -1,7 +1,9 @@
-import { Wallet, CheckCircle2, XCircle } from "lucide-react";
+import { Wallet, CheckCircle2, XCircle, Banknote, CreditCard, Undo2 } from "lucide-react";
 import { requireAdminRole } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { getCurrentAcademicYear, listMemberDuesStatus, formatPesewasAsCedis } from "@/lib/services/dues-service";
+import { recordCashDuesPaymentAction, removeCashDuesPaymentAction } from "@/lib/actions/admin-dues-actions";
+import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { EmptyState } from "@/components/ui/Common";
 
 export const metadata = { title: "Membership Dues" };
@@ -24,7 +26,8 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
   const rows = sp.status === "paid" ? allRows.filter((r) => r.paid) : sp.status === "unpaid" ? allRows.filter((r) => !r.paid) : allRows;
 
   const paidCount = allRows.filter((r) => r.paid).length;
-  const totalCollectedPesewas = allRows.filter((r) => r.paid).reduce((sum, r) => sum + r.fee.amountPesewas, 0);
+  // What was actually paid (online or cash), not today's fee, which can differ if a tier changed since.
+  const totalCollectedPesewas = allRows.reduce((sum, r) => sum + (r.payment?.amountPesewas ?? 0), 0);
 
   const selectClasses =
     "rounded-md border border-line bg-white px-3 py-2 text-sm focus:border-primary-600 focus:ring-1 focus:ring-primary-600 outline-none";
@@ -79,6 +82,10 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
                 <th className="text-left px-5 py-3 font-semibold">Fee</th>
                 <th className="text-left px-5 py-3 font-semibold">Status</th>
                 <th className="text-left px-5 py-3 font-semibold">Paid On</th>
+                <th className="text-left px-5 py-3 font-semibold">Method</th>
+                <th className="text-right px-5 py-3 font-semibold">
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -100,6 +107,35 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
                     )}
                   </td>
                   <td className="px-5 py-3.5 text-slate-light text-xs">{row.paidAt ? formatDate(row.paidAt) : "—"}</td>
+                  <td className="px-5 py-3.5 text-xs">
+                    {row.payment ? (
+                      <span className="inline-flex items-center gap-1 text-ink font-medium">
+                        {row.payment.method === "cash" ? <Banknote size={13} /> : <CreditCard size={13} />}
+                        {row.payment.method === "cash" ? "Cash" : "Online"}
+                      </span>
+                    ) : (
+                      <span className="text-slate-light">—</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                    {!row.payment ? (
+                      <ConfirmButton
+                        action={recordCashDuesPaymentAction.bind(null, row.memberId)}
+                        confirmMessage={`Record ${row.fullName}'s ${academicYear} dues of ${formatPesewasAsCedis(row.fee.amountPesewas)} as paid in cash?\n\nOnly do this once the cash is in hand. ${row.fullName} will be emailed a receipt.`}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-primary-800 hover:bg-surface-muted hover:text-accent-600 disabled:opacity-60"
+                      >
+                        <Banknote size={13} /> Mark paid (cash)
+                      </ConfirmButton>
+                    ) : row.payment.method === "cash" ? (
+                      <ConfirmButton
+                        action={removeCashDuesPaymentAction.bind(null, row.payment.id)}
+                        confirmMessage={`Remove the cash payment recorded for ${row.fullName}?\n\nTheir ${academicYear} dues will show as unpaid again, and they'll be emailed that it was removed.`}
+                        className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-slate hover:bg-surface-muted hover:text-danger disabled:opacity-60"
+                      >
+                        <Undo2 size={13} /> Undo
+                      </ConfirmButton>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>

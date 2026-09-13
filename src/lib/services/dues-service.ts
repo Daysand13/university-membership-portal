@@ -7,7 +7,7 @@ import {
   initializeTransaction,
   verifyTransaction,
 } from "@/lib/services/paystack-client";
-import { notifyDuesPaymentReceived } from "@/lib/services/account-notification-service";
+import { notifyCashDuesPaymentRemoved, notifyDuesPaymentReceived } from "@/lib/services/account-notification-service";
 
 /**
  * Yearly membership dues, charged through Paystack.
@@ -270,6 +270,120 @@ export function formatPesewasAsCedis(amountPesewas: number): string {
   return `GHS ${(amountPesewas / PESEWAS_PER_CEDI).toFixed(2)}`;
 }
 
+// ---------------------------------------------------------------------------
+// Cash payments
+// ---------------------------------------------------------------------------
+
+/**
+ * Some members pay the association in cash. An administrator records that
+ * as a SUCCESS payment like any other, so every "has this member paid"
+ * check (the dashboard, the dues list, the Paystack button) treats it the
+ * same. It's told apart from an online payment by its reference, which
+ * Paystack payments never start with.
+ */
+const CASH_REFERENCE_PREFIX = "CASH-";
+
+export function isCashDuesReference(reference: string): boolean {
+  return reference.startsWith(CASH_REFERENCE_PREFIX);
+}
+
+export type CashDuesResult = { ok: true } | { ok: false; error: string };
+
+export async function recordCashDuesPayment(params: { memberId: string; adminId: string }): Promise<CashDuesResult> {
+  const { memberId, adminId } = params;
+  const academicYear = getCurrentAcademicYear();
+
+  const member = await db.member.findUnique({
+    where: { id: memberId },
+    select: { id: true, applicationTrack: true, level: true, status: true, alumniProfile: { select: { id: true } } },
+  });
+  if (!member) return { ok: false, error: "That member no longer exists." };
+  if (member.status !== "ACTIVE" || member.alumniProfile) {
+    return { ok: false, error: "Dues can only be recorded for a current, active member." };
+  }
+  if (await hasPaidDuesForYear(memberId, academicYear)) {
+    return { ok: false, error: `This member's dues for ${academicYear} are already paid.` };
+  }
+
+  const fee = await getDuesFeeForMember(member);
+  const reference = `${CASH_REFERENCE_PREFIX}${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`;
+  const paidAt = new Date();
+
+  const payment = await db.duesPayment.create({
+    data: {
+      memberId,
+      academicYear,
+      tierLabel: fee.tierLabel,
+      amountPesewas: fee.amountPesewas,
+      reference,
+      status: "SUCCESS",
+      paidAt,
+    },
+  });
+  await db.auditLog.create({
+    data: {
+      adminId,
+      action: "DUES_CASH_PAYMENT_RECORDED",
+      entityType: "DuesPayment",
+      entityId: payment.id,
+      newValue: { memberId, academicYear, tierLabel: fee.tierLabel, amountPesewas: fee.amountPesewas, reference },
+    },
+  });
+  await notifyDuesPaymentReceived({
+    memberId,
+    paymentId: payment.id,
+    academicYear,
+    tierLabel: fee.tierLabel,
+    amountLabel: formatPesewasAsCedis(fee.amountPesewas),
+    reference,
+    paidAt,
+    method: "cash",
+  });
+  return { ok: true };
+}
+
+/**
+ * Takes back a cash payment recorded by mistake. Only cash payments: an
+ * online payment is real money Paystack holds, and deleting its record here
+ * wouldn't refund anyone. The audit log keeps what was removed.
+ */
+export async function removeCashDuesPayment(params: { paymentId: string; adminId: string }): Promise<CashDuesResult> {
+  const { paymentId, adminId } = params;
+  const payment = await db.duesPayment.findUnique({ where: { id: paymentId } });
+  if (!payment) return { ok: false, error: "That payment has already been removed." };
+  if (!isCashDuesReference(payment.reference)) {
+    return { ok: false, error: "Only cash payments can be removed here. Online payments are handled through Paystack." };
+  }
+
+  const { count } = await db.duesPayment.deleteMany({ where: { id: paymentId } });
+  if (count === 0) return { ok: false, error: "That payment has already been removed." };
+
+  await db.auditLog.create({
+    data: {
+      adminId,
+      action: "DUES_CASH_PAYMENT_REMOVED",
+      entityType: "DuesPayment",
+      entityId: payment.id,
+      previousValue: {
+        memberId: payment.memberId,
+        academicYear: payment.academicYear,
+        tierLabel: payment.tierLabel,
+        amountPesewas: payment.amountPesewas,
+        reference: payment.reference,
+        paidAt: payment.paidAt?.toISOString() ?? null,
+      },
+    },
+  });
+  await notifyCashDuesPaymentRemoved({
+    memberId: payment.memberId,
+    paymentId: payment.id,
+    academicYear: payment.academicYear,
+    amountLabel: formatPesewasAsCedis(payment.amountPesewas),
+    reference: payment.reference,
+  });
+  return { ok: true };
+}
+
 export interface MemberDuesRow {
   memberId: string;
   fullName: string;
@@ -279,6 +393,8 @@ export interface MemberDuesRow {
   fee: DuesFee;
   paid: boolean;
   paidAt: Date | null;
+  /** The payment that settled this year, if any. */
+  payment: { id: string; amountPesewas: number; method: "online" | "cash" } | null;
 }
 
 /**
@@ -305,16 +421,16 @@ export async function listMemberDuesStatus(academicYear: string): Promise<Member
     }),
     db.duesPayment.findMany({
       where: { academicYear, status: "SUCCESS" },
-      select: { memberId: true, paidAt: true },
+      select: { id: true, memberId: true, paidAt: true, amountPesewas: true, reference: true },
     }),
   ]);
 
-  const paidByMemberId = new Map(successfulPayments.map((p) => [p.memberId, p.paidAt]));
+  const paymentByMemberId = new Map(successfulPayments.map((p) => [p.memberId, p]));
 
   return Promise.all(
     members.map(async (member) => {
       const fee = await getDuesFeeForMember(member);
-      const paidAt = paidByMemberId.get(member.id) ?? null;
+      const payment = paymentByMemberId.get(member.id) ?? null;
       return {
         memberId: member.id,
         fullName: [member.firstName, member.middleName, member.lastName].filter(Boolean).join(" "),
@@ -322,8 +438,15 @@ export async function listMemberDuesStatus(academicYear: string): Promise<Member
         level: member.level,
         applicationTrack: member.applicationTrack,
         fee,
-        paid: paidByMemberId.has(member.id),
-        paidAt,
+        paid: payment !== null,
+        paidAt: payment?.paidAt ?? null,
+        payment: payment
+          ? {
+              id: payment.id,
+              amountPesewas: payment.amountPesewas,
+              method: isCashDuesReference(payment.reference) ? "cash" : "online",
+            }
+          : null,
       };
     }),
   );

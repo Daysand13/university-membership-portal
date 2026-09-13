@@ -24,6 +24,7 @@ import {
   ApplicationAlreadyApprovedError,
   InvalidCredentialsError,
   InvalidOrExpiredTokenError,
+  InvalidProfilePictureError,
 } from "@/lib/services/membership-service";
 import { requireAdminRole } from "@/lib/auth/admin";
 import { requireMember } from "@/lib/auth/member";
@@ -380,6 +381,9 @@ async function updateMemberAdminActionImpl(
     }
     if (err instanceof DuplicateEmailError) {
       return { fieldErrors: { email: [err.message] } };
+    }
+    if (err instanceof InvalidProfilePictureError) {
+      return { fieldErrors: { profileImageUrl: [err.message] } };
     }
     console.error("[update-member-admin]", err);
     return { error: "Something went wrong saving these changes. Please try again." };

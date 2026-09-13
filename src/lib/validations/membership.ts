@@ -684,6 +684,10 @@ export const memberAdminEditSchema = z.object({
   region: z.string().trim().max(200).optional().or(z.literal("")),
   emergencyContactName: z.string().trim().max(300).optional().or(z.literal("")),
   emergencyContactPhone: z.string().trim().regex(phoneRegex, "Enter a valid phone number").optional().or(z.literal("")),
+
+  // Left out entirely means "don't touch it"; an empty string removes it.
+  // Where the URL points is checked in updateMemberAdmin.
+  profileImageUrl: z.string().trim().max(2000).optional(),
 });
 
 export type MemberAdminEditInput = z.infer<typeof memberAdminEditSchema>;

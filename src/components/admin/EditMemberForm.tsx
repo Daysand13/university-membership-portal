@@ -6,6 +6,7 @@ import { updateMemberAdminAction } from "@/lib/actions/membership-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
+import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import {
   CAMPUSES,
   HALLS_OF_AFFILIATION,
@@ -128,7 +129,7 @@ function ControlledSelectField({
  *
  * Deliberately excludes account status and graduation, which already have
  * their own dedicated, separately-audited controls elsewhere on this page,
- * and the two file attachments, which have no admin re-upload path yet.
+ * and the supporting document, which has no admin re-upload path yet.
  */
 export function EditMemberForm({ member, academicOptions }: { member: Member; academicOptions: AcademicOptions }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -177,7 +178,7 @@ export function EditMemberForm({ member, academicOptions }: { member: Member; ac
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <section className="bg-white rounded-lg border border-line p-6 sm:col-span-2 flex items-center justify-between">
-          <p className="text-sm text-slate">Index number, name, contact and academic details.</p>
+          <p className="text-sm text-slate">Profile picture, index number, name, contact and academic details.</p>
           <Button type="button" variant="outline" size="sm" onClick={startEditing}>
             <Pencil size={14} /> Edit Details
           </Button>
@@ -240,6 +241,22 @@ export function EditMemberForm({ member, academicOptions }: { member: Member; ac
 
       <div className="bg-white rounded-lg border border-line p-6">
         <h3 className="font-display font-bold text-base text-primary-950 mb-4">Identification</h3>
+        <div className="flex flex-col sm:flex-row gap-5 mb-5">
+          <div className="w-40 shrink-0">
+            <ImageUploadField
+              name="profileImageUrl"
+              category="PROFILE"
+              label="Profile Picture"
+              defaultUrl={member.profileImageUrl}
+              aspect="aspect-[3/4]"
+            />
+            <FieldError messages={fe.profileImageUrl} />
+          </div>
+          <p className="text-sm text-slate sm:pt-7">
+            Use a clear, passport-style photo of the member&apos;s face — it&apos;s printed on their ID card. Upload a new
+            one to replace a poor picture, or remove it. The member is emailed when their picture changes.
+          </p>
+        </div>
         <div className="grid sm:grid-cols-2 gap-5">
           <div>
             <Label htmlFor="indexNumber" required>Index Number</Label>
