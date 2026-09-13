@@ -29,6 +29,12 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "10mb",
     },
   },
+  // The ID card route reads its typefaces from disk at request time, which
+  // the build's file tracing can't see on its own — without this they
+  // wouldn't be deployed and every card would fail to render.
+  outputFileTracingIncludes: {
+    "/api/admin/members/**": ["./src/assets/fonts/**/*"],
+  },
   images: {
     remotePatterns: [
       ...(r2Hostname ? [{ protocol: "https" as const, hostname: r2Hostname }] : []),

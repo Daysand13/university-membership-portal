@@ -29,7 +29,8 @@ function sign(body: string): string {
   return createHmac("sha256", signingSecret()).update(`${PURPOSE}.${body}`).digest("base64url");
 }
 
-function endOfAcademicYear(now: Date): number {
+/** When a code issued at `now` stops verifying: 1 August, 00:00 UTC. */
+export function endOfAcademicYear(now: Date = new Date()): number {
   const year = now.getUTCFullYear();
   const startYear = now.getUTCMonth() >= 7 ? year : year - 1; // 7 = August
   return Date.UTC(startYear + 1, 7, 1);
@@ -60,7 +61,7 @@ export function readMemberCardToken(token: string, now: number = Date.now()): { 
 }
 
 /** The address the phone scanning the code should open — this deployment's own. */
-async function siteOrigin(): Promise<string> {
+export async function getSiteOrigin(): Promise<string> {
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host");
   if (host) {
@@ -70,8 +71,16 @@ async function siteOrigin(): Promise<string> {
   return process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "") ?? "";
 }
 
+/**
+ * The link a membership QR code encodes. The dashboard card and the printed
+ * ID card both use this, so within an academic year they are the same code.
+ */
+export function memberCardVerificationUrl(origin: string, memberId: string): string {
+  return `${origin}/membership/verify/${createMemberCardToken(memberId)}`;
+}
+
 export async function getMemberCardQr(memberId: string): Promise<{ url: string; svg: string }> {
-  const url = `${await siteOrigin()}/membership/verify/${createMemberCardToken(memberId)}`;
+  const url = memberCardVerificationUrl(await getSiteOrigin(), memberId);
   const svg = await QRCode.toString(url, {
     type: "svg",
     margin: 1,
