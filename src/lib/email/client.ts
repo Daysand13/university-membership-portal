@@ -2,10 +2,17 @@ import "server-only";
 import { Resend } from "resend";
 import { db } from "@/lib/db";
 
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+}
+
 interface SendEmailParams {
   to: string;
   subject: string;
   html: string;
+  /** Files sent with the email, e.g. a PDF receipt. */
+  attachments?: EmailAttachment[];
   /** A short machine-readable name for which template this is (e.g.
    * "application-approved"), stored in the audit log so admins can filter
    * by email type without parsing subject lines. */
@@ -120,6 +127,9 @@ export async function sendEmail(params: SendEmailParams): Promise<{ delivered: b
         to: params.to,
         subject: params.subject,
         html: params.html,
+        ...(params.attachments?.length
+          ? { attachments: params.attachments.map((a) => ({ filename: a.filename, content: a.content })) }
+          : {}),
       });
 
       if (result.error) {

@@ -1,4 +1,4 @@
-import { Receipt } from "lucide-react";
+import { FileDown, Receipt } from "lucide-react";
 import { requireMember } from "@/lib/auth/member";
 import { DuesCard } from "@/components/dashboard/DuesCard";
 import { DashboardCard } from "@/components/portal/DashboardCard";
@@ -77,6 +77,14 @@ export default async function MemberDuesPage() {
                     <p className="text-xs text-slate font-data break-all mt-0.5">
                       {isCashDuesReference(p.reference) ? "Paid in cash · " : ""}Ref: {p.reference}
                     </p>
+                    {p.status === "SUCCESS" && (
+                      <a
+                        href={`/api/dues/receipt/${p.id}`}
+                        className="mt-1.5 inline-flex items-center gap-1 text-sm font-semibold text-primary-800 hover:text-accent-600"
+                      >
+                        <FileDown size={15} aria-hidden="true" /> Download receipt
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -109,6 +117,15 @@ export default async function MemberDuesPage() {
                         <td className="py-3 text-xs text-slate font-data break-all">
                           {p.reference}
                           {isCashDuesReference(p.reference) && <span className="block font-sans">Paid in cash</span>}
+                          {p.status === "SUCCESS" && (
+                            <a
+                              href={`/api/dues/receipt/${p.id}`}
+                              aria-label={`Download receipt for ${p.academicYear} dues`}
+                              className="mt-1 inline-flex items-center gap-1 font-sans text-xs font-semibold text-primary-800 hover:text-accent-600"
+                            >
+                              <FileDown size={13} aria-hidden="true" /> Receipt
+                            </a>
+                          )}
                         </td>
                       </tr>
                     ))}

@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { sendEmail } from "@/lib/email/client";
+import { sendEmail, type EmailAttachment } from "@/lib/email/client";
 import { getEmailBrand } from "@/lib/services/content-service";
 import { accountNoticeEmail, type EmailBrand, type NoticeDetail } from "@/lib/email/templates";
 
@@ -48,8 +48,9 @@ async function deliver(params: {
   entityType: string;
   entityId: string;
   build: (brand: EmailBrand) => NoticeContent;
+  attachments?: EmailAttachment[];
 }): Promise<void> {
-  const { to, template, entityType, entityId, build } = params;
+  const { to, template, entityType, entityId, build, attachments } = params;
   try {
     const brand = await getEmailBrand();
     const content = build(brand);
@@ -65,7 +66,7 @@ async function deliver(params: {
       securityNote: content.securityNote,
       brand,
     });
-    await sendEmail({ to: to.email, subject, html, template, entityType, entityId });
+    await sendEmail({ to: to.email, subject, html, template, entityType, entityId, attachments });
   } catch (err) {
     console.error(`[account-notification] "${template}" email could not be sent — the change itself was saved:`, err);
   }
@@ -514,17 +515,32 @@ export async function notifyDuesPaymentReceived(params: {
   const member = await memberRecipient(memberId);
   if (!member) return;
 
+  // The official PDF receipt goes with the email. Best-effort: if it can't
+  // be made, the email still goes, with every detail in its body. Loaded on
+  // demand so the PDF renderer isn't pulled in by every other notice here.
+  let receipt: EmailAttachment | null = null;
+  try {
+    const { renderDuesReceipt } = await import("@/lib/services/dues-receipt-service");
+    receipt = await renderDuesReceipt(paymentId);
+  } catch (err) {
+    console.error(`[account-notification] receipt for payment ${paymentId} could not be generated — sending without it:`, err);
+  }
+  const keepLine = receipt
+    ? "Your official receipt is attached to this email as a PDF — please keep it for your records."
+    : "Please keep this email as your receipt.";
+
   await deliver({
     to: member,
     template: method === "cash" ? "dues-cash-payment-recorded" : "dues-payment-received",
     entityType: "DuesPayment",
     entityId: paymentId,
+    attachments: receipt ? [receipt] : undefined,
     build: () => ({
       subject: `Payment received — ${academicYear} membership dues`,
       paragraphs: [
         method === "cash"
-          ? "Thank you — the association has recorded your cash payment of membership dues, so your dues for this academic year are now marked as paid. Please keep this email as your receipt."
-          : "Thank you — we have received your membership dues payment. Please keep this email as your receipt.",
+          ? `Thank you — the association has recorded your cash payment of membership dues, so your dues for this academic year are now marked as paid. ${keepLine}`
+          : `Thank you — we have received your membership dues payment. ${keepLine}`,
       ],
       details: [
         { label: "Academic Year", value: academicYear },

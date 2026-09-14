@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Nothing here touches a real database or sends a real email: both are
 // replaced below, and the assertions read what WOULD have been sent.
-type SentEmail = { to: string; subject: string; html: string; template: string };
+type SentEmail = {
+  to: string;
+  subject: string;
+  html: string;
+  template: string;
+  attachments?: { filename: string; content: Buffer }[];
+};
 
 const mocks = vi.hoisted(() => ({
   sendEmail: vi.fn<(params: SentEmail) => Promise<{ delivered: boolean }>>(async () => ({ delivered: true })),
@@ -19,6 +25,12 @@ vi.mock("@/lib/email/client", () => ({ sendEmail: mocks.sendEmail }));
 vi.mock("@/lib/db", () => ({ db: { member: { findUnique: mocks.findMember } } }));
 vi.mock("@/lib/services/content-service", () => ({
   getEmailBrand: async () => ({ siteTitle: "Test Association", logoUrl: null }),
+}));
+vi.mock("@/lib/services/dues-receipt-service", () => ({
+  renderDuesReceipt: vi.fn(async (paymentId: string) => ({
+    filename: `ASSN-UEW-Dues-Receipt-${paymentId}.pdf`,
+    content: Buffer.from("%PDF-1.3 test"),
+  })),
 }));
 
 import {
@@ -234,6 +246,44 @@ describe("cash dues notices", () => {
     expect(email.html).toContain("cash payment");
     expect(email.html).toContain("CASH-ABC123DEF456");
     expect(email.html).not.toContain("Paystack");
+  });
+
+  it("attaches the PDF receipt and says so", async () => {
+    await notifyDuesPaymentReceived({
+      memberId: "m1",
+      paymentId: "p9",
+      academicYear: "2026/2027",
+      tierLabel: "Level 200",
+      amountLabel: "GHS 50.00",
+      reference: "CASH-ABC123DEF456",
+      paidAt: new Date("2026-09-13T10:00:00Z"),
+      method: "cash",
+    });
+
+    const [email] = sent();
+    expect(email.attachments).toHaveLength(1);
+    expect(email.attachments?.[0].filename).toBe("ASSN-UEW-Dues-Receipt-p9.pdf");
+    expect(email.html).toContain("receipt is attached");
+  });
+
+  it("still sends the payment email when the receipt can't be generated", async () => {
+    const { renderDuesReceipt } = await import("@/lib/services/dues-receipt-service");
+    vi.mocked(renderDuesReceipt).mockRejectedValueOnce(new Error("renderer down"));
+
+    await notifyDuesPaymentReceived({
+      memberId: "m1",
+      paymentId: "p10",
+      academicYear: "2026/2027",
+      tierLabel: "Level 200",
+      amountLabel: "GHS 50.00",
+      reference: "dues-123",
+      paidAt: new Date("2026-09-13T10:00:00Z"),
+    });
+
+    const [email] = sent();
+    expect(email.attachments).toBeUndefined();
+    expect(email.html).toContain("keep this email as your receipt");
+    expect(email.html).toContain("GHS 50.00");
   });
 
   it("tells the member when a cash payment is taken back off their account", async () => {

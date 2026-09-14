@@ -1,4 +1,4 @@
-import { Wallet, CheckCircle2, XCircle, Banknote, CreditCard, Undo2 } from "lucide-react";
+import { Wallet, CheckCircle2, XCircle, Banknote, CreditCard, Undo2, FileDown } from "lucide-react";
 import { requireAdminRole } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { getCurrentAcademicYear, listMemberDuesStatus, formatPesewasAsCedis } from "@/lib/services/dues-service";
@@ -126,7 +126,16 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
                       >
                         <Banknote size={13} /> Mark paid (cash)
                       </ConfirmButton>
-                    ) : row.payment.method === "cash" ? (
+                    ) : (
+                      <div className="inline-flex items-center gap-1">
+                        <a
+                          href={`/api/dues/receipt/${row.payment.id}`}
+                          aria-label={`Download ${row.fullName}'s receipt`}
+                          className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-primary-800 hover:bg-surface-muted hover:text-accent-600"
+                        >
+                          <FileDown size={13} /> Receipt
+                        </a>
+                        {row.payment.method === "cash" && (
                       <ConfirmButton
                         action={removeCashDuesPaymentAction.bind(null, row.payment.id)}
                         confirmMessage={`Remove the cash payment recorded for ${row.fullName}?\n\nTheir ${academicYear} dues will show as unpaid again, and they'll be emailed that it was removed.`}
@@ -134,7 +143,9 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
                       >
                         <Undo2 size={13} /> Undo
                       </ConfirmButton>
-                    ) : null}
+                        )}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
