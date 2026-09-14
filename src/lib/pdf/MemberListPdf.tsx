@@ -46,13 +46,11 @@ function formatDate(date: Date): string {
 
 export function MemberListPdf({
   members,
-  siteTitle,
   filterSummary,
   logoDataUri = null,
   universityLogoDataUri = null,
 }: {
   members: Member[];
-  siteTitle: string;
   filterSummary: string;
   logoDataUri?: string | null;
   universityLogoDataUri?: string | null;
@@ -63,7 +61,6 @@ export function MemberListPdf({
         <Letterhead
           logoDataUri={logoDataUri}
           universityLogoDataUri={universityLogoDataUri}
-          siteTitle={siteTitle}
           documentTitle={`Member List — ${members.length} member${members.length === 1 ? "" : "s"}`}
           filterSummary={filterSummary}
         />

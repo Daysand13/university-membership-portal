@@ -33,7 +33,8 @@ import {
   landingPathFor,
 } from "@/lib/auth/user";
 import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
-import { isLikelyBot } from "@/lib/bot-protection";
+import { detectBot } from "@/lib/bot-protection";
+import { logFlaggedSubmission } from "@/lib/services/flagged-submission-service";
 import { domainCanReceiveMail } from "@/lib/email-domain-check";
 import type { ActionState } from "./types";
 
@@ -224,8 +225,13 @@ async function alumniRegisterActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  // Silently pretend success for anything that looks automated.
-  if (isLikelyBot(formData)) redirect("/alumni/login");
+  // Silently pretend success for anything that looks automated. The flag is
+  // recorded, so a real person caught by mistake can be found.
+  const botSignal = detectBot(formData);
+  if (botSignal) {
+    await logFlaggedSubmission({ form: "alumni-registration", signal: botSignal, allowedThrough: false, formData });
+    redirect("/alumni/login");
+  }
 
   const ip = await getClientIp();
   const limit = await checkRateLimit(`alumni-register:ip:${ip}`, { max: 10, windowSeconds: 3600 });

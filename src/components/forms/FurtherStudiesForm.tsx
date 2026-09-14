@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { Loader2, ImagePlus, FileText, CheckCircle2 } from "lucide-react";
-import { submitFurtherStudiesAction, requestFurtherStudiesUploadAction } from "@/lib/actions/alumni-actions";
+import { submitFurtherStudiesAction } from "@/lib/actions/alumni-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
@@ -18,7 +18,9 @@ import {
   GHANA_REGIONS,
   type AcademicOptions,
 } from "@/lib/validations/membership";
-import { prepareAndUpload, type UploadOutcome } from "@/lib/client/upload-attachment";
+import { prepareAndUpload, resolveMimeType, type UploadOutcome } from "@/lib/client/upload-attachment";
+import { medicalReportFileProblem } from "@/lib/client/file-accept";
+import { MedicalReportInput } from "@/components/forms/MedicalReportInput";
 import { loadDraft, saveDraft, clearDraft } from "@/lib/client/form-draft";
 import type { AlumniProfile } from "@/generated/prisma/client";
 
@@ -26,6 +28,7 @@ const PASSPORT_TARGET_BYTES = 1024 * 1024; // 1 MB
 const MEDICAL_IMAGE_TARGET_BYTES = 2.5 * 1024 * 1024; // 2.5 MB
 
 const DRAFT_KEY = "further-studies-draft";
+const TICKET_URL = "/api/alumni/further-studies/upload/ticket";
 
 /**
  * Mirrors this form's state so a page the phone discarded while the file
@@ -159,7 +162,6 @@ export function FurtherStudiesForm({
 
   const passportInputRef = useRef<HTMLInputElement>(null);
   const medicalInputRef = useRef<HTMLInputElement>(null);
-  const medicalPhotoInputRef = useRef<HTMLInputElement>(null);
   const [passportToken, setPassportToken] = useState("");
   const [medicalToken, setMedicalToken] = useState("");
   const [passportBytes, setPassportBytes] = useState(0);
@@ -238,14 +240,27 @@ export function FurtherStudiesForm({
     setError(null);
     if (!file) return;
 
+    // On Android the medical report picker shows every file (see
+    // lib/client/file-accept.ts), so a wrong kind is caught here with a reason.
+    if (kind === "medical") {
+      const problem = medicalReportFileProblem(file, resolveMimeType(file));
+      if (problem) {
+        setError(problem);
+        setMedicalBytes(0);
+        setMedicalToken("");
+        setMedicalFileName(null);
+        return;
+      }
+    }
+
     setProcessingFiles(true);
     try {
-      const outcome: UploadOutcome = await prepareAndUpload(
+      const outcome: UploadOutcome = await prepareAndUpload({
         kind,
         file,
-        kind === "passport" ? PASSPORT_TARGET_BYTES : MEDICAL_IMAGE_TARGET_BYTES,
-        requestFurtherStudiesUploadAction,
-      );
+        targetBytes: kind === "passport" ? PASSPORT_TARGET_BYTES : MEDICAL_IMAGE_TARGET_BYTES,
+        ticketUrl: TICKET_URL,
+      });
       if (outcome.status === "error") {
         setError(outcome.message);
         if (kind === "passport") {
@@ -587,50 +602,20 @@ export function FurtherStudiesForm({
             <FieldError messages={fe.profilePicture} />
           </div>
           <div>
-            <Label htmlFor="medicalReportDocument" required={attachmentsRequired}>
+            <Label htmlFor="medicalReport" required={attachmentsRequired}>
               Medical Report / Disability Assessment
             </Label>
-            {/*
-              Split into two single-file-type inputs for the same reason as
-              the enrollment form — see the comment there. A mixed accept
-              list (or none) makes Samsung's One UI offer only Camera,
-              Camcorder, Voice Recorder and Photos, with no way to reach a
-              saved PDF. Both feed the same attachment.
-            */}
-            <div className="mt-2 space-y-2">
-              <div>
-                <p className="text-xs font-semibold text-ink mb-1">Option A: PDF or Word file</p>
-                <input
-                  ref={medicalInputRef}
-                  id="medicalReportDocument"
-                  type="file"
-                  accept="application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
-                  onChange={(e) => {
-                    if (e.target.files?.[0] && medicalPhotoInputRef.current) {
-                      medicalPhotoInputRef.current.value = "";
-                    }
-                    handleFileChange("medical", e.target.files?.[0]);
-                  }}
-                  className="block w-full text-xs text-slate file:mr-2 file:py-1.5 file:px-2.5 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-xs file:font-semibold hover:file:bg-primary-100"
-                />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-ink mb-1">Option B: Photo of the document</p>
-                <input
-                  ref={medicalPhotoInputRef}
-                  id="medicalReportPhoto"
-                  type="file"
-                  accept="image/jpeg,.jpg,.jpeg,image/png,.png"
-                  onChange={(e) => {
-                    if (e.target.files?.[0] && medicalInputRef.current) {
-                      medicalInputRef.current.value = "";
-                    }
-                    handleFileChange("medical", e.target.files?.[0]);
-                  }}
-                  className="block w-full text-xs text-slate file:mr-2 file:py-1.5 file:px-2.5 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-xs file:font-semibold hover:file:bg-primary-100"
-                />
-              </div>
-            </div>
+            <p id="medicalReportHelp" className="mt-1 mb-2 text-xs text-slate-light">
+              A saved PDF or Word document, or a clear photo of the paper report (JPG or PNG). Max 5MB.
+            </p>
+            {/* One field for every kind of report — see MedicalReportInput
+                for how it stays able to reach saved files on Samsung phones. */}
+            <MedicalReportInput
+              id="medicalReport"
+              inputRef={medicalInputRef}
+              onFile={(file) => handleFileChange("medical", file)}
+              describedBy="medicalReportHelp"
+            />
             {medicalError && <p className="mt-1 text-xs text-danger">{medicalError}</p>}
             {medicalBytes > 0 && !medicalError && (
               <p className="mt-1 text-xs text-primary-700 flex items-center gap-1">

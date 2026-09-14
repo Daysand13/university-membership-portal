@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { Loader2, ImagePlus, AlertCircle, CheckCircle2 } from "lucide-react";
-import { submitEnrollmentAction, requestEnrollmentUploadAction } from "@/lib/actions/membership-actions";
+import { submitEnrollmentAction } from "@/lib/actions/membership-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
@@ -22,8 +22,10 @@ import {
   type ApplicationTrack,
   type TrackAcademicOptions,
 } from "@/lib/validations/membership";
-import { prepareAndUpload } from "@/lib/client/upload-attachment";
+import { prepareAndUpload, resolveMimeType } from "@/lib/client/upload-attachment";
+import { medicalReportFileProblem } from "@/lib/client/file-accept";
 import { loadDraft, saveDraft } from "@/lib/client/form-draft";
+import { MedicalReportInput } from "@/components/forms/MedicalReportInput";
 
 // Every field the form collects, all controlled by React state. This is
 // deliberate: React automatically resets *uncontrolled* fields once a
@@ -131,6 +133,8 @@ function SectionCard({
 const PASSPORT_TARGET_BYTES = 1024 * 1024; // 1 MB
 const MEDICAL_IMAGE_TARGET_BYTES = 2.5 * 1024 * 1024; // 2.5 MB
 
+const TICKET_URL = "/api/enrollment/upload/ticket";
+
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
   return `${Math.max(1, Math.round(bytes / 1024))}KB`;
@@ -149,7 +153,6 @@ export function EnrollmentForm({
   const formRef = useRef<HTMLFormElement>(null);
   const passportInputRef = useRef<HTMLInputElement>(null);
   const medicalInputRef = useRef<HTMLInputElement>(null);
-  const medicalPhotoInputRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState<FormValues>(INITIAL_VALUES);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [medicalFileName, setMedicalFileName] = useState<string | null>(null);
@@ -170,6 +173,8 @@ export function EnrollmentForm({
   const [passportUploadError, setPassportUploadError] = useState<string | null>(null);
   const [medicalUploadError, setMedicalUploadError] = useState<string | null>(null);
   const [processingFiles, setProcessingFiles] = useState(false);
+  /** 0–1 for the transfer running now, null when nothing is uploading. */
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [passportMissing, setPassportMissing] = useState(false);
   const [medicalMissing, setMedicalMissing] = useState(false);
   const fe = state.fieldErrors ?? {};
@@ -247,27 +252,35 @@ export function EnrollmentForm({
     }
   }
 
-  /**
-   * Shared by both medical report inputs — whichever one the applicant
-   * uses, it's the same single attachment underneath. `otherInput` is
-   * emptied so the two can't visibly disagree about what's attached.
-   */
-  async function handleMedicalFile(
-    file: File | undefined,
-    otherInput: React.RefObject<HTMLInputElement | null>,
-  ) {
+  async function handleMedicalFile(file: File | undefined) {
     setMedicalUploadError(null);
     // A cancelled picker leaves any previous successful upload alone rather
     // than silently detaching it.
     if (!file) return;
-    if (otherInput.current) otherInput.current.value = "";
     setMedicalMissing(false);
+    // On Android the picker shows every file (see lib/client/file-accept.ts),
+    // so a wrong kind of file is caught here with a reason, before uploading.
+    const problem = medicalReportFileProblem(file, resolveMimeType(file));
+    if (problem) {
+      setMedicalUploadError(problem);
+      setMedicalBytes(0);
+      setMedicalToken("");
+      setMedicalFileName(null);
+      return;
+    }
     setProcessingFiles(true);
+    setUploadProgress(0);
     setMedicalFileName(file.name);
     try {
       // A PDF or Word document uploads untouched; only a photo of a report
       // gets re-encoded first.
-      const outcome = await prepareAndUpload("medical", file, MEDICAL_IMAGE_TARGET_BYTES, requestEnrollmentUploadAction);
+      const outcome = await prepareAndUpload({
+        kind: "medical",
+        file,
+        targetBytes: MEDICAL_IMAGE_TARGET_BYTES,
+        ticketUrl: TICKET_URL,
+        onProgress: setUploadProgress,
+      });
       if (outcome.status === "error") {
         setMedicalUploadError(outcome.message);
         setMedicalBytes(0);
@@ -279,6 +292,7 @@ export function EnrollmentForm({
       setMedicalFileName(outcome.filename);
     } finally {
       setProcessingFiles(false);
+      setUploadProgress(null);
     }
   }
 
@@ -638,6 +652,7 @@ export function EnrollmentForm({
                   if (!file) return;
                   setPassportMissing(false);
                   setProcessingFiles(true);
+                  setUploadProgress(0);
                   // Each preview holds the whole image in memory until it's
                   // revoked. Leaking one per selection pushes a low-memory
                   // phone closer to discarding this page, which is the very
@@ -647,7 +662,13 @@ export function EnrollmentForm({
                     return URL.createObjectURL(file);
                   });
                   try {
-                    const outcome = await prepareAndUpload("passport", file, PASSPORT_TARGET_BYTES, requestEnrollmentUploadAction);
+                    const outcome = await prepareAndUpload({
+                      kind: "passport",
+                      file,
+                      targetBytes: PASSPORT_TARGET_BYTES,
+                      ticketUrl: TICKET_URL,
+                      onProgress: setUploadProgress,
+                    });
                     if (outcome.status === "error") {
                       setPassportUploadError(outcome.message);
                       setPassportBytes(0);
@@ -658,6 +679,7 @@ export function EnrollmentForm({
                     setPassportToken(outcome.status === "ready" ? outcome.token : "");
                   } finally {
                     setProcessingFiles(false);
+                    setUploadProgress(null);
                   }
                 }}
                 className="block w-full text-sm text-slate file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-sm file:font-semibold hover:file:bg-primary-100"
@@ -684,69 +706,19 @@ export function EnrollmentForm({
             <FieldError messages={fe.profilePicture} />
           </div>
           <div className="sm:col-span-2">
-            <Label htmlFor="medicalReportDocument" required>Medical Report / Disability Assessment</Label>
-            <p className="mt-1 mb-3 text-xs text-slate">
-              Attach it whichever way you have it — a saved PDF or Word file, or a photo of the paper copy.
-              Use <strong>one</strong> of the two options below. Max 5MB.
+            <Label htmlFor="medicalReport" required>Medical Report / Disability Assessment</Label>
+            <p id="medicalReportHelp" className="mt-1 mb-3 text-xs text-slate">
+              A saved PDF or Word document, or a clear photo of the paper report (JPG or PNG). Max 5MB.
             </p>
-
-            {/*
-              Two inputs rather than one, and that split is load-bearing — do
-              not merge them back into a single field.
-
-              Chrome on Android turns `accept` into a system intent. A list
-              of ONE kind of file resolves cleanly: documents open the file
-              browser (My Files, Downloads, Drive), images open the camera
-              and gallery. A list mixing both — and an empty list too — makes
-              Samsung's One UI fall back to a "Choose an action" sheet
-              offering only Camera, Camcorder, Voice Recorder and Photos,
-              with no route to a saved PDF at all. Both the mixed list and
-              the omitted one were tried on real Samsung phones and both
-              failed this way.
-
-              Keeping each input to a single kind of file is what makes the
-              document picker reachable. Both feed the same upload, so from
-              the applicant's side it is still one attachment.
-            */}
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="rounded-md border border-line p-4">
-                <label htmlFor="medicalReportDocument" className="block text-sm font-semibold text-ink mb-2">
-                  Option A: PDF or Word file
-                </label>
-                <input
-                  ref={medicalInputRef}
-                  id="medicalReportDocument"
-                  type="file"
-                  // Documents only — this is the list that opens My Files.
-                  accept="application/pdf,.pdf,application/msword,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
-                  onChange={(e) => handleMedicalFile(e.target.files?.[0], medicalPhotoInputRef)}
-                  className="block w-full text-xs text-slate file:mr-2 file:py-1.5 file:px-2.5 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-xs file:font-semibold hover:file:bg-primary-100"
-                />
-                <p className="mt-1.5 text-xs text-slate-light">
-                  Opens your phone&apos;s Files / My Files picker. PDF, .doc or .docx.
-                </p>
-              </div>
-
-              <div className="rounded-md border border-line p-4">
-                <label htmlFor="medicalReportPhoto" className="block text-sm font-semibold text-ink mb-2">
-                  Option B: Photo of the document
-                </label>
-                <input
-                  ref={medicalPhotoInputRef}
-                  id="medicalReportPhoto"
-                  type="file"
-                  // Images only — concrete types rather than the image/*
-                  // wildcard so an iPhone converts HEIC to JPEG at the
-                  // picker instead of the server rejecting it after upload.
-                  accept="image/jpeg,.jpg,.jpeg,image/png,.png"
-                  onChange={(e) => handleMedicalFile(e.target.files?.[0], medicalInputRef)}
-                  className="block w-full text-xs text-slate file:mr-2 file:py-1.5 file:px-2.5 file:rounded-md file:border-0 file:bg-primary-50 file:text-primary-800 file:text-xs file:font-semibold hover:file:bg-primary-100"
-                />
-                <p className="mt-1.5 text-xs text-slate-light">
-                  Uses your camera or photo gallery. JPG or PNG.
-                </p>
-              </div>
-            </div>
+            {/* One field for every kind of report. Its picker settings are
+                chosen per platform so saved files stay reachable on Samsung
+                phones — see MedicalReportInput and lib/client/file-accept.ts. */}
+            <MedicalReportInput
+              id="medicalReport"
+              inputRef={medicalInputRef}
+              onFile={handleMedicalFile}
+              describedBy="medicalReportHelp"
+            />
             {medicalTooLarge && (
               <p className="mt-1 text-xs text-danger">
                 This file is {formatBytes(medicalBytes)}, over the 5MB limit — please choose a smaller file.
@@ -765,9 +737,25 @@ export function EnrollmentForm({
             <FieldError messages={fe.medicalReportKey} />
           </div>
           {processingFiles && (
-            <p className="sm:col-span-2 text-xs text-slate-light flex items-center gap-1.5">
-              <Loader2 size={13} className="animate-spin shrink-0" /> Uploading your attachments…
-            </p>
+            <div className="sm:col-span-2" role="status">
+              <p className="text-xs text-slate-light flex items-center gap-1.5">
+                <Loader2 size={13} className="animate-spin shrink-0" />
+                {uploadProgress ? `Uploading your attachment — ${Math.round(uploadProgress * 100)}%` : "Uploading your attachment…"}
+              </p>
+              <div
+                role="progressbar"
+                aria-label="Attachment upload progress"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round((uploadProgress ?? 0) * 100)}
+                className="mt-1.5 h-1.5 rounded-full bg-primary-100 overflow-hidden"
+              >
+                <div
+                  className="h-full bg-accent-500 transition-[width] duration-200"
+                  style={{ width: `${Math.round((uploadProgress ?? 0) * 100)}%` }}
+                />
+              </div>
+            </div>
           )}
         </SectionCard>
 

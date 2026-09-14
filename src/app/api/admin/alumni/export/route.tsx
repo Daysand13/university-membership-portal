@@ -47,7 +47,6 @@ export async function GET(request: NextRequest) {
   const pdfBuffer = await renderToBuffer(
     <AlumniListPdf
       alumni={alumni}
-      siteTitle={brand.siteTitle}
       filterSummary={buildFilterSummary(sp)}
       logoDataUri={logoDataUri}
       universityLogoDataUri={universityLogoDataUri}

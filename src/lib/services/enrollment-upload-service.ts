@@ -12,6 +12,7 @@ import {
 } from "@/lib/storage/r2";
 import { validateUploadRequest, bytesMatchDeclaredType } from "@/lib/storage/validation";
 import { MAX_PASSPORT_PICTURE_BYTES, MAX_MEDICAL_REPORT_BYTES } from "@/lib/validations/membership";
+import { MEDICAL_REPORT_MIME_TYPES } from "@/lib/client/file-accept";
 
 /**
  * Direct-to-R2 uploads for the PUBLIC enrollment form.
@@ -46,11 +47,70 @@ export type EnrollmentUploadKind = "passport" | "medical";
 
 const KIND_CONFIG: Record<
   EnrollmentUploadKind,
-  { category: "image" | "document"; maxBytes: number; label: string }
+  {
+    category: "image" | "document";
+    maxBytes: number;
+    label: string;
+    /** Narrower than the category allows, where the category is too broad. */
+    mimeTypes?: readonly string[];
+    wrongTypeMessage?: string;
+  }
 > = {
   passport: { category: "image", maxBytes: MAX_PASSPORT_PICTURE_BYTES, label: "passport picture" },
-  medical: { category: "document", maxBytes: MAX_MEDICAL_REPORT_BYTES, label: "medical report" },
+  // "document" on its own would also let a spreadsheet or a zip through, and
+  // on Android the picker no longer filters what can be chosen (see
+  // lib/client/file-accept.ts), so the list is enforced here.
+  medical: {
+    category: "document",
+    maxBytes: MAX_MEDICAL_REPORT_BYTES,
+    label: "medical report",
+    mimeTypes: MEDICAL_REPORT_MIME_TYPES,
+    wrongTypeMessage: "Your medical report must be a PDF or Word document, or a JPG or PNG photo of the report.",
+  },
 };
+
+function typeProblem(kind: EnrollmentUploadKind, mimeType: string): string | null {
+  const config = KIND_CONFIG[kind];
+  if (!config.mimeTypes || config.mimeTypes.includes(mimeType)) return null;
+  return config.wrongTypeMessage ?? `That file type can't be used for your ${config.label}.`;
+}
+
+/**
+ * Validates the body of a ticket request from a route handler. The values
+ * are only descriptions of the file — every one is checked again, against
+ * the real stored bytes, before an application is saved.
+ */
+export function parseEnrollmentTicketRequest(body: unknown): {
+  kind: EnrollmentUploadKind;
+  filename: string;
+  mimeType: string;
+  fileSize: number;
+} | null {
+  if (!body || typeof body !== "object") return null;
+  const { kind, filename, mimeType, fileSize } = body as Record<string, unknown>;
+  if (kind !== "passport" && kind !== "medical") return null;
+  if (typeof filename !== "string" || filename.length === 0 || filename.length > 300) return null;
+  if (typeof mimeType !== "string" || mimeType.length > 200) return null;
+  if (typeof fileSize !== "number" || !Number.isFinite(fileSize) || fileSize < 0) return null;
+  return { kind, filename, mimeType, fileSize };
+}
+
+/**
+ * Whether a ticket is one this server signed and that hasn't expired.
+ *
+ * Cheap (no storage call), so the enrollment action can use it to tell a
+ * real applicant from a script before deciding what a bot-check signal
+ * means: a script posting the form has no way to produce a signed ticket
+ * without actually uploading a file through this flow.
+ */
+export function isGenuineEnrollmentTicket(token: string | null | undefined): boolean {
+  if (!token) return false;
+  try {
+    return decodeToken(token) !== null;
+  } catch {
+    return false;
+  }
+}
 
 /** The browser uploads immediately after the file is chosen. */
 const PUT_URL_TTL_SECONDS = 300;
@@ -142,6 +202,8 @@ export async function requestEnrollmentUpload(params: {
     maxSizeBytes: config.maxBytes,
   });
   if (!check.ok) return { ok: false, error: check.error };
+  const wrongType = typeProblem(kind, mimeType);
+  if (wrongType) return { ok: false, error: wrongType };
 
   const objectKey = generateObjectKey("members", filename, mimeType);
   const uploadUrl = await getPresignedUploadUrl({
@@ -201,6 +263,8 @@ export async function storeEnrollmentUpload(params: {
     maxSizeBytes: config.maxBytes,
   });
   if (!check.ok) return { ok: false, error: check.error };
+  const wrongType = typeProblem(kind, mimeType);
+  if (wrongType) return { ok: false, error: wrongType };
 
   // Refuse before writing rather than after: the bytes are already here, so
   // there's no reason to put something in the bucket only to delete it.

@@ -1,6 +1,6 @@
 "use server";
 
-import { withActionErrorHandling, withVoidActionErrorHandling, withTypedActionErrorHandling } from "./with-error-handling";
+import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -29,13 +29,7 @@ import {
   DuplicateIndexNumberError,
   DuplicateEmailError,
 } from "@/lib/services/membership-service";
-import {
-  requestEnrollmentUpload,
-  adoptEnrollmentUpload,
-  EnrollmentUploadError,
-  type EnrollmentUploadKind,
-  type EnrollmentUploadTicket,
-} from "@/lib/services/enrollment-upload-service";
+import { adoptEnrollmentUpload, EnrollmentUploadError } from "@/lib/services/enrollment-upload-service";
 import { requireAlumni } from "@/lib/auth/alumni";
 import { requireAdminRole } from "@/lib/auth/admin";
 import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
@@ -159,26 +153,9 @@ async function updateAlumniProfileActionImpl(
 // Further studies — an alumnus becoming a current member again
 // ---------------------------------------------------------------------------
 
-/**
- * Signed upload ticket for the further-studies form, mirroring
- * requestEnrollmentUploadAction but for a signed-in alumnus instead of an
- * anonymous applicant — see enrollment-upload-service.ts for what the
- * ticket actually guarantees. Authentication (requireAlumni) does the job
- * the public form's IP rate limit exists to approximate, so this is
- * rate-limited by account rather than by address.
- */
-async function requestFurtherStudiesUploadActionImpl(input: {
-  kind: EnrollmentUploadKind;
-  filename: string;
-  mimeType: string;
-  fileSize: number;
-}): Promise<EnrollmentUploadTicket> {
-  const alumni = await requireAlumni();
-  const limit = await checkRateLimit(`further-studies-upload:alumni:${alumni.id}`, { max: 60, windowSeconds: 3600 });
-  if (!limit.allowed) return { ok: false, error: RATE_LIMIT_MESSAGE };
-
-  return requestEnrollmentUpload(input);
-}
+// The upload ticket for this form comes from a route handler
+// (api/alumni/further-studies/upload/ticket), not a Server Action, so a tab
+// left open across a deployment keeps working.
 
 async function submitFurtherStudiesActionImpl(
   _prevState: ActionState,
@@ -309,7 +286,6 @@ export const alumniForgotPasswordAction = withActionErrorHandling("alumniForgotP
 export const alumniSetPasswordAction = withActionErrorHandling("alumniSetPasswordAction", alumniSetPasswordActionImpl);
 export const alumniChangePasswordAction = withActionErrorHandling("alumniChangePasswordAction", alumniChangePasswordActionImpl);
 export const updateAlumniProfileAction = withActionErrorHandling("updateAlumniProfileAction", updateAlumniProfileActionImpl);
-export const requestFurtherStudiesUploadAction = withTypedActionErrorHandling("requestFurtherStudiesUploadAction", requestFurtherStudiesUploadActionImpl);
 export const submitFurtherStudiesAction = withActionErrorHandling("submitFurtherStudiesAction", submitFurtherStudiesActionImpl);
 export const promoteMemberToAlumniAction = withActionErrorHandling("promoteMemberToAlumniAction", promoteMemberToAlumniActionImpl);
 export const setAlumniStatusAction = withVoidActionErrorHandling("setAlumniStatusAction", setAlumniStatusActionImpl);

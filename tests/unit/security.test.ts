@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { randomUUID } from "node:crypto";
-import { isLikelyBot, HONEYPOT_FIELD_NAME, TIMING_FIELD_NAME } from "@/lib/bot-protection";
+import { isLikelyBot, HONEYPOT_FIELD_NAME, FILL_TIME_FIELD_NAME } from "@/lib/bot-protection";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 
@@ -13,14 +13,14 @@ describe("isLikelyBot", () => {
 
   it("flags a submission that arrived suspiciously fast after the form rendered", () => {
     const fd = new FormData();
-    fd.set(TIMING_FIELD_NAME, Date.now().toString());
+    fd.set(FILL_TIME_FIELD_NAME, "200");
     expect(isLikelyBot(fd)).toBe(true);
   });
 
   it("does not flag a normal submission with an empty honeypot and realistic timing", () => {
     const fd = new FormData();
     fd.set(HONEYPOT_FIELD_NAME, "");
-    fd.set(TIMING_FIELD_NAME, (Date.now() - 15_000).toString());
+    fd.set(FILL_TIME_FIELD_NAME, "15000");
     expect(isLikelyBot(fd)).toBe(false);
   });
 

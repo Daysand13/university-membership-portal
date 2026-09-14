@@ -1,6 +1,6 @@
 "use server";
 
-import { withActionErrorHandling, withVoidActionErrorHandling, withTypedActionErrorHandling } from "./with-error-handling";
+import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -28,18 +28,17 @@ import {
 } from "@/lib/services/membership-service";
 import { requireAdminRole } from "@/lib/auth/admin";
 import { requireMember } from "@/lib/auth/member";
-import { isLikelyBot } from "@/lib/bot-protection";
+import { detectBot } from "@/lib/bot-protection";
 import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { ApplicationStatus, AdminRole } from "@/generated/prisma/client";
 import { isR2Configured } from "@/lib/storage/r2";
 import { domainCanReceiveMail } from "@/lib/email-domain-check";
 import {
-  requestEnrollmentUpload,
   adoptEnrollmentUpload,
   EnrollmentUploadError,
-  type EnrollmentUploadKind,
-  type EnrollmentUploadTicket,
+  isGenuineEnrollmentTicket,
 } from "@/lib/services/enrollment-upload-service";
+import { logFlaggedSubmission } from "@/lib/services/flagged-submission-service";
 import type { ActionState } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -50,11 +49,26 @@ async function submitEnrollmentActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  // Silently redirect as if this succeeded for anything that looks
-  // automated — no error, no hint to a script that it was caught, and
-  // nothing gets saved or uploaded.
-  if (isLikelyBot(formData)) {
-    redirect("/membership/enroll/success");
+  const entries = Object.fromEntries(formData.entries());
+  // File bytes no longer travel with this request. The browser uploaded them
+  // straight to R2; what arrives here is a signed ticket naming the object.
+  // That's what keeps this request far below Vercel's 4.5MB body cap, which
+  // used to reject oversized submissions before this function ever ran.
+  const passportToken = typeof entries.profilePictureToken === "string" ? entries.profilePictureToken : "";
+  const medicalToken = typeof entries.medicalReportToken === "string" ? entries.medicalReportToken : "";
+
+  // Anything that looks automated is answered as if it succeeded — no hint
+  // to a script that it was caught — and nothing is saved. But the success
+  // page is also what a real applicant sees if the check is wrong about them,
+  // so a signal alone isn't enough here: a submission carrying an upload
+  // ticket this server signed went through the real upload flow, which a
+  // script posting the form doesn't do, and is let through. Either way the
+  // flag is recorded (Admin > Audit Log) so a mistake can be followed up.
+  const botSignal = detectBot(formData);
+  if (botSignal) {
+    const provenHuman = isGenuineEnrollmentTicket(passportToken) || isGenuineEnrollmentTicket(medicalToken);
+    await logFlaggedSubmission({ form: "enrollment", signal: botSignal, allowedThrough: provenHuman, formData });
+    if (!provenHuman) redirect("/membership/enroll/success");
   }
 
   const ip = await getClientIp();
@@ -64,14 +78,6 @@ async function submitEnrollmentActionImpl(
   // real people.
   const limit = await checkRateLimit(`enroll:ip:${ip}`, { max: 30, windowSeconds: 3600 });
   if (!limit.allowed) return { error: RATE_LIMIT_MESSAGE };
-
-  const entries = Object.fromEntries(formData.entries());
-  // File bytes no longer travel with this request. The browser uploaded them
-  // straight to R2; what arrives here is a signed ticket naming the object.
-  // That's what keeps this request far below Vercel's 4.5MB body cap, which
-  // used to reject oversized submissions before this function ever ran.
-  const passportToken = typeof entries.profilePictureToken === "string" ? entries.profilePictureToken : "";
-  const medicalToken = typeof entries.medicalReportToken === "string" ? entries.medicalReportToken : "";
 
   const candidate = {
     ...entries,
@@ -148,28 +154,6 @@ async function submitEnrollmentActionImpl(
   }
 
   redirect("/membership/enroll/success");
-}
-
-/**
- * Issues a short-lived, signed ticket the enrollment form uses to upload a
- * file straight to R2. Deliberately unauthenticated — the people using it
- * haven't got accounts yet — so the rate limit below is what stops it being
- * treated as free file hosting, alongside the size/type checks and the
- * post-upload verification done at submission time.
- */
-async function requestEnrollmentUploadActionImpl(input: {
-  kind: EnrollmentUploadKind;
-  filename: string;
-  mimeType: string;
-  fileSize: number;
-}): Promise<EnrollmentUploadTicket> {
-  const ip = await getClientIp();
-  // Two files per application plus room to change your mind, on a network
-  // where a whole campus can share one address.
-  const limit = await checkRateLimit(`enroll-upload:ip:${ip}`, { max: 60, windowSeconds: 3600 });
-  if (!limit.allowed) return { ok: false, error: RATE_LIMIT_MESSAGE };
-
-  return requestEnrollmentUpload(input);
 }
 
 // ---------------------------------------------------------------------------
@@ -421,7 +405,6 @@ async function deleteApplicationActionImpl(applicationId: string): Promise<void>
 // ---------------------------------------------------------------------------
 
 export const submitEnrollmentAction = withActionErrorHandling("submitEnrollmentAction", submitEnrollmentActionImpl);
-export const requestEnrollmentUploadAction = withTypedActionErrorHandling("requestEnrollmentUploadAction", requestEnrollmentUploadActionImpl);
 export const reviewApplicationAction = withActionErrorHandling("reviewApplicationAction", reviewApplicationActionImpl);
 export const changeMemberPasswordAction = withActionErrorHandling("changeMemberPasswordAction", changeMemberPasswordActionImpl);
 export const forgotPasswordAction = withActionErrorHandling("forgotPasswordAction", forgotPasswordActionImpl);

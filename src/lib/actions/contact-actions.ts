@@ -6,7 +6,8 @@ import { revalidatePath } from "next/cache";
 import { requireAdminUser } from "@/lib/auth/admin";
 import { contactMessageSchema } from "@/lib/validations/content";
 import { submitContactMessage, markMessageRead, archiveMessage } from "@/lib/services/contact-service";
-import { isLikelyBot } from "@/lib/bot-protection";
+import { detectBot } from "@/lib/bot-protection";
+import { logFlaggedSubmission } from "@/lib/services/flagged-submission-service";
 import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import type { ActionState } from "./types";
 
@@ -15,8 +16,13 @@ async function submitContactMessageActionImpl(
   formData: FormData,
 ): Promise<ActionState> {
   // Silently pretend success for anything that looks automated — no error,
-  // no hint to a script that it was caught, and nothing gets saved.
-  if (isLikelyBot(formData)) return { success: true };
+  // no hint to a script that it was caught, and nothing gets saved. The flag
+  // is recorded, so a real person caught by mistake can be found.
+  const botSignal = detectBot(formData);
+  if (botSignal) {
+    await logFlaggedSubmission({ form: "contact", signal: botSignal, allowedThrough: false, formData });
+    return { success: true };
+  }
 
   const ip = await getClientIp();
   const limit = await checkRateLimit(`contact:ip:${ip}`, { max: 5, windowSeconds: 600 });

@@ -189,3 +189,54 @@ describe("enrollment upload tickets", () => {
     await expect(adoptEnrollmentUpload("passport", "")).resolves.toBeNull();
   });
 });
+
+const { isGenuineEnrollmentTicket, parseEnrollmentTicketRequest } = await import(
+  "@/lib/services/enrollment-upload-service"
+);
+
+describe("medical report file types", () => {
+  it("issues tickets for a PDF, a Word document and a photo of the report", async () => {
+    for (const [filename, mimeType] of [
+      ["report.pdf", "application/pdf"],
+      ["report.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+      ["report.jpg", "image/jpeg"],
+      ["report.png", "image/png"],
+    ]) {
+      const ticket = await requestEnrollmentUpload({ kind: "medical", filename, mimeType, fileSize: 1000 });
+      expect(ticket.ok, filename).toBe(true);
+    }
+  });
+
+  it("refuses spreadsheets and zips, which the general document list would allow", async () => {
+    for (const [filename, mimeType] of [
+      ["results.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+      ["files.zip", "application/zip"],
+    ]) {
+      const ticket = await requestEnrollmentUpload({ kind: "medical", filename, mimeType, fileSize: 1000 });
+      expect(ticket.ok, filename).toBe(false);
+      expect(!ticket.ok && ticket.error).toContain("PDF");
+    }
+  });
+
+  it("recognises a ticket this server signed, and nothing else", async () => {
+    const token = await issuePassportTicket();
+    expect(isGenuineEnrollmentTicket(token)).toBe(true);
+    expect(isGenuineEnrollmentTicket(`${token.slice(0, -2)}xx`)).toBe(false);
+    expect(isGenuineEnrollmentTicket("not-a-ticket")).toBe(false);
+    expect(isGenuineEnrollmentTicket("")).toBe(false);
+    expect(isGenuineEnrollmentTicket(undefined)).toBe(false);
+  });
+
+  it("validates a ticket request body from the route handler", () => {
+    expect(parseEnrollmentTicketRequest({ kind: "medical", filename: "a.pdf", mimeType: "application/pdf", fileSize: 10 })).toEqual({
+      kind: "medical",
+      filename: "a.pdf",
+      mimeType: "application/pdf",
+      fileSize: 10,
+    });
+    expect(parseEnrollmentTicketRequest({ kind: "virus", filename: "a.pdf", mimeType: "application/pdf", fileSize: 10 })).toBeNull();
+    expect(parseEnrollmentTicketRequest({ kind: "medical", filename: "", mimeType: "application/pdf", fileSize: 10 })).toBeNull();
+    expect(parseEnrollmentTicketRequest({ kind: "medical", filename: "a.pdf", mimeType: "application/pdf", fileSize: -1 })).toBeNull();
+    expect(parseEnrollmentTicketRequest(null)).toBeNull();
+  });
+});
