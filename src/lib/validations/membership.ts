@@ -7,6 +7,11 @@ const phoneRegex = /^[0-9+()\-\s]{7,20}$/;
 export const APPLICATION_TRACKS = ["UNDERGRADUATE", "POSTGRADUATE"] as const;
 export type ApplicationTrack = (typeof APPLICATION_TRACKS)[number];
 
+/**
+ * The built-in categories of special needs. Administrators edit the list
+ * actually offered (Admin > Special Needs Categories); these apply until they
+ * first do. See special-needs-category-service.ts.
+ */
 export const DISABILITY_CATEGORIES = [
   "Visual Impairment",
   "Deaf",
@@ -381,6 +386,14 @@ export function academicChoiceErrors(
   return Object.keys(errors).length > 0 ? errors : null;
 }
 
+/** A field error when the chosen category of special needs isn't one currently offered; null when it is. */
+export function specialNeedsCategoryErrors(
+  categories: readonly string[],
+  department: string,
+): Record<string, string[]> | null {
+  return categories.includes(department) ? null : { department: ["Select a valid category of special needs"] };
+}
+
 export const MEMBERSHIP_TYPE_LABELS: Record<MembershipType, string> = {
   REGULAR: "Regular",
   DISTANCE: "Distance",
@@ -425,10 +438,9 @@ export const enrollmentSchema = z
       .max(new Date().getFullYear() + 1),
     expectedGraduationYear: z.coerce.number().int().min(2000).max(2100).optional(),
 
-    // Section C: Category of Special Needs
-    department: z.enum(DISABILITY_CATEGORIES, {
-      message: "Select a category of special needs",
-    }),
+    // Section C: Category of Special Needs — checked against the list
+    // administrators currently offer with specialNeedsCategoryErrors below.
+    department: z.string().trim().min(1, "Select a category of special needs").max(500),
     specificSupportNeeds: z.array(z.enum(SUPPORT_NEEDS)).optional().default([]),
 
     // Section D: Document Attachments
@@ -512,9 +524,9 @@ export const alumniFurtherStudiesSchema = z
       .max(new Date().getFullYear() + 1),
     expectedGraduationYear: z.coerce.number().int().min(2000).max(2100).optional(),
 
-    department: z.enum(DISABILITY_CATEGORIES, {
-      message: "Select a category of special needs",
-    }),
+    // Checked against the list administrators currently offer with
+    // specialNeedsCategoryErrors below.
+    department: z.string().trim().min(1, "Select a category of special needs").max(500),
     specificSupportNeeds: z.array(z.enum(SUPPORT_NEEDS)).optional().default([]),
 
     profileImageKey: z.string().optional(),

@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { EnrollmentForm } from "@/components/forms/EnrollmentForm";
 import { getAcademicOptions } from "@/lib/services/academic-options-service";
+import { getSpecialNeedsCategories } from "@/lib/services/special-needs-category-service";
 
 export const metadata: Metadata = { title: "Postgraduate Membership Registration" };
 export const dynamic = "force-dynamic";
 
 export default async function PostgraduateEnrollPage() {
-  const options = await getAcademicOptions();
+  const [options, specialNeedsCategories] = await Promise.all([getAcademicOptions(), getSpecialNeedsCategories()]);
 
   return (
     <div className="bg-surface-muted">
@@ -21,7 +22,11 @@ export default async function PostgraduateEnrollPage() {
         </div>
       </div>
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12">
-        <EnrollmentForm track="POSTGRADUATE" academicOptions={options.POSTGRADUATE} />
+        <EnrollmentForm
+          track="POSTGRADUATE"
+          academicOptions={options.POSTGRADUATE}
+          specialNeedsCategories={specialNeedsCategories}
+        />
       </div>
     </div>
   );

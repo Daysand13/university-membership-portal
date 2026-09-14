@@ -6,6 +6,7 @@ import { UserSuperpowerControls } from "@/components/admin/UserSuperpowerControl
 import { formatFullName } from "@/lib/format";
 import { getCurrentAdmin } from "@/lib/auth/admin";
 import { getAcademicOptions } from "@/lib/services/academic-options-service";
+import { getSpecialNeedsCategories } from "@/lib/services/special-needs-category-service";
 import type { UserRoleName } from "@/generated/prisma/enums";
 
 export const metadata = { title: "User Status Matrix" };
@@ -42,10 +43,11 @@ export default async function UserMatrixPage({
     ? (sp.role as UserRoleName)
     : undefined;
 
-  const [users, currentAdmin, academicOptions] = await Promise.all([
+  const [users, currentAdmin, academicOptions, specialNeedsCategories] = await Promise.all([
     listUsersForMatrix({ search: sp.q, role }),
     getCurrentAdmin(),
     getAcademicOptions(),
+    getSpecialNeedsCategories(),
   ]);
   const canDelete = currentAdmin?.role === "SUPER_ADMIN";
 
@@ -172,6 +174,7 @@ export default async function UserMatrixPage({
                   }}
                   canDelete={canDelete}
                   academicOptions={academicOptions}
+                  specialNeedsCategories={specialNeedsCategories}
                 />
               </div>
             );

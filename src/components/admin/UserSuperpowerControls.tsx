@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import {
   CAMPUSES,
-  DISABILITY_CATEGORIES,
   LEVELS,
   POSTGRAD_LEVELS,
   type AcademicOptions,
@@ -61,10 +60,12 @@ export function UserSuperpowerControls({
   target,
   canDelete,
   academicOptions,
+  specialNeedsCategories,
 }: {
   target: SuperpowerTarget;
   canDelete: boolean;
   academicOptions: AcademicOptions;
+  specialNeedsCategories: string[];
 }) {
   const [panel, setPanel] = useState<Panel>(null);
 
@@ -120,7 +121,14 @@ export function UserSuperpowerControls({
 
           {panel === "archive" && <ArchiveForm target={target} thisYear={thisYear} />}
           {panel === "dual" && <DualStatusForm target={target} thisYear={thisYear} />}
-          {panel === "cycle" && <NewCycleForm target={target} thisYear={thisYear} academicOptions={academicOptions} />}
+          {panel === "cycle" && (
+            <NewCycleForm
+              target={target}
+              thisYear={thisYear}
+              academicOptions={academicOptions}
+              specialNeedsCategories={specialNeedsCategories}
+            />
+          )}
         </div>
       )}
     </div>
@@ -221,10 +229,12 @@ function NewCycleForm({
   target,
   thisYear,
   academicOptions,
+  specialNeedsCategories,
 }: {
   target: SuperpowerTarget;
   thisYear: number;
   academicOptions: AcademicOptions;
+  specialNeedsCategories: string[];
 }) {
   const [state, formAction, isPending] = useActionState(approveNewEnrollmentCycleAction, initialActionState);
   const [track, setTrack] = useState("UNDERGRADUATE");
@@ -308,7 +318,7 @@ function NewCycleForm({
           <Label htmlFor={`cat-${target.userId}`} required>Category of Special Needs</Label>
           <select id={`cat-${target.userId}`} name="department" required defaultValue="" className={inputClasses}>
             <option value="" disabled>Select…</option>
-            {DISABILITY_CATEGORIES.map((c) => (
+            {specialNeedsCategories.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>

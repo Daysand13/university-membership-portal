@@ -7,7 +7,6 @@ import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
 import {
-  DISABILITY_CATEGORIES,
   SUPPORT_NEEDS,
   CAMPUSES,
   HALLS_OF_AFFILIATION,
@@ -96,10 +95,13 @@ interface FormValues {
 export function FurtherStudiesForm({
   alumni,
   academicOptions,
+  specialNeedsCategories,
 }: {
   alumni: AlumniProfile;
   /** The departments and programmes administrators currently offer, for both tracks. */
   academicOptions: AcademicOptions;
+  /** The categories of special needs administrators currently offer. */
+  specialNeedsCategories: string[];
 }) {
   const [state, formAction, isPending] = useActionState(submitFurtherStudiesAction, initialActionState);
   const fe = state.fieldErrors ?? {};
@@ -495,7 +497,7 @@ export function FurtherStudiesForm({
         <Label htmlFor="department" required>Category of Special Needs</Label>
         <select id="department" name="department" required className={inputClasses} value={values.department} onChange={handleChange}>
           <option value="" disabled>Select…</option>
-          {DISABILITY_CATEGORIES.map((c) => (
+          {specialNeedsCategories.map((c) => (
             <option key={c} value={c}>{c}</option>
           ))}
         </select>

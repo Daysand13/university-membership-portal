@@ -10,8 +10,9 @@ import {
   alumniChangePasswordSchema,
   alumniProfileUpdateSchema,
 } from "@/lib/validations/alumni";
-import { alumniFurtherStudiesSchema, academicChoiceErrors } from "@/lib/validations/membership";
+import { alumniFurtherStudiesSchema, academicChoiceErrors, specialNeedsCategoryErrors } from "@/lib/validations/membership";
 import { getAcademicOptions } from "@/lib/services/academic-options-service";
+import { getSpecialNeedsCategories } from "@/lib/services/special-needs-category-service";
 import {
   requestAlumniPasswordReset,
   setAlumniPasswordWithToken,
@@ -194,9 +195,14 @@ async function submitFurtherStudiesActionImpl(
     return { fieldErrors: parsed.error.flatten().fieldErrors };
   }
 
-  // Department and programme must be ones administrators currently offer.
-  const choiceErrors = academicChoiceErrors(await getAcademicOptions(), parsed.data.track, parsed.data);
-  if (choiceErrors) return { fieldErrors: choiceErrors };
+  // Department, programme and category of special needs must be ones
+  // administrators currently offer.
+  const [academicOptions, specialNeedsCategories] = await Promise.all([getAcademicOptions(), getSpecialNeedsCategories()]);
+  const choiceErrors = {
+    ...academicChoiceErrors(academicOptions, parsed.data.track, parsed.data),
+    ...specialNeedsCategoryErrors(specialNeedsCategories, parsed.data.department),
+  };
+  if (Object.keys(choiceErrors).length > 0) return { fieldErrors: choiceErrors };
 
   if (attachmentsRequired && !passportToken) {
     return { fieldErrors: { profilePicture: ["Please attach a passport picture."] } };

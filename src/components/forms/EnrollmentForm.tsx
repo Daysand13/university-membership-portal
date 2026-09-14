@@ -8,7 +8,6 @@ import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Comm
 import { Button } from "@/components/ui/Button";
 import { BotProtectionFields } from "@/components/forms/BotProtectionFields";
 import {
-  DISABILITY_CATEGORIES,
   SUPPORT_NEEDS,
   CAMPUSES,
   HALLS_OF_AFFILIATION,
@@ -144,10 +143,13 @@ function formatBytes(bytes: number): string {
 export function EnrollmentForm({
   track,
   academicOptions,
+  specialNeedsCategories,
 }: {
   track: ApplicationTrack;
   /** The departments and programmes administrators currently offer for this track. */
   academicOptions: TrackAcademicOptions;
+  /** The categories of special needs administrators currently offer. */
+  specialNeedsCategories: string[];
 }) {
   const [state, formAction, isPending] = useActionState(submitEnrollmentAction, initialActionState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -577,7 +579,7 @@ export function EnrollmentForm({
             <Label htmlFor="department" required>Category of Special Needs</Label>
             <select id="department" name="department" required className={inputClasses} value={values.department} onChange={handleChange}>
               <option value="" disabled>Select…</option>
-              {DISABILITY_CATEGORIES.map((c) => (
+              {specialNeedsCategories.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>

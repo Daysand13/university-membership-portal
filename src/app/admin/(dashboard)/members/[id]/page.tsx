@@ -8,6 +8,7 @@ import { EditMemberForm } from "@/components/admin/EditMemberForm";
 import { db } from "@/lib/db";
 import { formatFullName } from "@/lib/format";
 import { getAcademicOptions } from "@/lib/services/academic-options-service";
+import { getSpecialNeedsCategories } from "@/lib/services/special-needs-category-service";
 import { getSiteSettings } from "@/lib/services/content-service";
 import { IdCardPanel, type IdCardIssue } from "@/components/admin/IdCardPanel";
 
@@ -16,9 +17,10 @@ export const dynamic = "force-dynamic";
 
 export default async function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [member, academicOptions, settings] = await Promise.all([
+  const [member, academicOptions, specialNeedsCategories, settings] = await Promise.all([
     db.member.findUnique({ where: { id }, include: { alumniProfile: true } }),
     getAcademicOptions(),
+    getSpecialNeedsCategories(),
     getSiteSettings(),
   ]);
   if (!member) notFound();
@@ -105,7 +107,11 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
       </div>
 
       <div className="mb-6">
-        <EditMemberForm member={member} academicOptions={academicOptions} />
+        <EditMemberForm
+          member={member}
+          academicOptions={academicOptions}
+          specialNeedsCategories={specialNeedsCategories}
+        />
       </div>
 
       <div className="bg-white rounded-lg border border-line p-6">

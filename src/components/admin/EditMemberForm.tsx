@@ -11,7 +11,6 @@ import {
   CAMPUSES,
   HALLS_OF_AFFILIATION,
   GHANA_REGIONS,
-  DISABILITY_CATEGORIES,
   SUPPORT_NEEDS,
   LEVELS,
   POSTGRAD_DEGREE_CATEGORIES,
@@ -131,7 +130,15 @@ function ControlledSelectField({
  * their own dedicated, separately-audited controls elsewhere on this page,
  * and the supporting document, which has no admin re-upload path yet.
  */
-export function EditMemberForm({ member, academicOptions }: { member: Member; academicOptions: AcademicOptions }) {
+export function EditMemberForm({
+  member,
+  academicOptions,
+  specialNeedsCategories,
+}: {
+  member: Member;
+  academicOptions: AcademicOptions;
+  specialNeedsCategories: string[];
+}) {
   const [isEditing, setIsEditing] = useState(false);
   const [state, formAction, isPending] = useActionState(updateMemberAdminAction, initialActionState);
   const fe = state.fieldErrors ?? {};
@@ -428,7 +435,7 @@ export function EditMemberForm({ member, academicOptions }: { member: Member; ac
             label="Category"
             required
             defaultValue={member.department}
-            options={DISABILITY_CATEGORIES}
+            options={specialNeedsCategories}
             error={fe.department}
           />
         </div>

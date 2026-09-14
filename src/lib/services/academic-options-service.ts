@@ -69,11 +69,13 @@ export const getAcademicOptions = cache(async (): Promise<AcademicOptions> => {
   }
 });
 
-function tidy(label: string): string {
+/** Collapses runs of spaces and trims — shared with the special needs categories list. */
+export function tidyOptionLabel(label: string): string {
   return label.replace(/\s+/g, " ").trim();
 }
 
-function sameOption(a: string, b: string): boolean {
+/** The same option, ignoring capitalisation and accents. */
+export function isSameOptionLabel(a: string, b: string): boolean {
   return a.localeCompare(b, "en", { sensitivity: "base" }) === 0;
 }
 
@@ -95,7 +97,7 @@ export async function addAcademicOption(params: {
   adminId: string;
 }): Promise<AcademicOptionChange> {
   const { track, kind, adminId } = params;
-  const label = tidy(params.label);
+  const label = tidyOptionLabel(params.label);
   const noun = KIND_NOUN[kind];
 
   if (!label) return { ok: false, error: `Enter the name of the ${noun}.` };
@@ -110,7 +112,7 @@ export async function addAcademicOption(params: {
     const options = normalize(record?.value);
     const list = options[track][kind];
 
-    const existing = list.find((item) => sameOption(item, label));
+    const existing = list.find((item) => isSameOptionLabel(item, label));
     if (existing) return { ok: false, error: `"${existing}" is already in this list.` } as const;
 
     // Keeps the list alphabetical without reordering anything already there.
