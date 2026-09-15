@@ -7,7 +7,7 @@ import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
 
-export function UnifiedLoginForm() {
+export function UnifiedLoginForm({ next }: { next?: string } = {}) {
   const [state, formAction, isPending] = useActionState(unifiedLoginAction, initialActionState);
   const [showPassword, setShowPassword] = useState(false);
   const fe = state.fieldErrors ?? {};
@@ -15,6 +15,7 @@ export function UnifiedLoginForm() {
   return (
     <form action={formAction} className="space-y-5">
       <FormAlert message={state.error} />
+      {next && <input type="hidden" name="next" value={next} />}
 
       <div>
         <Label htmlFor="identifier" required>Index Number or Email Address</Label>
@@ -29,7 +30,8 @@ export function UnifiedLoginForm() {
           className={inputClasses}
         />
         <p className="mt-1.5 text-xs text-slate-light">
-          Students sign in with their index number. Alumni use the email address on their account.
+          Use your index number or the email address on your account — either works, with the password you
+          normally use for the Student Portal or the Alumni Portal.
         </p>
         <FieldError messages={fe.identifier} />
       </div>

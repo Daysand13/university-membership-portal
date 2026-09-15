@@ -2,17 +2,22 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { UnifiedLoginForm } from "@/components/forms/UnifiedLoginForm";
-import { getCurrentUser, landingPathFor } from "@/lib/auth/user";
+import { getCurrentUser, postLoginPath } from "@/lib/auth/user";
 
 export const metadata = { title: "Sign In" };
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string | string[] }> }) {
+  // `next` is the portal the switcher was sending them to; postLoginPath only
+  // honours the two portal dashboards, and only when their roles open it.
+  const { next: rawNext } = await searchParams;
+  const next = typeof rawNext === "string" ? rawNext : undefined;
+
   // Already signed in — send them where they belong rather than showing a
   // login form they don't need.
   const session = await getCurrentUser();
   if (session && session.roles.length > 0) {
-    redirect(landingPathFor(session.roles));
+    redirect(postLoginPath(next, session.roles));
   }
 
   return (
@@ -29,7 +34,7 @@ export default async function LoginPage() {
         </div>
 
         <div className="bg-white rounded-lg border border-line p-6 sm:p-7">
-          <UnifiedLoginForm />
+          <UnifiedLoginForm next={next} />
 
           <div className="mt-6 pt-5 border-t border-line space-y-2 text-center text-sm">
             <p>

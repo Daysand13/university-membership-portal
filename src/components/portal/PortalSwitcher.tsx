@@ -91,7 +91,9 @@ export function PortalSwitcher({
             {options.map(({ mode, description }) => {
               const isCurrent = mode === current;
               const Icon = mode === "member" ? BookOpen : GraduationCap;
-              const href = isCurrent || canSwitch ? PORTAL_HOME[mode] : "/login";
+              // Without a session for the other side, sign in once — and come
+              // straight back to the portal they picked, not the default one.
+              const href = isCurrent || canSwitch ? PORTAL_HOME[mode] : `/login?next=${encodeURIComponent(PORTAL_HOME[mode])}`;
               return (
                 <li key={mode}>
                   <Link
@@ -125,8 +127,8 @@ export function PortalSwitcher({
           </ul>
           {!canSwitch && (
             <p className="px-3 pt-2 pb-1 text-xs text-slate leading-relaxed border-t border-line mt-1">
-              To open the {PORTAL_LABEL[other]}, sign in once with your email address or index number — you can then
-              move between both portals freely.
+              To open the {PORTAL_LABEL[other]}, sign in once with your email address or index number and your usual
+              password — you can then move between both portals freely.
             </p>
           )}
         </div>

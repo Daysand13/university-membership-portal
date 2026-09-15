@@ -30,7 +30,7 @@ import {
   createUserSession,
   createUserSessionNonPersistent,
   destroyUserSession,
-  landingPathFor,
+  postLoginPath,
 } from "@/lib/auth/user";
 import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { detectBot } from "@/lib/bot-protection";
@@ -92,7 +92,8 @@ async function unifiedLoginActionImpl(
     return { error: new NoActiveRoleError().message };
   }
 
-  redirect(landingPathFor(roles));
+  // Back to the portal they were heading for, if the switcher sent them here.
+  redirect(postLoginPath(formData.get("next"), roles));
 }
 
 async function unifiedLogoutActionImpl(): Promise<void> {

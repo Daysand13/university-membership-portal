@@ -114,18 +114,4 @@ export function hasRole(session: SessionUser, role: UserRoleName): boolean {
   return session.roles.includes(role);
 }
 
-/**
- * Where a person lands after signing in. Someone holding both student and
- * alumni standing is asked which portal they want rather than being guessed
- * at — that choice is the whole point of dual status.
- */
-export function landingPathFor(roles: UserRoleName[]): string {
-  const isMember = roles.includes("MEMBER");
-  const isAlumni = roles.includes("ALUMNI");
-
-  if (isMember && isAlumni) return "/portal";
-  if (isMember) return "/membership/dashboard";
-  if (isAlumni) return "/alumni/dashboard";
-  if (roles.includes("ADMIN")) return "/admin";
-  return "/";
-}
+export { landingPathFor, postLoginPath } from "./post-login-path";

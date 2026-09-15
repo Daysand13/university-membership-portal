@@ -24,6 +24,12 @@ export class PasswordNotSetError extends Error {
   }
 }
 
+/** The other records a person's password can live on — see authenticateUser. */
+const PASSWORD_SOURCES = {
+  member: { select: { passwordHash: true } },
+  alumniProfile: { select: { passwordHash: true } },
+} as const;
+
 /**
  * Signs someone in from one box, whichever identifier they're used to.
  *
@@ -40,17 +46,34 @@ export async function authenticateUser(identifier: string, password: string): Pr
   if (!raw) throw new InvalidLoginError();
 
   const user = raw.includes("@")
-    ? await db.user.findUnique({ where: { email: raw.toLowerCase() } })
+    ? await db.user.findUnique({ where: { email: raw.toLowerCase() }, include: PASSWORD_SOURCES })
     : await resolveByIndexNumber(raw);
 
   if (!user) throw new InvalidLoginError();
 
+  // One person can hold up to three passwords: the account's own, the one on
+  // their student record, and the one on their alumni profile. Only the last
+  // two ever change — changing a member password, or setting an alumni one
+  // from an invite, updates that record alone — so checking the account's
+  // password only turned people away here with the password they actually
+  // use, while the student and alumni sign-in pages, which read those
+  // records, accepted it. Any of the person's current passwords works.
+  const hashes = [...new Set([user.passwordHash, user.member?.passwordHash, user.alumniProfile?.passwordHash])].filter(
+    (hash): hash is string => typeof hash === "string" && hash.length > 0,
+  );
+
   // An alumnus invited but never activated has no usable password. Say so
   // plainly instead of "wrong credentials", which would send them round in
   // circles retrying a password they never set.
-  if (!user.passwordHash) throw new PasswordNotSetError();
+  if (hashes.length === 0) throw new PasswordNotSetError();
 
-  const valid = await verifyPassword(password, user.passwordHash);
+  let valid = false;
+  for (const hash of hashes) {
+    if (await verifyPassword(password, hash)) {
+      valid = true;
+      break;
+    }
+  }
   if (!valid) throw new InvalidLoginError();
 
   const roles = await db.userRole.findMany({ where: { userId: user.id } });
@@ -59,10 +82,10 @@ export async function authenticateUser(identifier: string, password: string): Pr
   return user;
 }
 
-async function resolveByIndexNumber(indexNumber: string): Promise<User | null> {
+async function resolveByIndexNumber(indexNumber: string) {
   const enrollment = await db.studentEnrollment.findUnique({
     where: { indexNumber },
-    include: { user: true },
+    include: { user: { include: PASSWORD_SOURCES } },
   });
   if (enrollment) return enrollment.user;
 
@@ -71,7 +94,7 @@ async function resolveByIndexNumber(indexNumber: string): Promise<User | null> {
   // in the new tables can never cost someone their login.
   const member = await db.member.findUnique({
     where: { indexNumber },
-    include: { user: true },
+    include: { user: { include: PASSWORD_SOURCES } },
   });
   return member?.user ?? null;
 }
