@@ -14,10 +14,10 @@ export default async function NewTeamMemberPage({
 }) {
   const { type: rawType } = await searchParams;
   const type: TeamMemberType = rawType === "PATRON" ? "PATRON" : "LEADERSHIP";
-  // Only Leadership entries can be linked to a paying member account —
-  // linking a Patron has no effect on dues, so the list isn't fetched for
-  // that type at all.
-  const linkableMembers = type === "LEADERSHIP" ? await listActiveMembersForLinking() : undefined;
+  // Both kinds can be linked to the person's account — that's what emails
+  // them and shows their role badge. Patrons are often graduates, so their
+  // list includes former members too; executives are current students.
+  const linkableMembers = await listActiveMembersForLinking({ includeFormer: type === "PATRON" });
 
   return (
     <div className="max-w-2xl">

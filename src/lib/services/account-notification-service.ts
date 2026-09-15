@@ -160,21 +160,21 @@ async function sendExecutiveAppointed(memberId: string, listing: TeamListingSnap
       paragraphs: [
         isLeadership
           ? `Congratulations! You have been appointed ${listing.position} of the ${brand.siteTitle}, as a member of its Executive Leadership.`
-          : `You have been listed as ${listing.position} of the ${brand.siteTitle}.`,
+          : `Congratulations! You have been made ${listing.position}, a Patron of the ${brand.siteTitle}.`,
         isLeadership
           ? listing.isActive
-            ? "You are now listed with the Executive Leadership on the About Us page of our website, and your membership dues will be charged at the Executive rate from now on."
+            ? "You are now listed with the Executive Leadership on the About Us page of our website, your role shows as a badge on your portal dashboard, and your membership dues will be charged at the Executive rate from now on."
             : "Your listing will appear on the About Us page of our website once an administrator publishes it. Until then, your membership dues stay at your standard rate."
           : listing.isActive
-            ? "You are now listed on the About Us page of our website."
-            : "Your listing will appear on the About Us page of our website once an administrator publishes it.",
+            ? "You are now listed with the association's Patrons on the About Us page of our website, and your role shows as a badge on your portal dashboard."
+            : "Your listing will appear on the About Us page of our website, and as a badge on your portal dashboard, once an administrator publishes it.",
       ],
       details: [
-        { label: "Executive Type", value: roleName(listing.type) },
+        { label: isLeadership ? "Executive Type" : "Role", value: roleName(listing.type) },
         { label: "Position", value: listing.position },
       ],
       closingParagraphs: [CONTACT_LINE],
-      cta: { path: "/login", label: "Sign In to the Member Portal" },
+      cta: { path: "/login", label: "Sign In to Your Portal" },
     }),
   });
 }

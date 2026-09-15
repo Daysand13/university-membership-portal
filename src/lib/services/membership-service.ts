@@ -1347,13 +1347,27 @@ export async function updateMemberAdmin(params: {
   return updated;
 }
 
-/** Minimal member list for admin pickers (e.g. linking a Leadership team
- *  entry to the account that pays dues) — not the full record, just enough
- *  to identify someone in a dropdown. */
-export async function listActiveMembersForLinking() {
+/** Minimal member list for admin pickers (linking a Leadership or Patron
+ *  listing to the person's account) — not the full record, just enough to
+ *  identify someone in a dropdown. Current members only unless
+ *  `includeFormer`; the member a listing is already linked to is always
+ *  included, so saving the listing can't silently unlink someone who has
+ *  since graduated. */
+export async function listActiveMembersForLinking(
+  options: { includeFormer?: boolean; includeMemberId?: string | null } = {},
+) {
+  const { includeFormer = false, includeMemberId } = options;
   return db.member.findMany({
-    where: { status: "ACTIVE" },
-    select: { id: true, indexNumber: true, firstName: true, middleName: true, lastName: true },
+    where: includeFormer ? {} : { OR: [{ status: "ACTIVE" }, ...(includeMemberId ? [{ id: includeMemberId }] : [])] },
+    select: {
+      id: true,
+      indexNumber: true,
+      firstName: true,
+      middleName: true,
+      lastName: true,
+      status: true,
+      graduatedAt: true,
+    },
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
   });
 }

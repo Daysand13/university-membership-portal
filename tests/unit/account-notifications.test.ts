@@ -133,6 +133,18 @@ describe("notifyTeamListingChange", () => {
     expect(sent().map((e) => e.template)).toEqual(["executive-removed"]);
   });
 
+  it("emails a member who is made a patron, naming the role without mentioning executive dues", async () => {
+    await notifyTeamListingChange(null, leadership({ type: "PATRON", position: "Patron" }));
+
+    expect(sent()).toHaveLength(1);
+    const [email] = sent();
+    expect(email.to).toBe("ama@example.com");
+    expect(email.template).toBe("executive-appointed");
+    expect(email.html).toContain("a Patron of");
+    expect(email.html).toContain("badge on your portal dashboard");
+    expect(email.html).not.toContain("Executive rate");
+  });
+
   it("sends nothing for a listing with no linked member", async () => {
     await notifyTeamListingChange(null, leadership({ type: "PATRON", memberId: null }));
     expect(sent()).toHaveLength(0);

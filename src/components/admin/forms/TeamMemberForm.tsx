@@ -15,6 +15,8 @@ interface LinkableMember {
   firstName: string;
   middleName: string | null;
   lastName: string;
+  status?: string;
+  graduatedAt?: Date | null;
 }
 
 export function TeamMemberForm({
@@ -24,8 +26,9 @@ export function TeamMemberForm({
 }: {
   type: TeamMemberType;
   member?: TeamMember;
-  /** Only meaningful for LEADERSHIP — linking a Patron to a paying member
-   *  account has no effect on dues, so the picker is Leadership-only. */
+  /** Member accounts this listing can be linked to. Linking is what emails
+   *  the person about their appointment and shows their role as a badge in
+   *  their portal; for Leadership it also sets the Executive dues rate. */
   linkableMembers?: LinkableMember[];
 }) {
   const [isPending, setIsPending] = useState(false);
@@ -99,12 +102,14 @@ export function TeamMemberForm({
             {linkableMembers.map((m) => (
               <option key={m.id} value={m.id}>
                 {formatFullName(m.firstName, m.middleName, m.lastName)} — {m.indexNumber}
+                {m.graduatedAt ? " (graduated)" : m.status && m.status !== "ACTIVE" ? ` (${m.status.toLowerCase()})` : ""}
               </option>
             ))}
           </select>
           <p className="mt-1.5 text-xs text-slate-light">
-            Links this listing to the person&apos;s actual member account, so their yearly dues are
-            charged at the Executive rate instead of their level/track rate.
+            {type === "PATRON"
+              ? "Links this listing to the person’s account, so they’re emailed that they’ve been made a patron and see a Patron badge in their portal. A patron’s dues aren’t affected."
+              : "Links this listing to the person’s member account, so they’re emailed about the appointment, see an Executive badge in their portal, and their yearly dues are charged at the Executive rate."}
           </p>
         </div>
       )}

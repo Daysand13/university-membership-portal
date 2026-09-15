@@ -15,8 +15,10 @@ export default async function EditTeamMemberPage({ params }: { params: Promise<{
   const teamMember = await getTeamMemberById(id);
   if (!teamMember) notFound();
 
-  const linkableMembers =
-    teamMember.type === "LEADERSHIP" ? await listActiveMembersForLinking() : undefined;
+  const linkableMembers = await listActiveMembersForLinking({
+    includeFormer: teamMember.type === "PATRON",
+    includeMemberId: teamMember.memberId,
+  });
 
   return (
     <div className="max-w-2xl">
