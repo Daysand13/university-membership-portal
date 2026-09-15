@@ -4,6 +4,7 @@ import { alumniHasMemberStanding } from "@/lib/services/dual-status-service";
 import { getAlumniNetworkCounts, getAlumniStudyRecords } from "@/lib/services/alumni-service";
 import { firstNameOf } from "@/lib/services/account-notification-service";
 import { getUpcomingEventsForHome } from "@/lib/services/event-service";
+import { getTeamRoleBadges } from "@/lib/services/team-role-service";
 
 export const metadata = { title: "Alumni Portal" };
 export const dynamic = "force-dynamic";
@@ -14,12 +15,13 @@ export default async function AlumniDashboardPage({
   searchParams: Promise<{ passwordChanged?: string }>;
 }) {
   const alumni = await requireAlumni();
-  const [sp, isCurrentlyEnrolled, counts, study, events] = await Promise.all([
+  const [sp, isCurrentlyEnrolled, counts, study, events, teamRoles] = await Promise.all([
     searchParams,
     alumniHasMemberStanding(alumni),
     getAlumniNetworkCounts(),
     getAlumniStudyRecords(alumni),
     getUpcomingEventsForHome(2),
+    getTeamRoleBadges({ memberIds: [alumni.sourceMemberId], userId: alumni.userId }),
   ]);
   const latestApplication = study.furtherStudiesApplications[0] ?? null;
 
@@ -51,6 +53,7 @@ export default async function AlumniDashboardPage({
           : null
       }
       isCurrentlyEnrolled={isCurrentlyEnrolled}
+      teamRoles={teamRoles}
     />
   );
 }

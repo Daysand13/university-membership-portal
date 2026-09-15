@@ -16,6 +16,8 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { DuesCard } from "@/components/dashboard/DuesCard";
 import { DashboardCard } from "./DashboardCard";
 import { PortalNotice } from "./PortalNotice";
+import { TeamRoleBadges } from "./TeamRoleBadges";
+import type { TeamRoleBadge } from "@/lib/services/team-role-service";
 
 const dateFormat = new Intl.DateTimeFormat("en-GH", {
   day: "numeric",
@@ -42,6 +44,8 @@ export interface MemberDashboardViewProps {
   news: { id: string; title: string; slug: string; excerpt: string; publishedAt: Date | null }[];
   /** Null if the QR code couldn't be produced — the rest of the card still shows. */
   card: { qrSvg: string } | null;
+  /** Executive or patron positions this member holds, shown as badges. */
+  teamRoles: TeamRoleBadge[];
 }
 
 function BannerStat({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
@@ -85,7 +89,7 @@ function QuickAction({
 
 const footerLinkClasses = "inline-flex items-center gap-1.5 font-semibold text-primary-800 hover:text-accent-600";
 
-export function MemberDashboardView({ member, notices, dues, news, card }: MemberDashboardViewProps) {
+export function MemberDashboardView({ member, notices, dues, news, card, teamRoles }: MemberDashboardViewProps) {
   return (
     <div className="space-y-6">
       {notices.passwordChanged && <PortalNotice tone="success">Your password has been changed.</PortalNotice>}
@@ -135,6 +139,7 @@ export function MemberDashboardView({ member, notices, dues, news, card }: Membe
               Welcome back, {member.firstName}
             </h1>
             <p className="text-[15px] text-primary-100 mt-1 break-words">{member.fullName}</p>
+            <TeamRoleBadges roles={teamRoles} />
           </div>
         </div>
         <dl className="mt-6 grid gap-3 sm:grid-cols-3">

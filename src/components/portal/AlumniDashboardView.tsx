@@ -3,6 +3,8 @@ import { ArrowRight, Briefcase, GraduationCap, Network, User, UserRound } from "
 import { LinkButton } from "@/components/ui/Button";
 import { DashboardCard } from "./DashboardCard";
 import { PortalNotice } from "./PortalNotice";
+import { TeamRoleBadges } from "./TeamRoleBadges";
+import type { TeamRoleBadge } from "@/lib/services/team-role-service";
 import { UpcomingEventsList, type UpcomingEvent } from "./UpcomingEventsList";
 
 const dateFormat = new Intl.DateTimeFormat("en-GH", {
@@ -36,6 +38,8 @@ export interface AlumniDashboardViewProps {
   furtherStudies: { status: string; submittedAt: Date; programme: string } | null;
   /** Holds active student standing right now (dual status). */
   isCurrentlyEnrolled: boolean;
+  /** Executive or patron positions this person holds, shown as badges. */
+  teamRoles: TeamRoleBadge[];
 }
 
 function BannerStat({ label, value }: { label: string; value: string }) {
@@ -65,6 +69,7 @@ export function AlumniDashboardView({
   studyRecordCount,
   furtherStudies,
   isCurrentlyEnrolled,
+  teamRoles,
 }: AlumniDashboardViewProps) {
   const pendingFurtherStudies =
     furtherStudies && (furtherStudies.status === "PENDING" || furtherStudies.status === "UNDER_REVIEW");
@@ -90,6 +95,7 @@ export function AlumniDashboardView({
               Welcome back, {alumni.firstName}
             </h1>
             <p className="text-[15px] text-primary-100 mt-1 break-words">{alumni.fullName}</p>
+            <TeamRoleBadges roles={teamRoles} />
           </div>
         </div>
         <dl className="mt-6 grid gap-3 sm:grid-cols-3">

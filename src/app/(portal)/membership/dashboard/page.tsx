@@ -3,6 +3,7 @@ import { MemberDashboardView } from "@/components/portal/MemberDashboardView";
 import { formatFullName } from "@/lib/format";
 import { getLatestNews } from "@/lib/services/news-service";
 import { getMemberCardQr } from "@/lib/services/member-card-service";
+import { getTeamRoleBadges } from "@/lib/services/team-role-service";
 import {
   getCurrentAcademicYear,
   getDuesFeeForMember,
@@ -22,7 +23,7 @@ export default async function MemberDashboardPage({
   const sp = await searchParams;
   const academicYear = getCurrentAcademicYear();
 
-  const [duesFee, duesPayment, news, card] = await Promise.all([
+  const [duesFee, duesPayment, news, card, teamRoles] = await Promise.all([
     getDuesFeeForMember(member),
     getLatestDuesPayment(member.id, academicYear),
     getLatestNews(4),
@@ -31,6 +32,7 @@ export default async function MemberDashboardPage({
       console.error("[member-dashboard] could not build the membership card QR code", err);
       return null;
     }),
+    getTeamRoleBadges({ memberIds: [member.id], userId: member.userId }),
   ]);
   const duesPaid = duesPayment?.status === "SUCCESS" ? duesPayment : null;
   const duesNotice = sp.dues === "success" || sp.dues === "failed" || sp.dues === "error" ? sp.dues : undefined;
@@ -58,6 +60,7 @@ export default async function MemberDashboardPage({
       }}
       news={news}
       card={card ? { qrSvg: card.svg } : null}
+      teamRoles={teamRoles}
     />
   );
 }
