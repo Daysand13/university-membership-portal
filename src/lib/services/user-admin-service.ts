@@ -3,7 +3,7 @@ import { randomBytes, createHash } from "node:crypto";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email/client";
 import { getEmailBrand } from "@/lib/services/content-service";
-import { alumniGraduationInviteEmail } from "@/lib/email/templates";
+import { alumniDualMembershipInviteEmail, alumniGraduationInviteEmail } from "@/lib/email/templates";
 import { formatFullName } from "@/lib/format";
 import { deleteMember } from "@/lib/services/membership-service";
 import { deleteAlumni } from "@/lib/services/alumni-service";
@@ -45,15 +45,23 @@ const INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // matches the graduation invite
  * itself failed (an admin retrying would just find the standing already
  * there and be confused, not fix anything).
  */
-async function sendAlumniInvite(params: { alumniProfileId: string; email: string; firstName: string; inviteBaseUrl: string }) {
-  const { alumniProfileId, email, firstName, inviteBaseUrl } = params;
+async function sendAlumniInvite(params: {
+  alumniProfileId: string;
+  email: string;
+  firstName: string;
+  inviteBaseUrl: string;
+  /** A new graduate's welcome, or a UEW graduate's after a postgraduate approval. */
+  variant?: "graduation" | "dual-membership";
+}) {
+  const { alumniProfileId, email, firstName, inviteBaseUrl, variant = "graduation" } = params;
   try {
     const rawToken = randomBytes(32).toString("hex");
     const tokenHash = createHash("sha256").update(rawToken).digest("hex");
     await db.alumniPasswordResetToken.create({
       data: { tokenHash, alumniId: alumniProfileId, expiresAt: new Date(Date.now() + INVITE_TTL_MS) },
     });
-    const { subject, html } = alumniGraduationInviteEmail({
+    const inviteEmail = variant === "dual-membership" ? alumniDualMembershipInviteEmail : alumniGraduationInviteEmail;
+    const { subject, html } = inviteEmail({
       firstName,
       setPasswordUrl: `${inviteBaseUrl}?token=${rawToken}`,
       brand: await getEmailBrand(),
@@ -62,7 +70,7 @@ async function sendAlumniInvite(params: { alumniProfileId: string; email: string
       to: email,
       subject,
       html,
-      template: "alumni-graduation-invite",
+      template: variant === "dual-membership" ? "alumni-dual-membership-invite" : "alumni-graduation-invite",
       entityType: "AlumniProfile",
       entityId: alumniProfileId,
     });
@@ -237,6 +245,120 @@ export async function pushToAlumniArchive(params: {
       studentMembershipClosed: true,
     });
   }
+}
+
+export type AlumniStandingOutcome = "granted" | "already-alumni" | "linked-existing-alumni" | "conflict" | "no-account";
+
+/**
+ * Dual membership for a UEW graduate whose postgraduate application was just
+ * approved. They said on the form that they graduated from UEW (see
+ * uewAlumnusDetailsFrom), so alongside the membership approveApplication
+ * created, they get alumni standing on the same account.
+ *
+ * Runs after the approval is saved. What it does depends on what already
+ * exists for this person:
+ *
+ *  - an alumni profile on the same account (someone already registered on
+ *    the Alumni Portal with this email) → nothing new is created; the
+ *    profile is linked to the new membership and keeps its own password.
+ *  - an alumni profile with this email that isn't on any account yet (an
+ *    older Alumni Portal registration) → attached to the account and linked,
+ *    so its existing alumni login keeps working.
+ *  - an alumni profile with this email on a DIFFERENT account → left alone
+ *    and recorded, because merging two accounts isn't something to guess.
+ *  - nothing → a new alumni profile with the graduation year and programme
+ *    they gave, the ALUMNI role, and an email to set the Alumni Portal
+ *    password.
+ *
+ * Linking sets both ties dual-status-service reads (the shared account and
+ * sourceMemberId), so both portals show the switcher however they sign in.
+ */
+export async function grantAlumniStandingForApprovedApplicant(params: {
+  memberId: string;
+  graduationYear: number;
+  programme: string;
+  adminId: string;
+  inviteBaseUrl: string;
+}): Promise<AlumniStandingOutcome> {
+  const { memberId, graduationYear, programme, adminId, inviteBaseUrl } = params;
+
+  const member = await db.member.findUnique({
+    where: { id: memberId },
+    include: { user: { include: { alumniProfile: true, roles: true } } },
+  });
+  if (!member?.user) return "no-account";
+  const user = member.user;
+
+  const auditEntry = (outcome: AlumniStandingOutcome, alumniProfileId: string | null, note?: string) => ({
+    adminId,
+    action: "GRANT_DUAL_STATUS",
+    entityType: "User",
+    entityId: user.id,
+    previousValue: { roles: user.roles.map((r) => r.role) },
+    newValue: { granted: "ALUMNI", source: "postgraduate-application", outcome, graduationYear, programme, memberId, alumniProfileId },
+    note: note ?? null,
+  });
+  const existing = user.alumniProfile ?? (await db.alumniProfile.findUnique({ where: { email: member.email } }));
+
+  if (existing && existing.userId && existing.userId !== user.id) {
+    await db.auditLog.create({
+      data: auditEntry(
+        "conflict",
+        existing.id,
+        "An alumni profile with this email belongs to a different account, so it wasn't linked. Resolve it from the User Status Matrix.",
+      ),
+    });
+    return "conflict";
+  }
+
+  if (existing) {
+    const outcome: AlumniStandingOutcome = existing.userId ? "already-alumni" : "linked-existing-alumni";
+    await db.$transaction([
+      db.alumniProfile.update({ where: { id: existing.id }, data: { userId: user.id, sourceMemberId: member.id } }),
+      db.userRole.upsert({
+        where: { userId_role: { userId: user.id, role: "ALUMNI" } },
+        update: {},
+        create: { userId: user.id, role: "ALUMNI" },
+      }),
+      db.auditLog.create({ data: auditEntry(outcome, existing.id) }),
+    ]);
+    return outcome;
+  }
+
+  const profile = await db.$transaction(async (tx) => {
+    const created = await tx.alumniProfile.create({
+      data: {
+        fullName: formatFullName(member.firstName, member.middleName, member.lastName),
+        email: member.email,
+        phone: member.phone,
+        graduationYear,
+        programme,
+        profileImageUrl: member.profileImageUrl,
+        // No alumni password yet — the invite below is how they set one.
+        mustSetPassword: true,
+        directoryVisible: true,
+        status: "ACTIVE",
+        userId: user.id,
+        sourceMemberId: member.id,
+      },
+    });
+    await tx.userRole.upsert({
+      where: { userId_role: { userId: user.id, role: "ALUMNI" } },
+      update: {},
+      create: { userId: user.id, role: "ALUMNI" },
+    });
+    await tx.auditLog.create({ data: auditEntry("granted", created.id) });
+    return created;
+  });
+
+  await sendAlumniInvite({
+    alumniProfileId: profile.id,
+    email: member.email,
+    firstName: member.firstName,
+    inviteBaseUrl,
+    variant: "dual-membership",
+  });
+  return "granted";
 }
 
 /**

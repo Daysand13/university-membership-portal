@@ -200,6 +200,25 @@ export function alumniGraduationInviteEmail(params: { firstName: string; setPass
   };
 }
 
+export function alumniDualMembershipInviteEmail(params: { firstName: string; setPasswordUrl: string; brand: EmailBrand }) {
+  const { firstName, setPasswordUrl, brand } = params;
+  return {
+    subject: "Set up your Alumni Portal account",
+    html: baseLayout(
+      `
+      <p>Dear ${e(firstName)},</p>
+      <p>Your postgraduate membership application has been approved. Because you told us you are a graduate of the University of Education, Winneba, you now have dual membership: the Student Portal for your current studies, and the ${e(brand.siteTitle)} Alumni Network as a UEW graduate.</p>
+      <p>Your approval email explains how to sign in to the Student Portal. To use the Alumni Portal too, please set a password for your alumni account.</p>
+      ${button(setPasswordUrl, "Set Your Alumni Password")}
+      <p style="margin-top:18px;color:#5b6b7c;font-size:13px;">If this link has expired, use &ldquo;Forgot password&rdquo; on the Alumni Portal sign-in page to get a new one.</p>
+      <p style="margin-top:18px;">Through the Alumni Portal you can connect with fellow graduates in the member directory, offer or seek mentorship, and stay informed about upcoming events and reunions.</p>
+      ${closing(brand)}
+    `,
+      brand,
+    ),
+  };
+}
+
 export function alumniWelcomeEmail(params: { firstName: string; brand: EmailBrand }) {
   const { firstName, brand } = params;
   return {

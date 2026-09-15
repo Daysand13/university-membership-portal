@@ -457,6 +457,23 @@ export const enrollmentSchema = z
     agreedToTerms: z.literal(true, {
       message: "You must confirm registration at the Resource Center and accept the terms to continue",
     }),
+
+    // Postgraduate only: whether the applicant already graduated from UEW. A
+    // "yes" also gives them alumni standing once the application is approved
+    // (dual membership) — see grantAlumniStandingForApprovedApplicant. Not
+    // required here, so a form opened before this question existed can still
+    // be sent; the form itself won't show its fields until it's answered.
+    uewAlumnus: z.enum(["yes", "no"]).optional(),
+    alumniGraduationYear: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      z.coerce
+        .number()
+        .int("Enter a valid year")
+        .min(1950, "Enter a valid year")
+        .max(new Date().getFullYear(), "Enter a valid year")
+        .optional(),
+    ),
+    alumniProgramme: z.string().trim().max(500).optional().or(z.literal("")),
   })
   .superRefine((data, ctx) => {
     // Department and programme aren't checked here: administrators manage
@@ -471,9 +488,45 @@ export const enrollmentSchema = z
     if (isPg && !(POSTGRAD_DEGREE_CATEGORIES as readonly string[]).includes(data.degreeCategory ?? "")) {
       ctx.addIssue({ code: "custom", path: ["degreeCategory"], message: "Select your postgraduate degree category" });
     }
+    if (isPg && data.uewAlumnus === "yes") {
+      if (!data.alumniGraduationYear) {
+        ctx.addIssue({ code: "custom", path: ["alumniGraduationYear"], message: "Enter the year you graduated from UEW" });
+      }
+      if (!data.alumniProgramme) {
+        ctx.addIssue({ code: "custom", path: ["alumniProgramme"], message: "Enter the programme you completed at UEW" });
+      }
+    }
   });
 
 export type EnrollmentInput = z.infer<typeof enrollmentSchema>;
+
+/** What a postgraduate applicant told us about their earlier studies at UEW. */
+export type UewAlumnusDetails = {
+  graduationYear: number;
+  programme: string;
+};
+
+/**
+ * The applicant's UEW alumni details, where they said they graduated from
+ * UEW. Kept in the application's additionalFields, so no schema change was
+ * needed. Null for everyone else, and for anything malformed.
+ */
+export function uewAlumnusDetailsFrom(additionalFields: unknown): UewAlumnusDetails | null {
+  if (!additionalFields || typeof additionalFields !== "object") return null;
+  const details = (additionalFields as Record<string, unknown>).uewAlumnus;
+  if (!details || typeof details !== "object") return null;
+  const { graduationYear, programme } = details as Record<string, unknown>;
+  if (typeof graduationYear !== "number" || !Number.isInteger(graduationYear)) return null;
+  if (typeof programme !== "string" || !programme.trim()) return null;
+  return { graduationYear, programme: programme.trim() };
+}
+
+/** The additionalFields to save for a postgraduate applicant who graduated from UEW; undefined for anyone else. */
+export function uewAlumnusFieldsFor(input: EnrollmentInput): { uewAlumnus: UewAlumnusDetails } | undefined {
+  if (input.track !== "POSTGRADUATE" || input.uewAlumnus !== "yes") return undefined;
+  if (!input.alumniGraduationYear || !input.alumniProgramme) return undefined;
+  return { uewAlumnus: { graduationYear: input.alumniGraduationYear, programme: input.alumniProgramme } };
+}
 
 /**
  * An alumnus submitting a NEW academic enrollment to become a current member

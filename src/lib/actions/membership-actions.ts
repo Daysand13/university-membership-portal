@@ -183,7 +183,13 @@ async function reviewApplicationActionImpl(
     const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/membership/login`;
     switch (action) {
       case "APPROVE":
-        await approveApplication({ applicationId, adminId: admin.id, note: adminNote || undefined, loginUrl });
+        await approveApplication({
+          applicationId,
+          adminId: admin.id,
+          note: adminNote || undefined,
+          loginUrl,
+          alumniInviteBaseUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/alumni/reset-password`,
+        });
         break;
       case "REJECT":
         await rejectApplication({ applicationId, adminId: admin.id, note: adminNote || undefined });

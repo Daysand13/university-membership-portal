@@ -26,6 +26,7 @@ import {
   adminNewApplicationNotificationEmail,
 } from "@/lib/email/templates";
 import type { EnrollmentInput, MemberAdminEditInput, AlumniFurtherStudiesInput } from "@/lib/validations/membership";
+import { uewAlumnusDetailsFrom, uewAlumnusFieldsFor } from "@/lib/validations/membership";
 import { formatFullName } from "@/lib/format";
 import {
   notifyAccountRemoved,
@@ -144,6 +145,7 @@ export async function submitApplication(
           membershipType: input.membershipType,
           agreedToTerms: input.agreedToTerms,
           status: ApplicationStatus.PENDING,
+          additionalFields: uewAlumnusFieldsFor(input),
         },
       }),
     );
@@ -404,8 +406,16 @@ export async function approveApplication(params: {
   adminId: string;
   note?: string;
   loginUrl: string;
+  /** Where the alumni set-password link points, for an applicant who is also a UEW graduate. */
+  alumniInviteBaseUrl?: string;
 }): Promise<Member> {
-  const { applicationId, adminId, note, loginUrl } = params;
+  const {
+    applicationId,
+    adminId,
+    note,
+    loginUrl,
+    alumniInviteBaseUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/alumni/reset-password`,
+  } = params;
 
   const application = await db.membershipApplication.findUnique({
     where: { id: applicationId },
@@ -631,6 +641,27 @@ export async function approveApplication(params: {
     entityType: "Member",
     entityId: member.id,
   });
+
+  // A postgraduate applicant who said they graduated from UEW gets alumni
+  // standing too — dual membership. Done after the approval rather than in
+  // its transaction: the membership is what was approved, and a problem
+  // attaching the alumni side must not undo it. Every outcome is written to
+  // the audit log (GRANT_DUAL_STATUS).
+  const alumnus = uewAlumnusDetailsFrom(application.additionalFields);
+  if (alumnus && !application.submittedByAlumniId) {
+    try {
+      const { grantAlumniStandingForApprovedApplicant } = await import("@/lib/services/user-admin-service");
+      await grantAlumniStandingForApprovedApplicant({
+        memberId: member.id,
+        graduationYear: alumnus.graduationYear,
+        programme: alumnus.programme,
+        adminId,
+        inviteBaseUrl: alumniInviteBaseUrl,
+      });
+    } catch (err) {
+      console.error(`[approve] member ${member.id} approved, but alumni standing could not be added:`, err);
+    }
+  }
 
   return member;
 }

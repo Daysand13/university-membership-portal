@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ApplicationReviewPanel } from "@/components/admin/ApplicationReviewPanel";
 import { getApplicationById } from "@/lib/services/membership-service";
 import { formatFullName } from "@/lib/format";
+import { uewAlumnusDetailsFrom } from "@/lib/validations/membership";
 
 export const metadata = { title: "Review Application" };
 export const dynamic = "force-dynamic";
@@ -27,6 +28,7 @@ export default async function ReviewApplicationPage({ params }: { params: Promis
   const { id } = await params;
   const application = await getApplicationById(id);
   if (!application) notFound();
+  const alumnusDetails = uewAlumnusDetailsFrom(application.additionalFields);
 
   return (
     <div>
@@ -65,6 +67,19 @@ export default async function ReviewApplicationPage({ params }: { params: Promis
           Submitted by an existing alumnus — <strong>{application.submittedByAlumni.fullName}</strong> (
           {application.submittedByAlumni.email}) — applying to become a current member again. Approving this will
           link the new member account back to that Alumni Portal login.
+        </div>
+      )}
+
+      {alumnusDetails && !application.submittedByAlumni && (
+        <div className="rounded-lg border border-accent-300 bg-accent-50 p-4 mb-6 text-sm text-primary-950 flex gap-3">
+          <GraduationCap size={18} className="text-accent-600 shrink-0 mt-0.5" aria-hidden="true" />
+          <p>
+            <strong>UEW graduate.</strong> This applicant says they graduated from UEW in{" "}
+            <strong>{alumnusDetails.graduationYear}</strong> ({alumnusDetails.programme}).{" "}
+            {application.status === "APPROVED"
+              ? "They were given alumni standing alongside their membership (dual membership) when this was approved."
+              : "Approving this application also gives them alumni standing — dual membership — and emails them a link to set their Alumni Portal password."}
+          </p>
         </div>
       )}
 

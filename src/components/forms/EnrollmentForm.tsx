@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { Loader2, ImagePlus, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, ImagePlus, AlertCircle, CheckCircle2, GraduationCap } from "lucide-react";
 import { submitEnrollmentAction } from "@/lib/actions/membership-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
@@ -59,6 +59,10 @@ interface FormValues {
   emergencyContactName: string;
   emergencyContactPhone: string;
   agreedToTerms: boolean;
+  /** Postgraduate only: "yes", "no", or "" until answered. */
+  uewAlumnus: string;
+  alumniGraduationYear: string;
+  alumniProgramme: string;
 }
 
 const INITIAL_VALUES: FormValues = {
@@ -86,6 +90,9 @@ const INITIAL_VALUES: FormValues = {
   emergencyContactName: "",
   emergencyContactPhone: "",
   agreedToTerms: false,
+  uewAlumnus: "",
+  alumniGraduationYear: "",
+  alumniProgramme: "",
 };
 
 /**
@@ -230,6 +237,9 @@ export function EnrollmentForm({
     passportTooLarge || medicalTooLarge || Boolean(passportUploadError) || Boolean(medicalUploadError);
 
   const isPg = track === "POSTGRADUATE";
+  // Postgraduate applicants say first whether they're UEW graduates; the rest
+  // of the form appears once they've answered.
+  const showForm = !isPg || values.uewAlumnus !== "";
   const departmentOptions = academicOptions.departments;
   const programmeOptions = academicOptions.programmes;
   const levelOptions = isPg ? POSTGRAD_LEVELS : LEVELS;
@@ -363,6 +373,89 @@ export function EnrollmentForm({
         <input type="hidden" name="profilePictureToken" value={passportToken} />
         <input type="hidden" name="medicalReportToken" value={medicalToken} />
 
+        {isPg && (
+          <fieldset className="rounded-lg border-2 border-primary-200 bg-white p-6 sm:p-7">
+            <legend className="sr-only">Are you a graduate of the University of Education, Winneba?</legend>
+            <div className="flex items-start gap-3 mb-2">
+              <span className="w-9 h-9 rounded-full bg-primary-800 text-white flex items-center justify-center shrink-0">
+                <GraduationCap size={18} aria-hidden="true" />
+              </span>
+              <h2 className="font-display font-bold text-lg text-primary-950 leading-snug pt-1">
+                Are you a graduate (alumnus) of the University of Education, Winneba?
+              </h2>
+            </div>
+            <p className="text-sm text-slate leading-relaxed mb-4">
+              If you completed an earlier programme at UEW, choose <strong>Yes</strong>. Once this application is
+              approved you&apos;ll have dual membership: the Student Portal for your postgraduate studies and the
+              Alumni Portal as a UEW graduate, on the same account.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {[
+                { value: "yes", label: "Yes, I graduated from UEW", hint: "I completed a programme at UEW before" },
+                { value: "no", label: "No", hint: "I haven’t graduated from UEW before" },
+              ].map((option) => (
+                <label
+                  key={option.value}
+                  className="flex items-start gap-3 rounded-md border-2 border-line bg-white px-4 py-3 cursor-pointer hover:border-primary-600 has-[:checked]:border-primary-700 has-[:checked]:bg-primary-50"
+                >
+                  <input
+                    type="radio"
+                    name="uewAlumnus"
+                    value={option.value}
+                    required
+                    checked={values.uewAlumnus === option.value}
+                    onChange={handleChange}
+                    className="mt-1 h-5 w-5 border-2 border-slate text-primary-800 focus:ring-2 focus:ring-primary-600 shrink-0"
+                  />
+                  <span>
+                    <span className="block text-base font-semibold text-ink">{option.label}</span>
+                    <span className="block text-sm text-slate">{option.hint}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <FieldError messages={fe.uewAlumnus} />
+
+            {values.uewAlumnus === "yes" && (
+              <div className="mt-5 grid sm:grid-cols-2 gap-5">
+                <div>
+                  <Label htmlFor="alumniGraduationYear" required>Year You Graduated from UEW</Label>
+                  <input
+                    id="alumniGraduationYear"
+                    name="alumniGraduationYear"
+                    type="number"
+                    inputMode="numeric"
+                    min="1950"
+                    max={new Date().getFullYear()}
+                    required
+                    placeholder="e.g. 2021"
+                    className={inputClasses}
+                    value={values.alumniGraduationYear}
+                    onChange={handleChange}
+                  />
+                  <FieldError messages={fe.alumniGraduationYear} />
+                </div>
+                <div>
+                  <Label htmlFor="alumniProgramme" required>Programme You Completed at UEW</Label>
+                  <input
+                    id="alumniProgramme"
+                    name="alumniProgramme"
+                    required
+                    maxLength={500}
+                    placeholder="e.g. BEd Special Education"
+                    className={inputClasses}
+                    value={values.alumniProgramme}
+                    onChange={handleChange}
+                  />
+                  <FieldError messages={fe.alumniProgramme} />
+                </div>
+              </div>
+            )}
+          </fieldset>
+        )}
+
+        {showForm && (
+          <>
         {/* Notice — must be read before membership type / rest of the form */}
         <div className="rounded-lg border border-accent-300 bg-accent-50 p-6 sm:p-7 flex gap-3">
           <AlertCircle size={20} className="text-accent-600 shrink-0 mt-0.5" />
@@ -852,6 +945,8 @@ export function EnrollmentForm({
           {(processingFiles || isPending) && <Loader2 size={16} className="animate-spin" />}
           {processingFiles ? "Uploading attachments…" : isPending ? "Submitting…" : "Submit Application"}
         </Button>
+          </>
+        )}
       </form>
     </div>
   );
