@@ -472,7 +472,7 @@ export async function notifyNewEnrollmentCycle(params: {
 }
 
 export async function notifyPasswordChanged(params: {
-  portal: "Member" | "Alumni";
+  portal: "Member" | "Alumni" | "Patron";
   email: string;
   firstName: string;
   entityType: string;
@@ -487,7 +487,7 @@ export async function notifyPasswordChanged(params: {
     build: () => ({
       subject: "Your password was changed",
       paragraphs: [
-        `The password for your ${portal} Portal account was just changed. If you made this change, no further action is needed.`,
+        `The password for your ${portal === "Patron" ? "Patrons'" : portal} Portal account was just changed. If you made this change, no further action is needed.`,
       ],
       details: [
         {
@@ -591,6 +591,154 @@ export async function notifyCashDuesPaymentRemoved(params: {
       cta: { path: "/membership/dashboard/dues", label: "View Your Dues" },
     }),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Patrons
+// ---------------------------------------------------------------------------
+
+const PATRONS_PORTAL = "Patrons' Portal";
+
+type PatronForNotice = {
+  id: string;
+  email: string;
+  title: string | null;
+  fullName: string;
+  phone: string;
+  occupation: string;
+  organization: string | null;
+};
+
+/**
+ * How to greet a patron: "Prof. Mensah" where they gave a title — most
+ * patrons are addressed that way — and otherwise their first name.
+ */
+export function patronSalutation(patron: { title: string | null; fullName: string }): string {
+  const names = patron.fullName.trim().split(/\s+/);
+  if (patron.title) return `${patron.title} ${names[names.length - 1]}`;
+  return names[0] || patron.fullName;
+}
+
+function patronDisplayName(patron: { title: string | null; fullName: string }): string {
+  return [patron.title, patron.fullName].filter(Boolean).join(" ");
+}
+
+export async function notifyPatronApplicationReceived(patron: PatronForNotice): Promise<void> {
+  await deliver({
+    to: { email: patron.email, firstName: patronSalutation(patron) },
+    template: "patron-application-received",
+    entityType: "PatronProfile",
+    entityId: patron.id,
+    build: (brand) => ({
+      subject: "We've received your patron application",
+      paragraphs: [
+        `Thank you for applying to become a patron of the ${brand.siteTitle}. Your application is now with our team for review.`,
+        `We'll email you as soon as a decision has been made. Once you're approved, you can sign in to the ${PATRONS_PORTAL} with this email address and the password you chose.`,
+      ],
+      details: [
+        { label: "Name", value: patronDisplayName(patron) },
+        { label: "Occupation", value: patron.occupation },
+      ],
+      closingParagraphs: [CONTACT_LINE],
+    }),
+  });
+}
+
+/** Tells the membership team a patron application is waiting. */
+export async function notifyAdminsOfPatronApplication(patron: PatronForNotice): Promise<void> {
+  let admins: { email: string; name: string }[];
+  try {
+    admins = await db.adminUser.findMany({
+      where: { isActive: true, role: { in: ["SUPER_ADMIN", "MEMBERSHIP_OFFICER"] } },
+      select: { email: true, name: true },
+      take: 10,
+    });
+  } catch (err) {
+    console.error("[account-notification] could not look up admins for a patron application", err);
+    return;
+  }
+
+  await Promise.all(
+    admins.map((admin) =>
+      deliver({
+        to: { email: admin.email, firstName: firstNameOf(admin.name) },
+        template: "admin-new-patron-application",
+        entityType: "PatronProfile",
+        entityId: patron.id,
+        build: () => ({
+          subject: `New patron application: ${patronDisplayName(patron)}`,
+          paragraphs: ["A new patron application has been submitted and is waiting for review."],
+          details: [
+            { label: "Name", value: patronDisplayName(patron) },
+            { label: "Occupation", value: patron.occupation },
+            ...(patron.organization ? [{ label: "Organisation", value: patron.organization }] : []),
+            { label: "Email", value: patron.email },
+            { label: "Telephone", value: patron.phone },
+          ],
+          cta: { path: `/admin/patrons/${patron.id}`, label: "Review the Application" },
+        }),
+      }),
+    ),
+  );
+}
+
+/** An admin approved, rejected, suspended or reinstated a patron. */
+export async function notifyPatronDecision(params: {
+  patron: { id: string; email: string; title: string | null; fullName: string };
+  status: "APPROVED" | "REJECTED" | "SUSPENDED" | "PENDING";
+  previousStatus: string;
+  note: string | null;
+}): Promise<void> {
+  const { patron, status, previousStatus, note } = params;
+  const to = { email: patron.email, firstName: patronSalutation(patron) };
+  const noteDetails = note ? [{ label: "Note from the association", value: note }] : [];
+  const common = { to, entityType: "PatronProfile", entityId: patron.id };
+
+  if (status === "APPROVED") {
+    const restored = previousStatus === "SUSPENDED";
+    await deliver({
+      ...common,
+      template: restored ? "patron-restored" : "patron-approved",
+      build: (brand) => ({
+        subject: restored ? "Your patron account has been restored" : "Your patron application has been approved",
+        paragraphs: restored
+          ? [`Your patron account with the ${brand.siteTitle} has been restored, and you can sign in to the ${PATRONS_PORTAL} again.`]
+          : [
+              `Congratulations! Your application to become a patron of the ${brand.siteTitle} has been approved.`,
+              `You can now sign in to the ${PATRONS_PORTAL} with this email address and the password you chose when you applied.`,
+            ],
+        details: noteDetails,
+        closingParagraphs: [CONTACT_LINE],
+        cta: { path: "/patrons/login", label: `Sign In to the ${PATRONS_PORTAL}` },
+      }),
+    });
+  } else if (status === "REJECTED") {
+    await deliver({
+      ...common,
+      template: "patron-rejected",
+      build: (brand) => ({
+        subject: "An update on your patron application",
+        paragraphs: [
+          `Thank you for your interest in becoming a patron of the ${brand.siteTitle}. After reviewing your application, we're unable to approve it at this time.`,
+        ],
+        details: noteDetails,
+        closingParagraphs: ["You're welcome to apply again in future.", CONTACT_LINE],
+      }),
+    });
+  } else if (status === "SUSPENDED") {
+    await deliver({
+      ...common,
+      template: "patron-suspended",
+      build: (brand) => ({
+        subject: "Your patron account has been suspended",
+        paragraphs: [
+          `Your patron account with the ${brand.siteTitle} has been suspended, so you can't sign in to the ${PATRONS_PORTAL} for now.`,
+        ],
+        details: noteDetails,
+        closingParagraphs: [CONTACT_LINE],
+      }),
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------

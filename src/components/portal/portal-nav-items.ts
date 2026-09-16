@@ -4,7 +4,7 @@
  * needs the current path to mark the active item.
  */
 
-export type PortalMode = "member" | "alumni";
+export type PortalMode = "member" | "alumni" | "patron";
 
 export type PortalIconName =
   | "dashboard"
@@ -32,11 +32,13 @@ export interface PortalNavItem {
 export const PORTAL_LABEL: Record<PortalMode, string> = {
   member: "Student Portal",
   alumni: "Alumni Portal",
+  patron: "Patrons' Portal",
 };
 
 export const PORTAL_HOME: Record<PortalMode, string> = {
   member: "/membership/dashboard",
   alumni: "/alumni/dashboard",
+  patron: "/patrons/dashboard",
 };
 
 export const PORTAL_NAV: Record<PortalMode, PortalNavItem[]> = {
@@ -62,6 +64,11 @@ export const PORTAL_NAV: Record<PortalMode, PortalNavItem[]> = {
     { href: "/alumni/further-studies", label: "Register for Further Studies", icon: "further" },
     { href: "/alumni/events", label: "Events & Reunions", icon: "events" },
     { href: "/alumni/profile", label: "Account Settings", icon: "settings" },
+  ],
+  patron: [
+    { href: "/patrons/dashboard", label: "Dashboard", icon: "dashboard", exact: true },
+    { href: "/patrons/dashboard/events", label: "Association Events", icon: "events" },
+    { href: "/patrons/dashboard/account", label: "Account Settings", icon: "settings" },
   ],
 };
 

@@ -119,6 +119,7 @@ model AdminUser {
   documents            Document[]
   elections            Election[]
   reviewedApplications MembershipApplication[] @relation("ApplicationReviewer")
+  reviewedPatrons      PatronProfile[]         @relation("PatronReviewer")
   auditLogs            AuditLog[]
   uploadedMedia        Media[]
 
@@ -912,6 +913,65 @@ enum DuesPaymentStatus {
  * paid" for a given academicYear is a query (a SUCCESS row for that year),
  * not a flag anywhere.
  */
+// ---------------------------------------------------------------------------
+// Patrons
+// ---------------------------------------------------------------------------
+
+enum PatronStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+/**
+ * A patron of the association — a lecturer, professional, benefactor or
+ * friend of the association — who applies online at /patrons/register and
+ * is approved by an administrator before they can sign in to the Patrons'
+ * Portal.
+ *
+ * Deliberately separate from the student and alumni identities: patrons are
+ * usually neither, so they have their own record, their own sign-in and
+ * their own session (see lib/auth/patron.ts). Being approved here is about
+ * portal access; the public Leadership & Patrons listing on the About page
+ * is still managed separately in Admin > Leadership & Patrons.
+ */
+model PatronProfile {
+  id           String  @id @default(cuid())
+  // Prof., Dr., Rev. … — optional, and used to greet them in emails.
+  title        String?
+  fullName     String
+  email        String  @unique
+  phone        String
+  // Their work: occupation/profession, and where and as what they do it.
+  occupation   String
+  organization String?
+  jobTitle     String?
+  address      String?
+  region       String?
+  // From the application form: how they'd like to support the association,
+  // and why they want to become a patron.
+  supportInterest String?
+  motivation      String?
+  // Chosen when applying; usable only once the application is approved.
+  passwordHash String
+
+  status       PatronStatus @default(PENDING)
+  reviewedById String?
+  reviewedBy   AdminUser?   @relation("PatronReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  // Shown to the applicant when an application is rejected or an account
+  // suspended.
+  adminNote    String?
+
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([submittedAt])
+  @@map("patron_profiles")
+}
+
 model DuesPayment {
   id       String @id @default(cuid())
   memberId String

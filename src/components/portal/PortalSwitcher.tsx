@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
-import { BookOpen, Check, ChevronDown, GraduationCap, ShieldCheck } from "lucide-react";
+import { Award, BookOpen, Check, ChevronDown, GraduationCap, ShieldCheck } from "lucide-react";
 import { PORTAL_HOME, PORTAL_LABEL, type PortalMode } from "./portal-nav-items";
 
 /**
@@ -32,7 +32,7 @@ export function PortalSwitcher({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
-  const CurrentIcon = current === "member" ? BookOpen : GraduationCap;
+  const CurrentIcon = current === "member" ? BookOpen : current === "patron" ? Award : GraduationCap;
 
   useEffect(() => {
     if (!open) return;

@@ -58,9 +58,16 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  if (pathname.startsWith("/patrons/dashboard")) {
+    // The Patrons' Portal has its own session; requirePatron() in its layout
+    // is the authoritative check (and also turns away suspended patrons).
+    const ok = await hasValidSession(request, "patron_session", "patron");
+    if (!ok) return NextResponse.redirect(new URL("/patrons/login", request.url));
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/membership/dashboard/:path*"],
+  matcher: ["/admin/:path*", "/membership/dashboard/:path*", "/patrons/dashboard/:path*"],
 };

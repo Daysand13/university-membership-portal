@@ -49,6 +49,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               </Link>
             </p>
             <p className="text-slate">
+              Patron of the association?{" "}
+              <Link href="/patrons/login" className="font-semibold text-primary-800 hover:text-accent-600">
+                Sign in here
+              </Link>
+            </p>
+            <p className="text-slate">
               Graduated before the portal existed?{" "}
               <Link href="/alumni" className="font-semibold text-primary-800 hover:text-accent-600">
                 Register as alumni

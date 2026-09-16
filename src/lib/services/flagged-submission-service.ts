@@ -17,7 +17,7 @@ import type { Prisma } from "@/generated/prisma/client";
  * Best-effort: logging must never change what happens to the submission.
  */
 export async function logFlaggedSubmission(params: {
-  form: "enrollment" | "contact" | "alumni-registration";
+  form: "enrollment" | "contact" | "alumni-registration" | "patron-registration";
   signal: BotSignal;
   /** True when other evidence showed a real person, so it was accepted. */
   allowedThrough: boolean;

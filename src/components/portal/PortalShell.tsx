@@ -6,8 +6,14 @@ import { PortalSwitcher } from "./PortalSwitcher";
 import { PortalUserMenu } from "./PortalUserMenu";
 import { PORTAL_LABEL, PORTAL_NAV, type PortalMode } from "./portal-nav-items";
 
+const ACCOUNT_LINKS: Record<PortalMode, { settingsHref: string; passwordHref: string }> = {
+  member: { settingsHref: "/membership/dashboard/profile", passwordHref: "/membership/dashboard/change-password" },
+  alumni: { settingsHref: "/alumni/profile", passwordHref: "/alumni/profile#password" },
+  patron: { settingsHref: "/patrons/dashboard/account", passwordHref: "/patrons/dashboard/account#password" },
+};
+
 /**
- * The frame every signed-in portal page shares, student or alumni: a header
+ * The frame every signed-in portal page shares, student, alumni or patron: a header
  * (logo, portal switcher, account menu), a sidebar that changes with the
  * portal, and the page itself. The same layout in both portals, so moving
  * between them never feels like landing on a different site.
@@ -36,8 +42,7 @@ export function PortalShell({
 }) {
   const portalLabel = PORTAL_LABEL[mode];
   const items = PORTAL_NAV[mode];
-  const settingsHref = mode === "member" ? "/membership/dashboard/profile" : "/alumni/profile";
-  const passwordHref = mode === "member" ? "/membership/dashboard/change-password" : "/alumni/profile#password";
+  const { settingsHref, passwordHref } = ACCOUNT_LINKS[mode];
 
   return (
     <>
