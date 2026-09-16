@@ -7,8 +7,13 @@ import { getCurrentPatron } from "@/lib/auth/patron";
 
 export const metadata: Metadata = { title: "Patron Sign In" };
 
-export default async function PatronLoginPage() {
+export default async function PatronLoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ passwordReset?: string }>;
+}) {
   if (await getCurrentPatron()) redirect("/patrons/dashboard");
+  const { passwordReset } = await searchParams;
 
   return (
     <div className="bg-surface-muted min-h-[70vh] flex items-center">
@@ -21,6 +26,11 @@ export default async function PatronLoginPage() {
           <p className="text-sm text-slate mt-1.5">Sign in to the Patrons&apos; Portal with the email address you applied with.</p>
         </div>
 
+        {passwordReset === "1" && (
+          <div role="status" className="mb-5 rounded-lg border border-success bg-success-light text-success px-4 py-3 text-sm font-medium">
+            Your password has been changed. Sign in below with your new password.
+          </div>
+        )}
         <div className="bg-white rounded-lg border border-line p-6 sm:p-7">
           <PatronLoginForm />
           <div className="mt-6 pt-5 border-t border-line space-y-2 text-center text-sm">

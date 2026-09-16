@@ -32,7 +32,7 @@ export function PatronLoginForm() {
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <Label htmlFor="patron-login-password" required>Password</Label>
-          <Link href="/contact?subject=Patron%20account%20password" className="text-xs font-medium text-primary-800 hover:text-accent-600">
+          <Link href="/patrons/forgot-password" className="text-xs font-medium text-primary-800 hover:text-accent-600">
             Forgot password?
           </Link>
         </div>

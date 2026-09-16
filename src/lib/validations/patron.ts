@@ -58,6 +58,21 @@ export const patronChangePasswordSchema = z
     path: ["confirmNewPassword"],
   });
 
+export const patronForgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Enter a valid email address"),
+});
+
+export const patronResetPasswordSchema = z
+  .object({
+    token: z.string().min(1, "This reset link is incomplete. Please use the link from your email."),
+    newPassword: z.string().trim().refine(isPasswordStrongEnough, PASSWORD_REQUIREMENTS_MESSAGE),
+    confirmNewPassword: z.string().trim(),
+  })
+  .refine((data) => data.newPassword === data.confirmNewPassword, {
+    message: "Passwords do not match",
+    path: ["confirmNewPassword"],
+  });
+
 export const PATRON_DECISIONS = ["APPROVE", "REJECT", "SUSPEND"] as const;
 export type PatronDecision = (typeof PATRON_DECISIONS)[number];
 

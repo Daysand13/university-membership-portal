@@ -741,6 +741,56 @@ export async function notifyPatronDecision(params: {
   }
 }
 
+export async function notifyPatronPasswordReset(params: {
+  patron: { id: string; email: string; title: string | null; fullName: string };
+  /** The reset page, token included — a path on this site. */
+  resetPath: string;
+  expiresInMinutes: number;
+}): Promise<void> {
+  const { patron, resetPath, expiresInMinutes } = params;
+  await deliver({
+    to: { email: patron.email, firstName: patronSalutation(patron) },
+    template: "patron-password-reset",
+    entityType: "PatronProfile",
+    entityId: patron.id,
+    build: () => ({
+      subject: `Reset your ${PATRONS_PORTAL} password`,
+      paragraphs: [
+        `We received a request to reset the password for your ${PATRONS_PORTAL} account. Use the button below to choose a new one. For your security, the link expires in ${expiresInMinutes} minutes and can only be used once.`,
+      ],
+      cta: { path: resetPath, label: "Reset Your Password" },
+      closingParagraphs: ["If you didn't ask for this, you can ignore this email — your password won't change."],
+    }),
+  });
+}
+
+/** An administrator deleted a patron's application or account. */
+export async function notifyPatronRemoved(params: {
+  patron: { id: string; email: string; title: string | null; fullName: string };
+  /** An approved or suspended account, as opposed to an application. */
+  wasAccount: boolean;
+}): Promise<void> {
+  const { patron, wasAccount } = params;
+  await deliver({
+    to: { email: patron.email, firstName: patronSalutation(patron) },
+    template: wasAccount ? "patron-account-removed" : "patron-application-removed",
+    entityType: "PatronProfile",
+    entityId: patron.id,
+    build: (brand) => ({
+      subject: wasAccount ? "Your patron account has been removed" : "Your patron application has been removed",
+      paragraphs: [
+        wasAccount
+          ? `Your patron account with the ${brand.siteTitle} has been removed by an administrator, so you can no longer sign in to the ${PATRONS_PORTAL}.`
+          : `Your application to become a patron of the ${brand.siteTitle} has been removed by an administrator.`,
+      ],
+      closingParagraphs: [
+        ...(wasAccount ? [] : ["You're welcome to apply again at any time."]),
+        "If you believe this was a mistake, please contact the association through the Contact page on our website.",
+      ],
+    }),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Alumni account
 // ---------------------------------------------------------------------------

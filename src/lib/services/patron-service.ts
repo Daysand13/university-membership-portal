@@ -1,13 +1,21 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
-import { Prisma, type PatronProfile, type PatronStatus } from "@/generated/prisma/client";
+import { Prisma, type AdminRole, type PatronProfile, type PatronStatus } from "@/generated/prisma/client";
+import {
+  PATRON_RESET_TTL_MINUTES,
+  passwordFingerprint,
+  readPatronResetToken,
+  signPatronResetToken,
+} from "@/lib/auth/patron-reset-token";
 import type { PatronDecision, PatronProfileUpdateInput, PatronRegisterInput } from "@/lib/validations/patron";
 import {
   notifyAdminsOfPatronApplication,
   notifyPasswordChanged,
   notifyPatronApplicationReceived,
   notifyPatronDecision,
+  notifyPatronPasswordReset,
+  notifyPatronRemoved,
   patronSalutation,
 } from "@/lib/services/account-notification-service";
 
@@ -270,4 +278,133 @@ export async function changePatronPassword(patronId: string, currentPassword: st
     entityType: "PatronProfile",
     entityId: patron.id,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Forgotten passwords
+// ---------------------------------------------------------------------------
+
+export class InvalidPatronResetLinkError extends Error {
+  constructor() {
+    super("This password reset link is invalid, has expired, or has already been used. Please request a new one.");
+    this.name = "InvalidPatronResetLinkError";
+  }
+}
+
+/**
+ * Emails a password reset link. Does nothing — and says nothing different —
+ * for an email with no patron behind it, or a rejected application, so the
+ * form can't be used to find out who has applied. A pending applicant can
+ * reset theirs: they'll need it once approved.
+ */
+export async function requestPatronPasswordReset(email: string): Promise<void> {
+  const patron = await db.patronProfile.findUnique({ where: { email: email.trim().toLowerCase() } });
+  if (!patron || patron.status === "REJECTED") return;
+
+  const token = await signPatronResetToken(patron);
+  await notifyPatronPasswordReset({
+    patron,
+    resetPath: `/patrons/reset-password?token=${encodeURIComponent(token)}`,
+    expiresInMinutes: PATRON_RESET_TTL_MINUTES,
+  });
+}
+
+/** The patron a reset link belongs to, if it's still usable (see patron-reset-token.ts). */
+async function patronForResetLink(token: string): Promise<PatronProfile | null> {
+  const claims = await readPatronResetToken(token);
+  if (!claims) return null;
+  const patron = await db.patronProfile.findUnique({ where: { id: claims.patronId } });
+  if (!patron || patron.status === "REJECTED") return null;
+  if (passwordFingerprint(patron.passwordHash) !== claims.fingerprint) return null;
+  return patron;
+}
+
+export async function isPatronResetLinkValid(token: string): Promise<boolean> {
+  return (await patronForResetLink(token)) !== null;
+}
+
+export async function resetPatronPassword(token: string, newPassword: string): Promise<PatronProfile> {
+  const patron = await patronForResetLink(token);
+  if (!patron) throw new InvalidPatronResetLinkError();
+
+  // Guarded on the password hash the link was issued for, so the same link
+  // submitted twice (two tabs, a double tap) can only change it once.
+  const { count } = await db.patronProfile.updateMany({
+    where: { id: patron.id, passwordHash: patron.passwordHash },
+    data: { passwordHash: await hashPassword(newPassword) },
+  });
+  if (count === 0) throw new InvalidPatronResetLinkError();
+
+  await notifyPasswordChanged({
+    portal: "Patron",
+    email: patron.email,
+    firstName: patronSalutation(patron),
+    entityType: "PatronProfile",
+    entityId: patron.id,
+  });
+  return patron;
+}
+
+// ---------------------------------------------------------------------------
+// Deleting
+// ---------------------------------------------------------------------------
+
+export class PatronDeleteError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PatronDeleteError";
+  }
+}
+
+/**
+ * An approved or suspended patron is a real sign-in, so only a super admin
+ * may delete one — the same rule as deleting a member. Applications (pending
+ * or rejected) can be deleted by the membership team.
+ */
+export function canDeletePatron(adminRole: AdminRole, status: PatronStatus): boolean {
+  if (adminRole === "SUPER_ADMIN") return true;
+  return adminRole === "MEMBERSHIP_OFFICER" && (status === "PENDING" || status === "REJECTED");
+}
+
+export async function deletePatron(params: {
+  patronId: string;
+  adminId: string;
+  adminRole: AdminRole;
+  /** Email the person that their application or account was removed. */
+  notify: boolean;
+}): Promise<void> {
+  const { patronId, adminId, adminRole, notify } = params;
+  const patron = await db.patronProfile.findUnique({ where: { id: patronId } });
+  if (!patron) return; // Already gone — nothing left to do.
+
+  if (!canDeletePatron(adminRole, patron.status)) {
+    throw new PatronDeleteError("Only a super admin can delete an approved or suspended patron account.");
+  }
+
+  // The audit entry keeps who they were, since the record itself is gone.
+  await db.$transaction([
+    db.patronProfile.delete({ where: { id: patronId } }),
+    db.auditLog.create({
+      data: {
+        adminId,
+        action: "DELETE_PATRON",
+        entityType: "PatronProfile",
+        entityId: patronId,
+        previousValue: {
+          title: patron.title,
+          fullName: patron.fullName,
+          email: patron.email,
+          phone: patron.phone,
+          occupation: patron.occupation,
+          organization: patron.organization,
+          status: patron.status,
+          submittedAt: patron.submittedAt.toISOString(),
+        },
+      },
+    }),
+  ]);
+
+  if (notify) {
+    await notifyPatronRemoved({ patron, wasAccount: patron.status === "APPROVED" || patron.status === "SUSPENDED" });
+  }
 }

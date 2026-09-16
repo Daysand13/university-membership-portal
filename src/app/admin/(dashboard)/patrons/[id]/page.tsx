@@ -5,7 +5,8 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PatronReviewPanel } from "@/components/admin/PatronReviewPanel";
 import { requireAdminRole } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
-import { ALLOWED_PATRON_DECISIONS, getPatronById } from "@/lib/services/patron-service";
+import { ALLOWED_PATRON_DECISIONS, canDeletePatron, getPatronById } from "@/lib/services/patron-service";
+import { PatronDeleteButton } from "@/components/admin/PatronDeleteButton";
 
 export const metadata = { title: "Patron Application" };
 export const dynamic = "force-dynamic";
@@ -43,7 +44,7 @@ const STATUS_HELP: Record<string, string> = {
 };
 
 export default async function AdminPatronPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
   const { id } = await params;
   const patron = await getPatronById(id);
   if (!patron) notFound();
@@ -129,6 +130,28 @@ export default async function AdminPatronPage({ params }: { params: Promise<{ id
               status={patron.status}
               decisions={ALLOWED_PATRON_DECISIONS[patron.status]}
             />
+          </section>
+
+          <section className="bg-white rounded-lg border border-danger/30 p-6">
+            <h2 className="font-display font-bold text-base text-primary-950 mb-2">Delete</h2>
+            {canDeletePatron(admin.role, patron.status) ? (
+              <>
+                <p className="text-sm text-slate mb-4">
+                  Removes this {patron.status === "APPROVED" || patron.status === "SUSPENDED" ? "account" : "application"}{" "}
+                  permanently. The audit log keeps a record of who it was.
+                </p>
+                <PatronDeleteButton
+                  patronId={patron.id}
+                  name={[patron.title, patron.fullName].filter(Boolean).join(" ")}
+                  isAccount={patron.status === "APPROVED" || patron.status === "SUSPENDED"}
+                />
+              </>
+            ) : (
+              <p className="text-sm text-slate">
+                Only a super admin can delete an approved or suspended patron account. To stop them signing in now,
+                suspend the account instead.
+              </p>
+            )}
           </section>
         </div>
       </div>

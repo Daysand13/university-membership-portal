@@ -26,10 +26,10 @@ function formatDate(date: Date): string {
 export default async function AdminPatronsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; deleted?: string }>;
 }) {
   await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
-  const { status: rawStatus, q } = await searchParams;
+  const { status: rawStatus, q, deleted } = await searchParams;
   // Pending first: that's the queue waiting on someone.
   const tab = rawStatus === "ALL" || (rawStatus && STATUSES.has(rawStatus)) ? rawStatus : "PENDING";
   const status = tab === "ALL" ? undefined : (tab as PatronStatus);
@@ -46,6 +46,12 @@ export default async function AdminPatronsPage({
           and every decision is emailed to them.
         </p>
       </div>
+
+      {deleted === "1" && (
+        <div role="status" className="mb-5 rounded-lg border border-success bg-success-light text-success px-4 py-3 text-sm font-medium">
+          The patron has been deleted.
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-4 mb-5">
         <div className="flex flex-wrap gap-1.5">

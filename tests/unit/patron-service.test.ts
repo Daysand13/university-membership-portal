@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
       create: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
+      delete: vi.fn(),
     },
     notification: { create: vi.fn() },
     auditLog: { create: vi.fn() },
@@ -20,6 +21,8 @@ const mocks = vi.hoisted(() => ({
     notifyPasswordChanged: vi.fn(async () => {}),
     notifyPatronApplicationReceived: vi.fn(async () => {}),
     notifyPatronDecision: vi.fn(async () => {}),
+    notifyPatronPasswordReset: vi.fn<(params: { resetPath: string }) => Promise<void>>(async () => {}),
+    notifyPatronRemoved: vi.fn(async () => {}),
     patronSalutation: (p: { fullName: string }) => p.fullName,
   },
 }));
@@ -35,6 +38,13 @@ vi.mock("@/lib/services/account-notification-service", () => mocks.notify);
 
 import {
   authenticatePatron,
+  canDeletePatron,
+  deletePatron,
+  InvalidPatronResetLinkError,
+  isPatronResetLinkValid,
+  PatronDeleteError,
+  requestPatronPasswordReset,
+  resetPatronPassword,
   DuplicatePatronEmailError,
   InvalidPatronCredentialsError,
   PatronNotApprovedError,
@@ -69,7 +79,9 @@ function stored(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  db.$transaction.mockImplementation(async (fn: (tx: typeof db) => Promise<unknown>) => fn(db));
+  db.$transaction.mockImplementation(async (arg: unknown) =>
+    typeof arg === "function" ? (arg as (tx: typeof db) => Promise<unknown>)(db) : Promise.all(arg as Promise<unknown>[]),
+  );
   db.patronProfile.create.mockImplementation(async ({ data }: { data: object }) => ({ id: "patron-1", ...data }));
   db.patronProfile.update.mockImplementation(async ({ data }: { data: object }) => ({ id: "patron-1", ...data }));
 });
@@ -182,6 +194,106 @@ describe("reviewPatron", () => {
     await expect(reviewPatron({ patronId: "patron-1", adminId: "a", decision: "APPROVE" })).rejects.toBeInstanceOf(PatronReviewError);
     expect(db.auditLog.create).not.toHaveBeenCalled();
     expect(notify.notifyPatronDecision).not.toHaveBeenCalled();
+  });
+});
+
+describe("forgotten passwords", () => {
+  const resetTokenFrom = () => {
+    const { resetPath } = notify.notifyPatronPasswordReset.mock.calls[0][0];
+    return decodeURIComponent(resetPath.split("token=")[1]);
+  };
+
+  beforeEach(() => {
+    process.env.AUTH_SECRET ||= "test-secret-for-patron-password-reset-links";
+  });
+
+  it("emails a reset link to an existing patron, and nothing for an unknown email or a rejected application", async () => {
+    db.patronProfile.findUnique.mockResolvedValue(null);
+    await requestPatronPasswordReset("nobody@example.com");
+    db.patronProfile.findUnique.mockResolvedValue(stored({ status: "REJECTED" }));
+    await requestPatronPasswordReset("akosua@example.com");
+    expect(notify.notifyPatronPasswordReset).not.toHaveBeenCalled();
+
+    db.patronProfile.findUnique.mockResolvedValue(stored({ status: "APPROVED" }));
+    await requestPatronPasswordReset(" Akosua@Example.com ");
+    expect(notify.notifyPatronPasswordReset).toHaveBeenCalledTimes(1);
+    expect(resetTokenFrom()).toMatch(/^[\w-]+\.[\w-]+\.[\w-]+$/);
+  });
+
+  it("sets a new password once, and the same link is refused afterwards", async () => {
+    const patron = stored({ status: "APPROVED" });
+    db.patronProfile.findUnique.mockResolvedValue(patron);
+    await requestPatronPasswordReset(patron.email);
+    const token = resetTokenFrom();
+
+    expect(await isPatronResetLinkValid(token)).toBe(true);
+    db.patronProfile.updateMany.mockResolvedValue({ count: 1 });
+    await resetPatronPassword(token, "NewSecret456");
+    expect(db.patronProfile.updateMany).toHaveBeenCalledWith({
+      where: { id: "patron-1", passwordHash: "hash:Secret123" },
+      data: { passwordHash: "hash:NewSecret456" },
+    });
+    expect(notify.notifyPasswordChanged).toHaveBeenCalledTimes(1);
+
+    // The stored password has changed, so the link no longer matches it.
+    db.patronProfile.findUnique.mockResolvedValue({ ...patron, passwordHash: "hash:NewSecret456" });
+    expect(await isPatronResetLinkValid(token)).toBe(false);
+    await expect(resetPatronPassword(token, "Another789")).rejects.toBeInstanceOf(InvalidPatronResetLinkError);
+  });
+
+  it("refuses a link submitted twice at once, after the first one changed the password", async () => {
+    db.patronProfile.findUnique.mockResolvedValue(stored({ status: "APPROVED" }));
+    await requestPatronPasswordReset("akosua@example.com");
+    db.patronProfile.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(resetPatronPassword(resetTokenFrom(), "NewSecret456")).rejects.toBeInstanceOf(InvalidPatronResetLinkError);
+    expect(notify.notifyPasswordChanged).not.toHaveBeenCalled();
+  });
+
+  it("refuses a made-up link", async () => {
+    expect(await isPatronResetLinkValid("made.up.token")).toBe(false);
+    await expect(resetPatronPassword("made.up.token", "NewSecret456")).rejects.toBeInstanceOf(InvalidPatronResetLinkError);
+  });
+});
+
+describe("deletePatron", () => {
+  it("lets the membership team delete applications, and only a super admin delete accounts", () => {
+    expect(canDeletePatron("MEMBERSHIP_OFFICER", "PENDING")).toBe(true);
+    expect(canDeletePatron("MEMBERSHIP_OFFICER", "REJECTED")).toBe(true);
+    expect(canDeletePatron("MEMBERSHIP_OFFICER", "APPROVED")).toBe(false);
+    expect(canDeletePatron("MEMBERSHIP_OFFICER", "SUSPENDED")).toBe(false);
+    expect(canDeletePatron("SUPER_ADMIN", "APPROVED")).toBe(true);
+    expect(canDeletePatron("EDITOR", "PENDING")).toBe(false);
+  });
+
+  it("deletes, keeps an audit record of who it was, and emails them when asked", async () => {
+    db.patronProfile.findUnique.mockResolvedValue(stored({ status: "APPROVED", submittedAt: new Date("2026-09-16") }));
+
+    await deletePatron({ patronId: "patron-1", adminId: "admin-1", adminRole: "SUPER_ADMIN", notify: true });
+
+    expect(db.patronProfile.delete).toHaveBeenCalledWith({ where: { id: "patron-1" } });
+    expect(db.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: "DELETE_PATRON",
+        previousValue: expect.objectContaining({ email: "akosua@example.com", status: "APPROVED" }),
+      }),
+    });
+    expect(notify.notifyPatronRemoved).toHaveBeenCalledWith(expect.objectContaining({ wasAccount: true }));
+  });
+
+  it("sends nothing when the admin unticks the email", async () => {
+    db.patronProfile.findUnique.mockResolvedValue(stored({ status: "REJECTED", submittedAt: new Date() }));
+    await deletePatron({ patronId: "patron-1", adminId: "a", adminRole: "MEMBERSHIP_OFFICER", notify: false });
+    expect(db.patronProfile.delete).toHaveBeenCalled();
+    expect(notify.notifyPatronRemoved).not.toHaveBeenCalled();
+  });
+
+  it("refuses a membership officer deleting an approved account, changing nothing", async () => {
+    db.patronProfile.findUnique.mockResolvedValue(stored({ status: "APPROVED", submittedAt: new Date() }));
+    await expect(
+      deletePatron({ patronId: "patron-1", adminId: "a", adminRole: "MEMBERSHIP_OFFICER", notify: true }),
+    ).rejects.toBeInstanceOf(PatronDeleteError);
+    expect(db.patronProfile.delete).not.toHaveBeenCalled();
   });
 });
 

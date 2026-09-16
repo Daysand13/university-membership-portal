@@ -12,6 +12,8 @@ import { domainCanReceiveMail } from "@/lib/email-domain-check";
 import { logFlaggedSubmission } from "@/lib/services/flagged-submission-service";
 import {
   patronChangePasswordSchema,
+  patronForgotPasswordSchema,
+  patronResetPasswordSchema,
   patronLoginSchema,
   patronProfileUpdateSchema,
   patronRegisterSchema,
@@ -20,6 +22,11 @@ import {
 import {
   authenticatePatron,
   changePatronPassword,
+  deletePatron,
+  InvalidPatronResetLinkError,
+  PatronDeleteError,
+  requestPatronPasswordReset,
+  resetPatronPassword,
   DuplicatePatronEmailError,
   IncorrectPatronPasswordError,
   InvalidPatronCredentialsError,
@@ -136,7 +143,61 @@ async function reviewPatronActionImpl(_prevState: ActionState, formData: FormDat
   return { success: true };
 }
 
+async function patronForgotPasswordActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = patronForgotPasswordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  const ip = await getClientIp();
+  const [ipLimit, emailLimit] = await Promise.all([
+    checkRateLimit(`patron-reset:ip:${ip}`, { max: 10, windowSeconds: 600 }),
+    checkRateLimit(`patron-reset:email:${parsed.data.email}`, { max: 3, windowSeconds: 3600 }),
+  ]);
+  if (!ipLimit.allowed) return { error: RATE_LIMIT_MESSAGE };
+  // Past the per-email limit the answer looks the same, it just doesn't send
+  // again — so the form can't be used to flood someone's inbox.
+  if (emailLimit.allowed) await requestPatronPasswordReset(parsed.data.email);
+  return { success: true };
+}
+
+async function patronResetPasswordActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = patronResetPasswordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  const ip = await getClientIp();
+  const limit = await checkRateLimit(`patron-reset-submit:ip:${ip}`, { max: 10, windowSeconds: 600 });
+  if (!limit.allowed) return { error: RATE_LIMIT_MESSAGE };
+
+  try {
+    await resetPatronPassword(parsed.data.token, parsed.data.newPassword);
+  } catch (err) {
+    if (err instanceof InvalidPatronResetLinkError) return { error: err.message };
+    throw err;
+  }
+  redirect("/patrons/login?passwordReset=1");
+}
+
+async function deletePatronActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const patronId = String(formData.get("patronId") ?? "");
+  if (!patronId) return { error: "That request was incomplete. Please reload the page and try again." };
+
+  try {
+    await deletePatron({ patronId, adminId: admin.id, adminRole: admin.role, notify: formData.get("notify") === "on" });
+  } catch (err) {
+    if (err instanceof PatronDeleteError) return { error: err.message };
+    throw err;
+  }
+  revalidatePath("/admin/patrons");
+  redirect("/admin/patrons?status=ALL&deleted=1");
+}
+
 export const patronRegisterAction = withActionErrorHandling("patronRegisterAction", patronRegisterActionImpl);
+export const patronForgotPasswordAction = withActionErrorHandling(
+  "patronForgotPasswordAction",
+  patronForgotPasswordActionImpl,
+);
+export const patronResetPasswordAction = withActionErrorHandling("patronResetPasswordAction", patronResetPasswordActionImpl);
+export const deletePatronAction = withActionErrorHandling("deletePatronAction", deletePatronActionImpl);
 export const patronLoginAction = withActionErrorHandling("patronLoginAction", patronLoginActionImpl);
 export const patronLogoutAction = withVoidActionErrorHandling("patronLogoutAction", patronLogoutActionImpl);
 export const updatePatronProfileAction = withActionErrorHandling("updatePatronProfileAction", updatePatronProfileActionImpl);
