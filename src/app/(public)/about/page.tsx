@@ -5,6 +5,7 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { LocationMap } from "@/components/ui/LocationMap";
 import { getAboutContent, getActiveTeamMembers, getSiteSettings } from "@/lib/services/content-service";
 import { getMapLocation } from "@/lib/services/map-service";
+import { PersonCard } from "@/components/people/PersonCard";
 
 export const metadata: Metadata = { title: "About Us" };
 export const dynamic = "force-dynamic";
@@ -19,26 +20,11 @@ function Section({ title, content }: { title: string; content: string | null }) 
   );
 }
 
-function PersonCard({ name, position, photoUrl, bio }: { name: string; position: string; photoUrl: string | null; bio: string | null }) {
-  return (
-    <div className="bg-white rounded-lg border border-line p-5 text-center">
-      <div className="w-20 h-20 rounded-full bg-surface-muted border border-line overflow-hidden mx-auto mb-3">
-        {photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={photoUrl} alt={name} className="w-full h-full object-cover" />
-        ) : null}
-      </div>
-      <p className="font-display font-bold text-sm text-primary-950">{name}</p>
-      <p className="text-xs text-accent-600 font-semibold mt-0.5">{position}</p>
-      {bio && <p className="text-xs text-slate leading-relaxed mt-2">{bio}</p>}
-    </div>
-  );
-}
 
 export default async function AboutPage() {
-  const [about, patrons, leadership, settings] = await Promise.all([
+  // Patrons have their own page (/patrons) and aren't listed here.
+  const [about, leadership, settings] = await Promise.all([
     getAboutContent(),
-    getActiveTeamMembers("PATRON"),
     getActiveTeamMembers("LEADERSHIP"),
     getSiteSettings(),
   ]);
@@ -92,16 +78,6 @@ export default async function AboutPage() {
           </p>
         )}
 
-        {patrons.length > 0 && (
-          <div className="py-8 border-b border-line">
-            <h2 className="font-display font-bold text-xl text-primary-950 mb-5">Our Patrons</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {patrons.map((p) => (
-                <PersonCard key={p.id} name={p.name} position={p.position} photoUrl={p.photoUrl} bio={p.bio} />
-              ))}
-            </div>
-          </div>
-        )}
 
         {(leadership.length > 0 || about.leadershipMessage) && (
           <div className="py-8 border-b border-line">

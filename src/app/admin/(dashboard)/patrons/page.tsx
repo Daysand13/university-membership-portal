@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/Common";
 import { requireAdminRole } from "@/lib/auth/admin";
 import { AdminRole, type PatronStatus } from "@/generated/prisma/client";
 import { countPatronsByStatus, listPatrons } from "@/lib/services/patron-service";
+import { PatronsSectionNav } from "@/components/admin/PatronsSectionNav";
 
 export const metadata = { title: "Patrons" };
 export const dynamic = "force-dynamic";
@@ -39,13 +40,15 @@ export default async function AdminPatronsPage({
 
   return (
     <div>
-      <div className="mb-6">
+      <div className="mb-4">
         <h1 className="font-display font-bold text-2xl text-primary-950">Patrons</h1>
-        <p className="text-sm text-slate mt-1">
-          Applications from the public Patrons page. Approving one lets that person sign in to the Patrons&apos; Portal,
-          and every decision is emailed to them.
-        </p>
       </div>
+      <PatronsSectionNav current="accounts" />
+      <p className="text-sm text-slate mb-5 max-w-3xl">
+        Applications from the public Patrons page, and the patron accounts they become. Approving one lets that person
+        sign in to the Patrons&apos; Portal, and every decision is emailed to them. To show a patron on the public
+        Patrons page, add their profile under Public Profiles.
+      </p>
 
       {deleted === "1" && (
         <div role="status" className="mb-5 rounded-lg border border-success bg-success-light text-success px-4 py-3 text-sm font-medium">

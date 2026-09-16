@@ -23,9 +23,12 @@ export function TeamMemberForm({
   type,
   member,
   linkableMembers,
+  defaults,
 }: {
   type: TeamMemberType;
   member?: TeamMember;
+  /** Starting values for a new listing, e.g. from an approved patron's application. */
+  defaults?: { name?: string; position?: string; bio?: string };
   /** Member accounts this listing can be linked to. Linking is what emails
    *  the person about their appointment and shows their role as a badge in
    *  their portal; for Leadership it also sets the Executive dues rate. */
@@ -72,7 +75,7 @@ export function TeamMemberForm({
       </div>
       <div>
         <Label htmlFor={`name-${idBase}`} required>Name</Label>
-        <input id={`name-${idBase}`} name="name" required defaultValue={member?.name} className={inputClasses} />
+        <input id={`name-${idBase}`} name="name" required defaultValue={member?.name ?? defaults?.name} className={inputClasses} />
       </div>
       <div>
         <Label htmlFor={`position-${idBase}`} required>Position</Label>
@@ -80,14 +83,14 @@ export function TeamMemberForm({
           id={`position-${idBase}`}
           name="position"
           required
-          defaultValue={member?.position}
+          defaultValue={member?.position ?? defaults?.position}
           placeholder={type === "PATRON" ? "e.g., Patron, Vice-Chancellor" : "e.g., President"}
           className={inputClasses}
         />
       </div>
       <div className="sm:col-span-2">
         <Label htmlFor={`bio-${idBase}`}>Brief Information</Label>
-        <textarea id={`bio-${idBase}`} name="bio" rows={3} defaultValue={member?.bio ?? ""} className={inputClasses} />
+        <textarea id={`bio-${idBase}`} name="bio" rows={3} defaultValue={member?.bio ?? defaults?.bio ?? ""} className={inputClasses} />
       </div>
       {linkableMembers && (
         <div className="sm:col-span-2">

@@ -5,13 +5,14 @@ import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-err
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdminRole, requireAdminUser } from "@/lib/auth/admin";
-import { AdminRole } from "@/generated/prisma/client";
+import { AdminRole, type TeamMemberType } from "@/generated/prisma/client";
 import { aboutContentSchema, teamMemberSchema, donateContentSchema, siteSettingsSchema, socialLinkSchema } from "@/lib/validations/content";
 import {
   updateAboutContent,
   createTeamMember,
   updateTeamMember,
   deleteTeamMember,
+  getTeamMemberById,
   updateDonateContent,
   createHeroSlide,
   updateHeroSlide,
@@ -169,8 +170,31 @@ async function deleteSocialLinkActionImpl(id: string): Promise<void> {
 // Team Members (Executive Leadership + Our Patrons)
 // ---------------------------------------------------------------------------
 
+/**
+ * Leadership listings are site content, edited by editors. Patron profiles
+ * belong to the Patrons section, which the membership team runs — editors
+ * keep access to them too.
+ */
+async function requireTeamEditor(type: TeamMemberType) {
+  return type === "PATRON"
+    ? requireAdminRole(AdminRole.EDITOR, AdminRole.MEMBERSHIP_OFFICER)
+    : requireAdminRole(AdminRole.EDITOR);
+}
+
+async function listingType(id: string): Promise<TeamMemberType> {
+  return (await getTeamMemberById(id))?.type ?? "LEADERSHIP";
+}
+
+/** Leadership shows on About Us; patrons on the Patrons page. */
+function revalidateTeamViews() {
+  revalidatePath("/about");
+  revalidatePath("/patrons");
+  revalidatePath("/admin/team");
+  revalidatePath("/admin/patrons/profiles");
+}
+
 async function createTeamMemberActionImpl(formData: FormData): Promise<ActionState> {
-  await requireAdminRole(AdminRole.EDITOR);
+  await requireTeamEditor(formData.get("type") === "PATRON" ? "PATRON" : "LEADERSHIP");
   const parsed = teamMemberSchema.safeParse({
     type: formData.get("type"),
     name: formData.get("name"),
@@ -195,13 +219,12 @@ async function createTeamMemberActionImpl(formData: FormData): Promise<ActionSta
     // someone else" check — a normal validation outcome, not a bug.
     return { error: err instanceof Error ? err.message : "Could not save this entry." };
   }
-  revalidatePath("/about");
-  revalidatePath("/admin/team");
-  redirect(`/admin/team/${created.id}`);
+  revalidateTeamViews();
+  redirect(created.type === "PATRON" ? `/admin/patrons/profiles/${created.id}` : `/admin/team/${created.id}`);
 }
 
 async function updateTeamMemberActionImpl(id: string, formData: FormData): Promise<ActionState> {
-  await requireAdminRole(AdminRole.EDITOR);
+  await requireTeamEditor(await listingType(id));
   const photoUrl = formData.get("photoUrl");
   const memberId = formData.get("memberId");
   try {
@@ -217,23 +240,29 @@ async function updateTeamMemberActionImpl(id: string, formData: FormData): Promi
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Could not save this entry." };
   }
-  revalidatePath("/about");
-  revalidatePath("/admin/team");
+  revalidateTeamViews();
   return {};
 }
 
 async function deleteTeamMemberActionImpl(id: string): Promise<void> {
-  await requireAdminRole(AdminRole.EDITOR);
+  await requireTeamEditor(await listingType(id));
   await deleteTeamMember(id);
-  revalidatePath("/about");
-  revalidatePath("/admin/team");
+  revalidateTeamViews();
+}
+
+/** Deletes a patron profile from its edit page, then returns to the list. */
+async function deletePatronProfileListingActionImpl(id: string): Promise<void> {
+  await requireTeamEditor("PATRON");
+  const listing = await getTeamMemberById(id);
+  if (listing?.type === "PATRON") await deleteTeamMember(id);
+  revalidateTeamViews();
+  redirect("/admin/patrons/profiles");
 }
 
 async function setTeamMemberActiveActionImpl(id: string, isActive: boolean): Promise<void> {
-  await requireAdminRole(AdminRole.EDITOR);
+  await requireTeamEditor(await listingType(id));
   await updateTeamMember(id, { isActive });
-  revalidatePath("/about");
-  revalidatePath("/admin/team");
+  revalidateTeamViews();
 }
 
 // ---------------------------------------------------------------------------
@@ -254,3 +283,7 @@ export const createTeamMemberAction = withActionErrorHandling("createTeamMemberA
 export const updateTeamMemberAction = withActionErrorHandling("updateTeamMemberAction", updateTeamMemberActionImpl);
 export const deleteTeamMemberAction = withVoidActionErrorHandling("deleteTeamMemberAction", deleteTeamMemberActionImpl);
 export const setTeamMemberActiveAction = withVoidActionErrorHandling("setTeamMemberActiveAction", setTeamMemberActiveActionImpl);
+export const deletePatronProfileListingAction = withVoidActionErrorHandling(
+  "deletePatronProfileListingAction",
+  deletePatronProfileListingActionImpl,
+);

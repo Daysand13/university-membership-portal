@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Briefcase, ChevronLeft, HandHeart, Phone } from "lucide-react";
+import { Briefcase, ChevronLeft, HandHeart, Phone, UserPlus } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PatronReviewPanel } from "@/components/admin/PatronReviewPanel";
 import { requireAdminRole } from "@/lib/auth/admin";
@@ -131,6 +131,22 @@ export default async function AdminPatronPage({ params }: { params: Promise<{ id
               decisions={ALLOWED_PATRON_DECISIONS[patron.status]}
             />
           </section>
+
+          {patron.status === "APPROVED" && (
+            <section className="bg-white rounded-lg border border-line p-6">
+              <h2 className="font-display font-bold text-base text-primary-950 mb-2">Public Profile</h2>
+              <p className="text-sm text-slate mb-4">
+                Show this patron on the public Patrons page, with a photo and a short bio. Their name and work are
+                filled in from this application.
+              </p>
+              <Link
+                href={`/admin/patrons/profiles/new?from=${patron.id}`}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary-800 px-3.5 py-2 text-sm font-semibold text-white hover:bg-primary-900"
+              >
+                <UserPlus size={15} aria-hidden="true" /> Add to the Patrons Page
+              </Link>
+            </section>
+          )}
 
           <section className="bg-white rounded-lg border border-danger/30 p-6">
             <h2 className="font-display font-bold text-base text-primary-950 mb-2">Delete</h2>

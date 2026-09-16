@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { TeamMemberForm } from "@/components/admin/forms/TeamMemberForm";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
@@ -14,16 +14,15 @@ export default async function EditTeamMemberPage({ params }: { params: Promise<{
   const { id } = await params;
   const teamMember = await getTeamMemberById(id);
   if (!teamMember) notFound();
+  // Patron profiles are edited in the Patrons section.
+  if (teamMember.type === "PATRON") redirect(`/admin/patrons/profiles/${id}`);
 
-  const linkableMembers = await listActiveMembersForLinking({
-    includeFormer: teamMember.type === "PATRON",
-    includeMemberId: teamMember.memberId,
-  });
+  const linkableMembers = await listActiveMembersForLinking({ includeMemberId: teamMember.memberId });
 
   return (
     <div className="max-w-2xl">
       <Link href="/admin/team" className="inline-flex items-center gap-1.5 text-sm text-slate hover:text-primary-800 mb-4">
-        <ArrowLeft size={15} /> Back to Leadership & Patrons
+        <ArrowLeft size={15} /> Back to Leadership
       </Link>
       <div className="flex items-center justify-between gap-4 mb-6">
         <h1 className="font-display font-bold text-2xl text-primary-950">Edit {teamMember.name}</h1>

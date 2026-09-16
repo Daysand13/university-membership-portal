@@ -6,7 +6,18 @@ import Link from "next/link";
 import { setTeamMemberActiveAction, deleteTeamMemberAction } from "@/lib/actions/content-actions";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 
-export function TeamRowActions({ id, isActive, name }: { id: string; isActive: boolean; name: string }) {
+export function TeamRowActions({
+  id,
+  isActive,
+  name,
+  editHref = `/admin/team/${id}`,
+}: {
+  id: string;
+  isActive: boolean;
+  name: string;
+  /** Where the edit button goes — patron profiles are edited under Patrons. */
+  editHref?: string;
+}) {
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -20,7 +31,7 @@ export function TeamRowActions({ id, isActive, name }: { id: string; isActive: b
       >
         {isPending ? <Loader2 size={15} className="animate-spin" /> : isActive ? <EyeOff size={15} /> : <Eye size={15} />}
       </button>
-      <Link href={`/admin/team/${id}`} title="Edit" className="p-2 rounded-md text-slate hover:bg-surface-muted hover:text-primary-800">
+      <Link href={editHref} title="Edit" className="p-2 rounded-md text-slate hover:bg-surface-muted hover:text-primary-800">
         <Pencil size={15} />
       </Link>
       <ConfirmButton

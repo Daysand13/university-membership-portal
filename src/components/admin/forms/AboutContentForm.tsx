@@ -25,9 +25,13 @@ export function AboutContentForm({ about }: { about: AboutContent }) {
       <ImageUploadField name="imageUrl" category="OTHER" label="Banner Image" defaultUrl={about.imageUrl} aspect="aspect-[21/9]" />
 
       <p className="text-xs text-slate-light bg-surface-muted rounded-md px-3.5 py-2.5">
-        Executive Leadership and Our Patrons have their own screen —{" "}
+        Executive Leadership has its own screen —{" "}
         <Link href="/admin/team" className="font-semibold text-primary-800 hover:underline">
-          manage them here
+          manage it here
+        </Link>
+        . Patrons now appear on the public Patrons page instead, managed under{" "}
+        <Link href="/admin/patrons/profiles" className="font-semibold text-primary-800 hover:underline">
+          Patrons › Public Profiles
         </Link>
         .
       </p>

@@ -1,10 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { TeamMemberForm } from "@/components/admin/forms/TeamMemberForm";
 import { listActiveMembersForLinking } from "@/lib/services/membership-service";
-import type { TeamMemberType } from "@/generated/prisma/client";
 
-export const metadata = { title: "Add Leadership / Patron" };
+export const metadata = { title: "Add a Leader" };
 export const dynamic = "force-dynamic";
 
 export default async function NewTeamMemberPage({
@@ -12,23 +12,22 @@ export default async function NewTeamMemberPage({
 }: {
   searchParams: Promise<{ type?: string }>;
 }) {
-  const { type: rawType } = await searchParams;
-  const type: TeamMemberType = rawType === "PATRON" ? "PATRON" : "LEADERSHIP";
-  // Both kinds can be linked to the person's account — that's what emails
-  // them and shows their role badge. Patrons are often graduates, so their
-  // list includes former members too; executives are current students.
-  const linkableMembers = await listActiveMembersForLinking({ includeFormer: type === "PATRON" });
+  const { type } = await searchParams;
+  // Patron profiles now live in the Patrons section.
+  if (type === "PATRON") redirect("/admin/patrons/profiles/new");
+
+  // Linking emails the member about the appointment, shows their Executive
+  // badge and charges them the Executive dues rate.
+  const linkableMembers = await listActiveMembersForLinking();
 
   return (
     <div className="max-w-2xl">
       <Link href="/admin/team" className="inline-flex items-center gap-1.5 text-sm text-slate hover:text-primary-800 mb-4">
-        <ArrowLeft size={15} /> Back to Leadership & Patrons
+        <ArrowLeft size={15} /> Back to Leadership
       </Link>
-      <h1 className="font-display font-bold text-2xl text-primary-950 mb-6">
-        Add {type === "PATRON" ? "a Patron" : "a Leader"}
-      </h1>
+      <h1 className="font-display font-bold text-2xl text-primary-950 mb-6">Add a Leader</h1>
       <div className="bg-white rounded-lg border border-line p-6">
-        <TeamMemberForm type={type} linkableMembers={linkableMembers} />
+        <TeamMemberForm type="LEADERSHIP" linkableMembers={linkableMembers} />
       </div>
     </div>
   );

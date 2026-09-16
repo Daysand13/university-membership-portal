@@ -6,7 +6,7 @@ import { TeamRowActions } from "@/components/admin/TeamRowActions";
 import { listTeamMembersForAdmin } from "@/lib/services/content-service";
 import { formatFullName } from "@/lib/format";
 
-export const metadata = { title: "Leadership & Patrons" };
+export const metadata = { title: "Leadership" };
 export const dynamic = "force-dynamic";
 
 async function TeamSection({ type, title, blurb }: { type: "LEADERSHIP" | "PATRON"; title: string; blurb: string }) {
@@ -94,9 +94,13 @@ export default async function AdminTeamPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="font-display font-bold text-2xl text-primary-950">Leadership & Patrons</h1>
+        <h1 className="font-display font-bold text-2xl text-primary-950">Leadership</h1>
         <p className="text-sm text-slate mt-1">
-          These show up in the Executive Leadership and Our Patrons sections on the public About page.
+          These show up in the Executive Leadership section on the public About page. Patrons are managed in{" "}
+          <Link href="/admin/patrons/profiles" className="font-semibold text-primary-800 hover:text-accent-600">
+            Patrons › Public Profiles
+          </Link>
+          .
         </p>
       </div>
 
@@ -104,11 +108,6 @@ export default async function AdminTeamPage() {
         type="LEADERSHIP"
         title="Executive Leadership and Team"
         blurb="The current executive committee / leadership team."
-      />
-      <TeamSection
-        type="PATRON"
-        title="Our Patrons"
-        blurb="Patrons of the association, shown with name, photo, position, and a short bio."
       />
     </div>
   );
