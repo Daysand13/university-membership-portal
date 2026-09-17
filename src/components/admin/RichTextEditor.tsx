@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Link as LinkExtension } from "@tiptap/extension-link";
@@ -45,7 +45,24 @@ function ToolbarButton({
   );
 }
 
-export function RichTextEditor({ name, defaultValue }: { name: string; defaultValue?: string }) {
+export function RichTextEditor({
+  name,
+  defaultValue,
+  allowImages = true,
+  onChange,
+  resetKey,
+  label,
+}: {
+  name: string;
+  defaultValue?: string;
+  /** Image upload uses the admin upload path, so it's switched off outside the admin area. */
+  allowImages?: boolean;
+  onChange?: (html: string) => void;
+  /** Changing this clears the editor (after a successful send, say). */
+  resetKey?: number;
+  /** Accessible name for the editing area. */
+  label?: string;
+}) {
   const [html, setHtml] = useState(defaultValue || "<p></p>");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,13 +74,23 @@ export function RichTextEditor({ name, defaultValue }: { name: string; defaultVa
     ],
     content: defaultValue || "<p></p>",
     immediatelyRender: false,
-    onUpdate: ({ editor }) => setHtml(editor.getHTML()),
+    onUpdate: ({ editor }) => {
+      setHtml(editor.getHTML());
+      onChange?.(editor.getHTML());
+    },
     editorProps: {
       attributes: {
         class: "prose-content focus:outline-none px-4 py-3 min-h-[260px] max-h-[520px] overflow-y-auto",
+        ...(label ? { "aria-label": label, role: "textbox", "aria-multiline": "true" } : {}),
       },
     },
   });
+
+  // Cleared from outside (e.g. after a message is sent). emitUpdate runs
+  // onUpdate, which keeps the hidden field in step.
+  useEffect(() => {
+    if (editor && resetKey) editor.commands.setContent("<p></p>", { emitUpdate: true });
+  }, [editor, resetKey]);
 
   if (!editor) {
     return <div className="rounded-md border border-line bg-surface-muted h-[300px] animate-pulse" />;
@@ -131,9 +158,11 @@ export function RichTextEditor({ name, defaultValue }: { name: string; defaultVa
         >
           <Link2 size={15} />
         </ToolbarButton>
-        <ToolbarButton label="Image" onClick={() => fileInputRef.current?.click()}>
-          <ImageIcon size={15} />
-        </ToolbarButton>
+        {allowImages && (
+          <ToolbarButton label="Image" onClick={() => fileInputRef.current?.click()}>
+            <ImageIcon size={15} />
+          </ToolbarButton>
+        )}
         <span className="w-px h-5 bg-line mx-1" />
         <ToolbarButton label="Undo" onClick={() => editor.chain().focus().undo().run()}>
           <Undo2 size={15} />

@@ -13,7 +13,9 @@ import {
   deleteDocument,
   incrementDownloadCount,
   getPublishedDocument,
+  getDocumentForPatron,
 } from "@/lib/services/document-service";
+import { getCurrentPatron } from "@/lib/auth/patron";
 import { getPresignedDownloadUrl, buildPublicUrl } from "@/lib/storage/r2";
 import type { ActionState } from "./types";
 
@@ -27,7 +29,15 @@ function parseDocumentForm(formData: FormData) {
     status: formData.get("status") ?? ContentStatus.DRAFT,
     featured: formData.get("featured") === "on",
     isPublic: formData.get("isPublic") !== "off", // default true unless explicitly toggled off
+    audience: formData.get("audience") === "PATRONS" ? "PATRONS" : "PUBLIC",
   });
+}
+
+function revalidateLibraries() {
+  revalidatePath("/library");
+  revalidatePath("/admin/library");
+  revalidatePath("/patrons/dashboard/documents");
+  revalidatePath("/patrons/dashboard/finances");
 }
 
 async function createDocumentActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
@@ -46,15 +56,15 @@ async function createDocumentActionImpl(_prevState: ActionState, formData: FormD
     parsed.data,
     {
       objectKey,
-      publicUrl: parsed.data.isPublic ? buildPublicUrl(objectKey) : null,
+      // A patrons-only document is only ever handed out through a short-lived signed link.
+      publicUrl: parsed.data.isPublic && parsed.data.audience === "PUBLIC" ? buildPublicUrl(objectKey) : null,
       mimeType,
       fileSize: Number(fileSize) || 0,
     },
     admin.id,
   );
 
-  revalidatePath("/library");
-  revalidatePath("/admin/library");
+  revalidateLibraries();
   redirect("/admin/library");
 }
 
@@ -66,16 +76,14 @@ async function updateDocumentActionImpl(_prevState: ActionState, formData: FormD
   if (!id) return { error: "Missing document id." };
 
   await updateDocumentMetadata(id, parsed.data);
-  revalidatePath("/library");
-  revalidatePath("/admin/library");
+  revalidateLibraries();
   return {};
 }
 
 async function deleteDocumentActionImpl(id: string): Promise<void> {
   await requireAdminRole(AdminRole.LIBRARIAN);
   await deleteDocument(id);
-  revalidatePath("/library");
-  revalidatePath("/admin/library");
+  revalidateLibraries();
 }
 
 /**
@@ -95,6 +103,23 @@ async function getDocumentDownloadUrlActionImpl(documentId: string): Promise<str
   return getPresignedDownloadUrl(document.r2ObjectKey, 300);
 }
 
+/**
+ * The same for a signed-in patron, who can also open patrons-only
+ * documents. Those always get a short-lived signed link.
+ */
+async function getPatronDocumentDownloadUrlActionImpl(documentId: string): Promise<string> {
+  const patron = await getCurrentPatron();
+  if (!patron) throw new Error("Please sign in again.");
+  const document = await getDocumentForPatron(documentId);
+  if (!document) throw new Error("Document not found or not published.");
+
+  await incrementDownloadCount(documentId);
+  if (document.audience === "PUBLIC" && document.isPublic && document.publicUrl) {
+    return document.publicUrl;
+  }
+  return getPresignedDownloadUrl(document.r2ObjectKey, 300);
+}
+
 // ---------------------------------------------------------------------------
 // Exported actions, each wrapped so an unexpected failure surfaces as a
 // friendly message instead of a raw server-error page. See
@@ -105,3 +130,7 @@ export const createDocumentAction = withActionErrorHandling("createDocumentActio
 export const updateDocumentAction = withActionErrorHandling("updateDocumentAction", updateDocumentActionImpl);
 export const deleteDocumentAction = withVoidActionErrorHandling("deleteDocumentAction", deleteDocumentActionImpl);
 export const getDocumentDownloadUrlAction = withTypedActionErrorHandling("getDocumentDownloadUrlAction", getDocumentDownloadUrlActionImpl);
+export const getPatronDocumentDownloadUrlAction = withTypedActionErrorHandling(
+  "getPatronDocumentDownloadUrlAction",
+  getPatronDocumentDownloadUrlActionImpl,
+);

@@ -173,3 +173,100 @@ export async function sendEmail(params: SendEmailParams): Promise<{ delivered: b
   });
   return { delivered: false };
 }
+
+/** Resend accepts at most this many emails per batch request. */
+const BATCH_SIZE = 100;
+/** Keeps a large send under Resend's default rate limit (2 requests/second). */
+const BATCH_GAP_MS = 600;
+
+/**
+ * Sends the same kind of message to many people — one email each, never a
+ * shared To or Bcc list, so nobody sees who else received it.
+ *
+ * Uses Resend's batch endpoint (100 emails per request) so a broadcast to
+ * every member takes a handful of requests instead of hundreds. Batches
+ * don't support attachments, which is why broadcasts link to their
+ * attachment instead. Like sendEmail it never throws; every recipient is
+ * recorded at Admin > Email Logs, and the number actually accepted by the
+ * provider is returned.
+ */
+export async function sendBatchEmails(params: {
+  messages: { to: string; subject: string; html: string }[];
+  template: string;
+  entityType?: string;
+  entityId?: string;
+}): Promise<{ delivered: number }> {
+  const { messages, template, entityType, entityId } = params;
+  if (messages.length === 0) return { delivered: 0 };
+
+  const client = getResendClient();
+  const from = process.env.EMAIL_FROM || "no-reply@example.edu.gh";
+
+  const logBatch = async (
+    batch: { to: string; subject: string }[],
+    status: "SENT" | "FAILED" | "SKIPPED_NO_PROVIDER",
+    attempts: number,
+    errorMessage?: string,
+  ) => {
+    try {
+      await db.emailLog.createMany({
+        data: batch.map((m) => ({
+          to: m.to,
+          subject: m.subject,
+          template,
+          status,
+          attempts,
+          errorMessage,
+          entityType,
+          entityId,
+        })),
+      });
+    } catch (err) {
+      console.error("[email] Failed to write batch audit log entries (emails themselves were unaffected):", err);
+    }
+  };
+
+  if (!client) {
+    console.log(`\n[email:dev-fallback] RESEND_API_KEY not set — ${messages.length} "${template}" emails logged instead of sent.\n`);
+    await logBatch(messages, "SKIPPED_NO_PROVIDER", 0);
+    return { delivered: 0 };
+  }
+
+  let delivered = 0;
+  for (let start = 0; start < messages.length; start += BATCH_SIZE) {
+    if (start > 0) await sleep(BATCH_GAP_MS);
+    const batch = messages.slice(start, start + BATCH_SIZE);
+
+    let lastErrorMessage = "Unknown error";
+    let sent = false;
+    let attemptsUsed = 0;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS && !sent; attempt++) {
+      attemptsUsed = attempt;
+      try {
+        const result = await client.batch.send(batch.map((m) => ({ from, to: m.to, subject: m.subject, html: m.html })));
+        if (result.error) {
+          lastErrorMessage = `[${result.error.name}] ${result.error.message}`;
+          console.error(`[email] Resend rejected a batch (attempt ${attempt}/${MAX_ATTEMPTS}):`, result.error);
+          if (!RETRYABLE_BATCH_ERRORS.has(result.error.name)) break;
+        } else {
+          sent = true;
+          break;
+        }
+      } catch (error) {
+        lastErrorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`[email] Resend batch send threw (attempt ${attempt}/${MAX_ATTEMPTS}):`, error);
+      }
+      if (attempt < MAX_ATTEMPTS) await sleep(RETRY_DELAY_MS[attempt - 1]);
+    }
+
+    if (sent) {
+      delivered += batch.length;
+      await logBatch(batch, "SENT", attemptsUsed);
+    } else {
+      await logBatch(batch, "FAILED", attemptsUsed, lastErrorMessage);
+    }
+  }
+  return { delivered };
+}
+
+const RETRYABLE_BATCH_ERRORS = new Set(["rate_limit_exceeded", "internal_server_error", "application_error"]);

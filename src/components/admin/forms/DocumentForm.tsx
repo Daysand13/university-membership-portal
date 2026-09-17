@@ -45,6 +45,16 @@ export function DocumentForm({ document, categories }: { document?: Document; ca
           <input id="version" name="version" defaultValue={document?.version ?? ""} className={inputClasses} />
         </div>
         <div>
+          <Label htmlFor="audience">Who can see it</Label>
+          <select id="audience" name="audience" defaultValue={document?.audience ?? "PUBLIC"} className={inputClasses}>
+            <option value="PUBLIC">Everyone (public library)</option>
+            <option value="PATRONS">Patrons only (Patrons&apos; Portal)</option>
+          </select>
+          <p className="text-xs text-slate mt-1">
+            Patrons see both. File quarterly balance sheets under the Financial Reports category.
+          </p>
+        </div>
+        <div>
           <Label htmlFor="status">Status</Label>
           <select id="status" name="status" defaultValue={document?.status ?? "DRAFT"} className={inputClasses}>
             <option value="DRAFT">Draft</option>
@@ -52,7 +62,7 @@ export function DocumentForm({ document, categories }: { document?: Document; ca
             <option value="ARCHIVED">Archived</option>
           </select>
         </div>
-        <div className="flex items-center gap-6 pt-6">
+        <div className="flex flex-wrap items-center gap-6 pt-6 sm:col-span-2">
           <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
             <input type="checkbox" name="featured" defaultChecked={document?.featured} className="h-4 w-4 rounded border-line text-primary-800" />
             Featured

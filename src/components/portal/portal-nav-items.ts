@@ -17,7 +17,12 @@ export type PortalIconName =
   | "network"
   | "career"
   | "records"
-  | "further";
+  | "further"
+  | "finances"
+  | "messages"
+  | "advocacy"
+  | "documents"
+  | "announcements";
 
 export interface PortalNavItem {
   href: string;
@@ -48,6 +53,7 @@ export const PORTAL_NAV: Record<PortalMode, PortalNavItem[]> = {
     { href: "/membership/dashboard/dues", label: "Dues & Payments", icon: "dues" },
     { href: "/membership/dashboard/events", label: "Association Events", icon: "events" },
     { href: "/membership/dashboard/elections", label: "Voting & Elections", icon: "elections" },
+    { href: "/membership/dashboard/announcements", label: "Announcements", icon: "announcements" },
     {
       href: "/membership/dashboard/profile",
       label: "Account Settings",
@@ -63,10 +69,16 @@ export const PORTAL_NAV: Record<PortalMode, PortalNavItem[]> = {
     { href: "/alumni/records", label: "Academic Records", icon: "records" },
     { href: "/alumni/further-studies", label: "Register for Further Studies", icon: "further" },
     { href: "/alumni/events", label: "Events & Reunions", icon: "events" },
+    { href: "/alumni/announcements", label: "Announcements", icon: "announcements" },
     { href: "/alumni/profile", label: "Account Settings", icon: "settings" },
   ],
   patron: [
-    { href: "/patrons/dashboard", label: "Dashboard", icon: "dashboard", exact: true },
+    { href: "/patrons/dashboard", label: "Overview", icon: "dashboard", exact: true },
+    { href: "/patrons/dashboard/finances", label: "Finances & Support", icon: "finances" },
+    { href: "/patrons/dashboard/messages", label: "Communication Center", icon: "messages" },
+    { href: "/patrons/dashboard/advocacy", label: "Advocacy & Rights", icon: "advocacy" },
+    { href: "/patrons/dashboard/membership", label: "Membership Network", icon: "network" },
+    { href: "/patrons/dashboard/documents", label: "Governance & Documents", icon: "documents" },
     { href: "/patrons/dashboard/events", label: "Association Events", icon: "events" },
     { href: "/patrons/dashboard/account", label: "Account Settings", icon: "settings" },
   ],

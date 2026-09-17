@@ -14,6 +14,10 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   pdf: "application/pdf",
   doc: "application/msword",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 };
 
 /**
@@ -212,10 +216,11 @@ async function uploadViaServer(params: {
   kind: EnrollmentUploadKind;
   file: File;
   mimeType: string;
+  fallbackUrl: string;
   onProgress?: (fraction: number) => void;
   trail: TrailEntry[];
 }): Promise<UploadOutcome> {
-  const { kind, onProgress, trail } = params;
+  const { kind, fallbackUrl, onProgress, trail } = params;
   let { file, mimeType } = params;
 
   if (file.size > FALLBACK_MAX_BYTES && mimeType.startsWith("image/")) {
@@ -235,7 +240,7 @@ async function uploadViaServer(params: {
     onProgress?.(0);
     const outcome = await sendWithProgress({
       method: "POST",
-      url: "/api/enrollment/upload",
+      url: fallbackUrl,
       body,
       stallTimeoutMs: STALL_TIMEOUT_MS,
       onProgress,
@@ -269,10 +274,12 @@ export async function prepareAndUpload(params: {
   targetBytes: number;
   /** The route that issues tickets for this form's caller (applicant or alumnus). */
   ticketUrl: string;
+  /** Where the bytes go if storage can't be reached directly. */
+  fallbackUrl?: string;
   /** 0–1 for whichever transfer is currently running. */
   onProgress?: (fraction: number) => void;
 }): Promise<UploadOutcome> {
-  const { kind, file, targetBytes, ticketUrl, onProgress } = params;
+  const { kind, file, targetBytes, ticketUrl, fallbackUrl = "/api/enrollment/upload", onProgress } = params;
   const trail: TrailEntry[] = [];
 
   if (isOffline()) return { status: "error", message: OFFLINE_MESSAGE };
@@ -307,7 +314,7 @@ export async function prepareAndUpload(params: {
     }
   }
 
-  const result = await uploadViaServer({ kind, file: prepared, mimeType, onProgress, trail });
+  const result = await uploadViaServer({ kind, file: prepared, mimeType, fallbackUrl, onProgress, trail });
   if (result.status === "error") {
     reportFailure({ kind, mimeType, fileSize: prepared.size, originalSize: file.size, finalError: result.message, trail });
   }

@@ -4,6 +4,7 @@ import { LinkButton } from "@/components/ui/Button";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { PersonCard } from "@/components/people/PersonCard";
 import { getActiveTeamMembers } from "@/lib/services/content-service";
+import { getHonorRoll } from "@/lib/services/patron-finance-service";
 
 export const metadata: Metadata = { title: "Patrons" };
 
@@ -37,7 +38,7 @@ const STEPS = [
  * only public page that lists patrons; About Us no longer does.
  */
 export default async function PatronsPage() {
-  const patrons = await getActiveTeamMembers("PATRON");
+  const [patrons, honorRoll] = await Promise.all([getActiveTeamMembers("PATRON"), getHonorRoll()]);
 
   return (
     <div className="bg-surface-muted">
@@ -90,6 +91,24 @@ export default async function PatronsPage() {
           </div>
         </div>
       </section>
+
+      {honorRoll.length > 0 && (
+        <section aria-labelledby="honor-heading" className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pt-12">
+          <div className="rounded-xl border border-accent-400 bg-accent-100 text-primary-950 p-6 sm:p-8 text-center">
+            <h2 id="honor-heading" className="font-display font-bold text-xl">
+              Patron Honor Roll
+            </h2>
+            <p className="mt-1 text-sm">With thanks to the patrons whose gifts support our students.</p>
+            <ul className="mt-5 flex flex-wrap justify-center gap-2">
+              {honorRoll.map((entry) => (
+                <li key={entry.patronId} className="rounded-full bg-white px-3.5 py-1.5 text-sm font-semibold text-primary-950 shadow-sm">
+                  {entry.name}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
 
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-14">
         <SectionHeading kicker="The role" title="What patrons do" align="center" />

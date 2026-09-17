@@ -13,6 +13,7 @@ import {
 import { validateUploadRequest, bytesMatchDeclaredType } from "@/lib/storage/validation";
 import { MAX_PASSPORT_PICTURE_BYTES, MAX_MEDICAL_REPORT_BYTES } from "@/lib/validations/membership";
 import { MEDICAL_REPORT_MIME_TYPES } from "@/lib/client/file-accept";
+import { MAX_PATRON_DOCUMENT_BYTES, PATRON_DOCUMENT_MIME_TYPES } from "@/lib/patron-portal-options";
 
 /**
  * Direct-to-R2 uploads for the PUBLIC enrollment form.
@@ -43,7 +44,16 @@ import { MEDICAL_REPORT_MIME_TYPES } from "@/lib/client/file-accept";
  * a bug fix.
  */
 
-export type EnrollmentUploadKind = "passport" | "medical";
+/**
+ * "patron-document" is a patron's upload from the Patrons' Portal (a letter
+ * for a broadcast, or a document for the governance library). It uses the
+ * same signed, verified path; only its own route handlers issue it, and
+ * only to a signed-in patron.
+ */
+export type EnrollmentUploadKind = "passport" | "medical" | "patron-document";
+
+/** The kinds the public enrollment and further-studies forms may request. */
+export const APPLICANT_UPLOAD_KINDS: readonly EnrollmentUploadKind[] = ["passport", "medical"];
 
 const KIND_CONFIG: Record<
   EnrollmentUploadKind,
@@ -54,9 +64,13 @@ const KIND_CONFIG: Record<
     /** Narrower than the category allows, where the category is too broad. */
     mimeTypes?: readonly string[];
     wrongTypeMessage?: string;
+    /** The bucket folder the object is stored under. */
+    prefix: "members" | "library";
+    /** How to describe a file that fails the byte check. */
+    expectedFiles?: string;
   }
 > = {
-  passport: { category: "image", maxBytes: MAX_PASSPORT_PICTURE_BYTES, label: "passport picture" },
+  passport: { category: "image", maxBytes: MAX_PASSPORT_PICTURE_BYTES, label: "passport picture", prefix: "members" },
   // "document" on its own would also let a spreadsheet or a zip through, and
   // on Android the picker no longer filters what can be chosen (see
   // lib/client/file-accept.ts), so the list is enforced here.
@@ -66,8 +80,22 @@ const KIND_CONFIG: Record<
     label: "medical report",
     mimeTypes: MEDICAL_REPORT_MIME_TYPES,
     wrongTypeMessage: "Your medical report must be a PDF or Word document, or a JPG or PNG photo of the report.",
+    prefix: "members",
+  },
+  "patron-document": {
+    category: "document",
+    maxBytes: MAX_PATRON_DOCUMENT_BYTES,
+    label: "document",
+    mimeTypes: PATRON_DOCUMENT_MIME_TYPES,
+    wrongTypeMessage: "Attach a PDF, Word, Excel or PowerPoint file, or a JPG or PNG image.",
+    prefix: "library",
+    expectedFiles: "a PDF, Office document, JPG or PNG",
   },
 };
+
+function expectedFilesFor(kind: EnrollmentUploadKind): string {
+  return KIND_CONFIG[kind].expectedFiles ?? "a JPG, PNG or PDF";
+}
 
 function typeProblem(kind: EnrollmentUploadKind, mimeType: string): string | null {
   const config = KIND_CONFIG[kind];
@@ -80,7 +108,10 @@ function typeProblem(kind: EnrollmentUploadKind, mimeType: string): string | nul
  * are only descriptions of the file — every one is checked again, against
  * the real stored bytes, before an application is saved.
  */
-export function parseEnrollmentTicketRequest(body: unknown): {
+export function parseEnrollmentTicketRequest(
+  body: unknown,
+  allowedKinds: readonly EnrollmentUploadKind[] = APPLICANT_UPLOAD_KINDS,
+): {
   kind: EnrollmentUploadKind;
   filename: string;
   mimeType: string;
@@ -88,11 +119,11 @@ export function parseEnrollmentTicketRequest(body: unknown): {
 } | null {
   if (!body || typeof body !== "object") return null;
   const { kind, filename, mimeType, fileSize } = body as Record<string, unknown>;
-  if (kind !== "passport" && kind !== "medical") return null;
+  if (typeof kind !== "string" || !allowedKinds.includes(kind as EnrollmentUploadKind)) return null;
   if (typeof filename !== "string" || filename.length === 0 || filename.length > 300) return null;
   if (typeof mimeType !== "string" || mimeType.length > 200) return null;
   if (typeof fileSize !== "number" || !Number.isFinite(fileSize) || fileSize < 0) return null;
-  return { kind, filename, mimeType, fileSize };
+  return { kind: kind as EnrollmentUploadKind, filename, mimeType, fileSize };
 }
 
 /**
@@ -205,7 +236,7 @@ export async function requestEnrollmentUpload(params: {
   const wrongType = typeProblem(kind, mimeType);
   if (wrongType) return { ok: false, error: wrongType };
 
-  const objectKey = generateObjectKey("members", filename, mimeType);
+  const objectKey = generateObjectKey(config.prefix, filename, mimeType);
   const uploadUrl = await getPresignedUploadUrl({
     objectKey,
     contentType: mimeType,
@@ -273,11 +304,11 @@ export async function storeEnrollmentUpload(params: {
       ok: false,
       error: `Your ${config.label} doesn't look like a valid ${
         config.category === "image" ? "image" : "document"
-      }. Please attach a JPG, PNG or PDF.`,
+      }. Please attach ${expectedFilesFor(kind)}.`,
     };
   }
 
-  const objectKey = generateObjectKey("members", filename, mimeType);
+  const objectKey = generateObjectKey(config.prefix, filename, mimeType);
   await uploadBuffer({ objectKey, contentType: mimeType, body: bytes });
 
   return {
@@ -298,6 +329,26 @@ export async function adoptEnrollmentUpload(
   kind: EnrollmentUploadKind,
   token: string | null | undefined,
 ): Promise<string | null> {
+  const upload = await inspectUpload(kind, token);
+  return upload ? buildPublicUrl(upload.objectKey) : null;
+}
+
+export interface AdoptedUpload {
+  objectKey: string;
+  mimeType: string;
+  fileSize: number;
+}
+
+/**
+ * The same checks as adoptEnrollmentUpload, for a patron's document: returns
+ * the stored object's key, type and real size, or throws
+ * EnrollmentUploadError. Null only when file storage isn't configured.
+ */
+export async function adoptPatronDocumentUpload(token: string | null | undefined): Promise<AdoptedUpload | null> {
+  return inspectUpload("patron-document", token);
+}
+
+async function inspectUpload(kind: EnrollmentUploadKind, token: string | null | undefined): Promise<AdoptedUpload | null> {
   const config = KIND_CONFIG[kind];
 
   if (!token) {
@@ -344,9 +395,9 @@ export async function adoptEnrollmentUpload(
     await reject(
       `Your ${config.label} doesn't look like a valid ${
         config.category === "image" ? "image" : "document"
-      }. Please attach a JPG, PNG or PDF.`,
+      }. Please attach ${expectedFilesFor(kind)}.`,
     );
   }
 
-  return buildPublicUrl(payload.k);
+  return { objectKey: payload.k, mimeType: payload.ct, fileSize: metadata.size };
 }

@@ -4,6 +4,8 @@ import { formatFullName } from "@/lib/format";
 import { getLatestNews } from "@/lib/services/news-service";
 import { getMemberCardQr } from "@/lib/services/member-card-service";
 import { getTeamRoleBadges } from "@/lib/services/team-role-service";
+import { listAnnouncementsForMember } from "@/lib/services/broadcast-service";
+import { AnnouncementsCard } from "@/components/patron-portal/Display";
 import {
   getCurrentAcademicYear,
   getDuesFeeForMember,
@@ -23,7 +25,7 @@ export default async function MemberDashboardPage({
   const sp = await searchParams;
   const academicYear = getCurrentAcademicYear();
 
-  const [duesFee, duesPayment, news, card, teamRoles] = await Promise.all([
+  const [duesFee, duesPayment, news, card, teamRoles, announcements] = await Promise.all([
     getDuesFeeForMember(member),
     getLatestDuesPayment(member.id, academicYear),
     getLatestNews(4),
@@ -33,6 +35,7 @@ export default async function MemberDashboardPage({
       return null;
     }),
     getTeamRoleBadges({ memberIds: [member.id], userId: member.userId }),
+    listAnnouncementsForMember(member.id, 3),
   ]);
   const duesPaid = duesPayment?.status === "SUCCESS" ? duesPayment : null;
   const duesNotice = sp.dues === "success" || sp.dues === "failed" || sp.dues === "error" ? sp.dues : undefined;
@@ -61,6 +64,11 @@ export default async function MemberDashboardPage({
       news={news}
       card={card ? { qrSvg: card.svg } : null}
       teamRoles={teamRoles}
+      announcements={
+        announcements.length > 0 ? (
+          <AnnouncementsCard announcements={announcements} href="/membership/dashboard/announcements" />
+        ) : undefined
+      }
     />
   );
 }

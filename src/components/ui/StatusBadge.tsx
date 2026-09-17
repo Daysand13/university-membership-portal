@@ -11,15 +11,23 @@ const STATUS_STYLES: Record<string, string> = {
   INACTIVE: "bg-slate-100 text-slate-500",
   NEW: "bg-primary-100 text-primary-800",
   READ: "bg-slate-100 text-slate-500",
+  OPEN: "bg-primary-100 text-primary-800",
+  CLOSED: "bg-slate-100 text-slate-500",
+  ACHIEVED: "bg-success-light text-success",
+  SUCCESS: "bg-success-light text-success",
+  FAILED: "bg-danger-light text-danger",
+  RESOLVED: "bg-success-light text-success",
+  SUBMITTED: "bg-warning-light text-warning",
+  PATRON_ACTION: "bg-accent-100 text-primary-950",
 };
 
 const STATUS_LABELS: Record<string, string> = {
   UNDER_REVIEW: "Under Review",
 };
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status, label: labelOverride }: { status: string; label?: string }) {
   const style = STATUS_STYLES[status] ?? "bg-slate-100 text-slate-600";
-  const label = STATUS_LABELS[status] ?? status.charAt(0) + status.slice(1).toLowerCase();
+  const label = labelOverride ?? STATUS_LABELS[status] ?? status.charAt(0) + status.slice(1).toLowerCase();
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${style}`}

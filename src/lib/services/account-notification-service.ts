@@ -42,7 +42,8 @@ export function firstNameOf(fullName: string): string {
   return fullName.trim().split(/\s+/)[0] || fullName;
 }
 
-async function deliver(params: {
+/** Exported for the Patrons' Portal notices (patron-portal-notification-service). */
+export async function deliver(params: {
   to: Recipient;
   template: string;
   entityType: string;
@@ -619,7 +620,7 @@ export function patronSalutation(patron: { title: string | null; fullName: strin
   return names[0] || patron.fullName;
 }
 
-function patronDisplayName(patron: { title: string | null; fullName: string }): string {
+export function patronDisplayName(patron: { title: string | null; fullName: string }): string {
   return [patron.title, patron.fullName].filter(Boolean).join(" ");
 }
 

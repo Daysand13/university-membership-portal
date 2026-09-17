@@ -374,3 +374,45 @@ export function accountNoticeEmail(params: {
     ),
   };
 }
+
+/**
+ * A patron's broadcast, approved by an administrator and sent to a group of
+ * members. `bodyHtml` must already be sanitised (see broadcast-service); it
+ * is the one place in these templates where HTML is passed in rather than
+ * built here, because the patron wrote rich text.
+ */
+export function patronBroadcastEmail(params: {
+  firstName: string;
+  subject: string;
+  bodyHtml: string;
+  authorName: string;
+  audienceLabel: string;
+  attachment?: { url: string; name: string } | null;
+  portalUrl?: string | null;
+  brand: EmailBrand;
+}) {
+  const { firstName, subject, bodyHtml, authorName, audienceLabel, attachment, portalUrl, brand } = params;
+  return {
+    subject,
+    html: baseLayout(
+      `
+      <p style="margin:0 0 4px;font-size:12px;color:#5b6b7c;text-transform:uppercase;letter-spacing:0.04em;">Message from a Patron · ${e(audienceLabel)}</p>
+      <p style="margin:0 0 18px;font-size:18px;font-weight:700;color:${BRAND_COLOR};">${e(subject)}</p>
+      <p>Dear ${e(firstName)},</p>
+      <div style="font-size:15px;line-height:1.65;">${bodyHtml}</div>
+      <p style="margin-top:20px;font-weight:600;">${e(authorName)}<br/><span style="font-weight:400;color:#5b6b7c;">Patron, ${e(brand.siteTitle)}</span></p>
+      ${
+        attachment
+          ? `<table role="presentation" style="width:100%;background:#eef0fb;border-radius:6px;margin:18px 0;"><tr><td style="padding:14px 18px;">
+              <div style="font-size:12px;color:#5b6b7c;text-transform:uppercase;letter-spacing:0.04em;">Attachment</div>
+              <a href="${e(attachment.url)}" style="font-size:15px;font-weight:600;color:${BRAND_COLOR};">${e(attachment.name)}</a>
+            </td></tr></table>`
+          : ""
+      }
+      ${portalUrl ? button(portalUrl, "Open Your Portal") : ""}
+      <p style="margin-top:18px;color:#5b6b7c;font-size:13px;">This message was reviewed and approved by the ${e(brand.siteTitle)} before it was sent.</p>
+    `,
+      brand,
+    ),
+  };
+}

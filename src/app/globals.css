@@ -261,6 +261,7 @@
    near-white text on gold, which is both illegible and changes how the
    gold buttons look between themes. */
 :root[data-theme="dark"] .bg-accent-50.text-primary-950,
+:root[data-theme="dark"] .bg-accent-100.text-primary-950,
 :root[data-theme="dark"] .bg-accent-400.text-primary-950,
 :root[data-theme="dark"] .bg-accent-500.text-primary-950,
 :root[data-theme="dark"] .bg-accent-600.text-primary-950 {
@@ -295,4 +296,44 @@
 }
 :root[data-theme="dark"] .border-warning {
   border-color: rgba(251, 191, 36, 0.4);
+}
+
+/*
+  Chart colours for the Patrons' Portal and admin finance pages. Each series
+  keeps one colour wherever it appears (dues is always blue, and so on).
+  Validated for colour-blind separation against a white card and, in dark
+  mode, against the dark card colour (#0f121a). Every chart also has a
+  legend and a "Show the numbers" table, so colour never carries meaning
+  on its own.
+*/
+.viz {
+  --viz-surface: #ffffff;
+  --viz-grid: #e8ecf1;
+  --viz-axis: #c3c9d2;
+  --viz-dues: #2a78d6;
+  --viz-patron: #eb6834;
+  --viz-other: #1baf7a;
+  --viz-expense: #4a3aa7;
+  --viz-students: #4a3aa7;
+  --viz-alumni: #e87ba4;
+}
+:root[data-theme="dark"] .viz {
+  --viz-surface: #0f121a;
+  --viz-grid: #232a38;
+  --viz-axis: #3a4254;
+  --viz-dues: #3987e5;
+  --viz-patron: #d95926;
+  --viz-other: #199e70;
+  --viz-expense: #9085e9;
+  --viz-students: #9085e9;
+  --viz-alumni: #d55181;
+}
+.viz [data-tip]:hover,
+.viz [data-tip]:focus-visible {
+  outline: none;
+}
+.viz [data-tip]:hover .viz-hit-bg,
+.viz [data-tip]:focus-visible .viz-hit-bg {
+  fill: var(--color-line);
+  fill-opacity: 0.55;
 }

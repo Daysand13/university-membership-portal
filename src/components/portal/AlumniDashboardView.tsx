@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight, Briefcase, GraduationCap, Network, User, UserRound } from "lucide-react";
 import { LinkButton } from "@/components/ui/Button";
@@ -40,6 +41,8 @@ export interface AlumniDashboardViewProps {
   isCurrentlyEnrolled: boolean;
   /** Executive or patron positions this person holds, shown as badges. */
   teamRoles: TeamRoleBadge[];
+  /** The patrons' announcements card, when there are any. */
+  announcements?: ReactNode;
 }
 
 function BannerStat({ label, value }: { label: string; value: string }) {
@@ -70,6 +73,7 @@ export function AlumniDashboardView({
   furtherStudies,
   isCurrentlyEnrolled,
   teamRoles,
+  announcements,
 }: AlumniDashboardViewProps) {
   const pendingFurtherStudies =
     furtherStudies && (furtherStudies.status === "PENDING" || furtherStudies.status === "UNDER_REVIEW");
@@ -263,6 +267,8 @@ export function AlumniDashboardView({
             </LinkButton>
           </div>
         </DashboardCard>
+
+        {announcements}
       </div>
     </div>
   );

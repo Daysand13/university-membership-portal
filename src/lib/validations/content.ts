@@ -84,6 +84,8 @@ export const documentSchema = z.object({
   status: z.enum(ContentStatus).default(ContentStatus.DRAFT),
   featured: z.boolean().default(false),
   isPublic: z.boolean().default(true),
+  // PUBLIC: the public library. PATRONS: only the Patrons' Portal.
+  audience: z.enum(["PUBLIC", "PATRONS"]).default("PUBLIC"),
 });
 export type DocumentInput = z.infer<typeof documentSchema>;
 

@@ -8,8 +8,13 @@ import {
   CalendarDays,
   CreditCard,
   FileText,
+  FolderOpen,
   GraduationCap,
+  HandCoins,
   LayoutDashboard,
+  Megaphone,
+  MessagesSquare,
+  Scale,
   Search,
   Settings,
   Users,
@@ -30,6 +35,11 @@ const ICONS: Record<PortalIconName, LucideIcon> = {
   career: Briefcase,
   records: FileText,
   further: GraduationCap,
+  finances: HandCoins,
+  messages: MessagesSquare,
+  advocacy: Scale,
+  documents: FolderOpen,
+  announcements: Megaphone,
 };
 
 export function PortalNav({ items, label }: { items: PortalNavItem[]; label: string }) {

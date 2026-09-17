@@ -46,6 +46,8 @@ export interface MemberDashboardViewProps {
   card: { qrSvg: string } | null;
   /** Executive or patron positions this member holds, shown as badges. */
   teamRoles: TeamRoleBadge[];
+  /** The patrons' announcements card, when there are any. */
+  announcements?: ReactNode;
 }
 
 function BannerStat({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
@@ -89,7 +91,7 @@ function QuickAction({
 
 const footerLinkClasses = "inline-flex items-center gap-1.5 font-semibold text-primary-800 hover:text-accent-600";
 
-export function MemberDashboardView({ member, notices, dues, news, card, teamRoles }: MemberDashboardViewProps) {
+export function MemberDashboardView({ member, notices, dues, news, card, teamRoles, announcements }: MemberDashboardViewProps) {
   return (
     <div className="space-y-6">
       {notices.passwordChanged && <PortalNotice tone="success">Your password has been changed.</PortalNotice>}
@@ -267,6 +269,8 @@ export function MemberDashboardView({ member, notices, dues, news, card, teamRol
             />
           </ul>
         </DashboardCard>
+
+        {announcements}
       </div>
     </div>
   );

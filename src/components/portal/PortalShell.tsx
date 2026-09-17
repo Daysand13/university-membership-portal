@@ -30,6 +30,7 @@ export function PortalShell({
   person,
   switcher,
   signOutAction,
+  headerTools,
   children,
 }: {
   mode: PortalMode;
@@ -38,6 +39,8 @@ export function PortalShell({
   person: { name: string; email: string; avatarUrl: string | null };
   switcher: { isDual: boolean; canSwitch: boolean; isAdmin: boolean };
   signOutAction: () => Promise<void>;
+  /** Extra controls beside the account menu (the Patrons' Portal's search, quick actions and bell). */
+  headerTools?: ReactNode;
   children: ReactNode;
 }) {
   const portalLabel = PORTAL_LABEL[mode];
@@ -81,6 +84,7 @@ export function PortalShell({
           </div>
 
           <div className="ml-auto flex items-center gap-1.5">
+            {headerTools}
             {/* The accessibility toolbar's compact Read Aloud / Dark Mode
                 buttons portal into this slot on small screens. */}
             <div id="a11y-mobile-slot" className="flex items-center" />

@@ -120,6 +120,12 @@ model AdminUser {
   elections            Election[]
   reviewedApplications MembershipApplication[] @relation("ApplicationReviewer")
   reviewedPatrons      PatronProfile[]         @relation("PatronReviewer")
+  recordedDonations    Donation[]              @relation("DonationRecorder")
+  recordedExpenses     Expense[]               @relation("ExpenseRecorder")
+  reviewedBroadcasts   Broadcast[]             @relation("BroadcastReviewer")
+  patronMessages       PatronMessage[]         @relation("PatronMessageAuthor")
+  advocacyCampaigns    AdvocacyCampaign[]      @relation("CampaignCreator")
+  accessibilityIssues  AccessibilityIssue[]    @relation("IssueCreator")
   auditLogs            AuditLog[]
   uploadedMedia        Media[]
 
@@ -134,10 +140,10 @@ model AdminUser {
 }
 
 model Member {
-  id                 String    @id @default(cuid())
-  indexNumber        String    @unique
+  id                 String  @id @default(cuid())
+  indexNumber        String  @unique
   passwordHash       String
-  mustChangePassword Boolean   @default(true)
+  mustChangePassword Boolean @default(true)
 
   firstName       String
   middleName      String?
@@ -154,7 +160,7 @@ model Member {
   department             String
   academicDepartment     String?
   hallOfAffiliation      String?
-  specificSupportNeeds   String[] @default([])
+  specificSupportNeeds   String[]          @default([])
   level                  String
   campus                 String
   yearOfAdmission        Int
@@ -168,10 +174,10 @@ model Member {
   emergencyContactPhone String?
 
   membershipType MembershipType?
-  status         MemberStatus @default(ACTIVE)
+  status         MemberStatus    @default(ACTIVE)
   graduatedAt    DateTime?
 
-  applicationId String?                 @unique
+  applicationId String?                @unique
   application   MembershipApplication? @relation(fields: [applicationId], references: [id])
 
   createdAt DateTime @default(now())
@@ -204,14 +210,14 @@ model MembershipApplication {
   phone           String
   email           String
 
-  indexNumber            String @unique
+  indexNumber            String            @unique
   applicationTrack       ApplicationTrack?
   degreeCategory         String?
   programme              String
   department             String
   academicDepartment     String?
   hallOfAffiliation      String?
-  specificSupportNeeds   String[] @default([])
+  specificSupportNeeds   String[]          @default([])
   level                  String
   campus                 String
   yearOfAdmission        Int
@@ -353,6 +359,11 @@ model Event {
 // LIBRARY
 // ==================================================================
 
+enum DocumentAudience {
+  PUBLIC
+  PATRONS
+}
+
 model DocumentCategory {
   id        String     @id @default(cuid())
   name      String     @unique
@@ -363,28 +374,38 @@ model DocumentCategory {
 }
 
 model Document {
-  id            String            @id @default(cuid())
-  title         String
-  description   String?
-  categoryId    String?
-  category      DocumentCategory? @relation(fields: [categoryId], references: [id])
-  r2ObjectKey   String
-  publicUrl     String?
-  mimeType      String
-  fileSize      Int
-  thumbnailUrl  String?
-  version       String?
-  featured      Boolean           @default(false)
-  status        ContentStatus     @default(DRAFT)
-  isPublic      Boolean           @default(true)
-  uploadedById  String?
-  uploadedBy    AdminUser?        @relation(fields: [uploadedById], references: [id])
-  downloadCount Int               @default(0)
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  id                 String            @id @default(cuid())
+  title              String
+  description        String?
+  categoryId         String?
+  category           DocumentCategory? @relation(fields: [categoryId], references: [id])
+  r2ObjectKey        String
+  publicUrl          String?
+  mimeType           String
+  fileSize           Int
+  thumbnailUrl       String?
+  version            String?
+  featured           Boolean           @default(false)
+  status             ContentStatus     @default(DRAFT)
+  isPublic           Boolean           @default(true)
+  // Who may read it once published: everyone (the public library) or only
+  // signed-in patrons (the Patrons' Portal governance library).
+  audience           DocumentAudience  @default(PUBLIC)
+  uploadedById       String?
+  uploadedBy         AdminUser?        @relation(fields: [uploadedById], references: [id])
+  // Set when a patron uploaded it from the Patrons' Portal. Such a document
+  // starts as a DRAFT for the patrons audience and is shared only once an
+  // administrator publishes it.
+  uploadedByPatronId String?
+  uploadedByPatron   PatronProfile?    @relation(fields: [uploadedByPatronId], references: [id], onDelete: SetNull)
+  downloadCount      Int               @default(0)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 
   @@index([status])
   @@index([categoryId])
+  @@index([audience])
+  @@index([uploadedByPatronId])
   @@map("documents")
 }
 
@@ -435,9 +456,9 @@ model ElectionCandidate {
 // ==================================================================
 
 model HeroSlide {
-  id        String   @id @default(cuid())
-  title     String
-  subtitle  String?
+  id              String   @id @default(cuid())
+  title           String
+  subtitle        String?
   imageUrl        String?
   backgroundColor String?
   ctaText         String?
@@ -451,17 +472,17 @@ model HeroSlide {
 }
 
 model AboutContent {
-  id                     String   @id @default("default")
-  mission                String?
-  vision                 String?
-  coreValues             String?
-  history                String?
-  objectives             String?
-  leadershipMessage      String?
-  membershipEligibility  String?
-  partnersStakeholders   String?
-  imageUrl               String?
-  updatedAt              DateTime @updatedAt
+  id                    String   @id @default("default")
+  mission               String?
+  vision                String?
+  coreValues            String?
+  history               String?
+  objectives            String?
+  leadershipMessage     String?
+  membershipEligibility String?
+  partnersStakeholders  String?
+  imageUrl              String?
+  updatedAt             DateTime @updatedAt
 
   @@map("about_content")
 }
@@ -540,9 +561,9 @@ model ContactMessage {
 }
 
 model Media {
-  id           String         @id @default(cuid())
+  id           String        @id @default(cuid())
   filename     String
-  category     MediaCategory  @default(OTHER)
+  category     MediaCategory @default(OTHER)
   r2ObjectKey  String
   publicUrl    String?
   mimeType     String
@@ -551,8 +572,8 @@ model Media {
   width        Int?
   height       Int?
   uploadedById String?
-  uploadedBy   AdminUser?     @relation(fields: [uploadedById], references: [id])
-  createdAt    DateTime       @default(now())
+  uploadedBy   AdminUser?    @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime      @default(now())
 
   @@map("media")
 }
@@ -620,20 +641,20 @@ enum AlumniStatus {
 }
 
 model AlumniProfile {
-  id                String       @id @default(cuid())
-  fullName          String
-  email             String       @unique
-  phone             String
-  passwordHash      String?
-  mustSetPassword   Boolean      @default(false)
-  graduationYear    Int
-  programme         String
-  profession        String?
-  currentLocation   String?
-  profileImageUrl   String?
-  bio               String?
-  willingToMentor   Boolean      @default(false)
-  status            AlumniStatus @default(ACTIVE)
+  id              String       @id @default(cuid())
+  fullName        String
+  email           String       @unique
+  phone           String
+  passwordHash    String?
+  mustSetPassword Boolean      @default(false)
+  graduationYear  Int
+  programme       String
+  profession      String?
+  currentLocation String?
+  profileImageUrl String?
+  bio             String?
+  willingToMentor Boolean      @default(false)
+  status          AlumniStatus @default(ACTIVE)
 
   // Visible in the members-only directory to other signed-in alumni. This
   // has never meant "visible on the public web" and still doesn't — see
@@ -648,7 +669,7 @@ model AlumniProfile {
   publicProfile Boolean @default(false)
   // Address of the public profile page, /alumni/[publicSlug]. Nullable
   // because it's only minted when a profile is first made public.
-  publicSlug String? @unique
+  publicSlug    String? @unique
 
   // Professional detail, shown publicly only when publicProfile is set.
   currentPosition     String?
@@ -706,9 +727,9 @@ model AlumniSpotlight {
   /// Short editorial line for the card, e.g. "Building accessible software".
   headline String?
   /// One or two sentences of achievement summary, shown on the card.
-  summary String?
+  summary  String?
   /// Long-form spotlight story shown on the profile page.
-  story String?
+  story    String?
   /// Optional replacement for the account's own profile photo, so a casual
   /// avatar doesn't have to double as a public feature image.
   imageUrl String?
@@ -722,7 +743,7 @@ model AlumniSpotlight {
   /// Nothing reaches the public site until this is true, independently of
   /// whether the profile itself is public — so a spotlight can be drafted
   /// and reviewed before anyone sees it.
-  published Boolean @default(false)
+  published      Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -737,15 +758,15 @@ model AlumniSpotlight {
 model AlumniPageContent {
   id String @id @default("default")
 
-  heroKicker      String @default("Alumni Network")
-  heroTitle       String @default("Our Proud Alumni")
-  heroDescription String @default("Our alumni continue to make meaningful contributions across their professions, communities, and the world. Discover the people who represent the impact of our association beyond graduation.")
+  heroKicker      String  @default("Alumni Network")
+  heroTitle       String  @default("Our Proud Alumni")
+  heroDescription String  @default("Our alumni continue to make meaningful contributions across their professions, communities, and the world. Discover the people who represent the impact of our association beyond graduation.")
   heroImageUrl    String?
 
   showcaseTitle       String @default("Our Proud Alumni")
   showcaseDescription String @default("Graduates of the association making an impact in their fields.")
 
-  updatedAt DateTime @updatedAt @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@map("alumni_page_content")
 }
@@ -767,14 +788,16 @@ model AlumniPasswordResetToken {
 // Rate limiting
 // ---------------------------------------------------------------------------
 
-/** Each row is one attempt at something worth rate-limiting (a login try,
+/**
+ * Each row is one attempt at something worth rate-limiting (a login try,
  * a password reset request, a form submission). Checking a rate limit
  * means counting recent rows for a given key; enforcing it means writing
  * a new row after every attempt. Old rows are opportunistically cleaned up
  * so this table doesn't grow unbounded. Backed by the database (rather
  * than an external service like Redis) so it works correctly across
  * Vercel's many separate serverless instances without asking for another
- * account/signup. */
+ * account/signup.
+ */
 model RateLimitAttempt {
   id        String   @id @default(cuid())
   key       String
@@ -929,32 +952,31 @@ enum PatronStatus {
  * friend of the association — who applies online at /patrons/register and
  * is approved by an administrator before they can sign in to the Patrons'
  * Portal.
- *
  * Deliberately separate from the student and alumni identities: patrons are
  * usually neither, so they have their own record, their own sign-in and
  * their own session (see lib/auth/patron.ts). Being approved here is about
- * portal access; the public Leadership & Patrons listing on the About page
- * is still managed separately in Admin > Leadership & Patrons.
+ * portal access; the profiles shown on the public Patrons page are managed
+ * separately, in Admin > Patrons > Public Profiles.
  */
 model PatronProfile {
-  id           String  @id @default(cuid())
+  id              String  @id @default(cuid())
   // Prof., Dr., Rev. … — optional, and used to greet them in emails.
-  title        String?
-  fullName     String
-  email        String  @unique
-  phone        String
+  title           String?
+  fullName        String
+  email           String  @unique
+  phone           String
   // Their work: occupation/profession, and where and as what they do it.
-  occupation   String
-  organization String?
-  jobTitle     String?
-  address      String?
-  region       String?
+  occupation      String
+  organization    String?
+  jobTitle        String?
+  address         String?
+  region          String?
   // From the application form: how they'd like to support the association,
   // and why they want to become a patron.
   supportInterest String?
   motivation      String?
   // Chosen when applying; usable only once the application is approved.
-  passwordHash String
+  passwordHash    String
 
   status       PatronStatus @default(PENDING)
   reviewedById String?
@@ -964,8 +986,19 @@ model PatronProfile {
   // suspended.
   adminNote    String?
 
+  // When they last opened the notifications menu in the portal; anything
+  // newer counts as unread.
+  notificationsSeenAt DateTime?
+
   submittedAt DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  donations    Donation[]
+  broadcasts   Broadcast[]
+  threads      PatronThread[]
+  endorsements CampaignEndorsement[]
+  issueActions IssuePatronAction[]
+  documents    Document[]
 
   @@index([status])
   @@index([submittedAt])
@@ -996,7 +1029,7 @@ model DuesPayment {
   // The value sent to Paystack as the transaction reference — generated
   // here (not by Paystack) so it can be created before the API call and
   // used to look the payment back up from the callback/webhook.
-  reference             String  @unique
+  reference             String    @unique
   paystackTransactionId String?
   paidAt                DateTime?
 
@@ -1007,4 +1040,324 @@ model DuesPayment {
   @@index([academicYear])
   @@index([status])
   @@map("dues_payments")
+}
+
+// ---------------------------------------------------------------------------
+// Patrons' Portal: finances
+// ---------------------------------------------------------------------------
+
+/// The causes a donation can be given to.
+enum DonationFund {
+  GENERAL
+  ASSISTIVE_TECHNOLOGY
+  EMERGENCY_WELFARE
+  ADVOCACY_LEGAL
+}
+
+enum DonationStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum DonationSource {
+  // Paid online through Paystack.
+  ONLINE
+  // Received another way (cash, bank transfer, cheque) and entered by an
+  // administrator.
+  RECORDED
+}
+
+/// One donation, or one attempt at an online donation. Like DuesPayment, a
+/// failed or abandoned attempt is kept rather than overwritten; only SUCCESS
+/// rows count as money raised.
+model Donation {
+  id       String         @id @default(cuid())
+  // The patron who gave it, when it was given from the Patrons' Portal.
+  patronId String?
+  patron   PatronProfile? @relation(fields: [patronId], references: [id], onDelete: SetNull)
+
+  // Captured when the donation is made, so the record still reads correctly
+  // if the patron account is later removed.
+  donorName  String
+  donorEmail String?
+
+  fund          DonationFund @default(GENERAL)
+  // Pesewas (100 = GHS 1.00), as with dues.
+  amountPesewas Int
+  // Anonymous donations never appear on the Patron Honor Roll.
+  anonymous     Boolean      @default(false)
+
+  source                DonationSource @default(ONLINE)
+  status                DonationStatus @default(PENDING)
+  reference             String         @unique
+  paystackTransactionId String?
+  paidAt                DateTime?
+  note                  String?
+
+  recordedById String?
+  recordedBy   AdminUser? @relation("DonationRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([patronId])
+  @@index([paidAt])
+  @@map("donations")
+}
+
+/// How the association's spending is grouped in the finance charts.
+enum ExpenseCategory {
+  STUDENT_WELFARE
+  EVENTS
+  ASSISTIVE_TECHNOLOGY
+  ADVOCACY
+  ADMINISTRATION
+  OTHER
+}
+
+/// Money the association spent, recorded by an administrator.
+model Expense {
+  id            String          @id @default(cuid())
+  category      ExpenseCategory
+  description   String
+  amountPesewas Int
+  spentOn       DateTime
+
+  recordedById String?
+  recordedBy   AdminUser? @relation("ExpenseRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([spentOn])
+  @@index([category])
+  @@map("expenses")
+}
+
+// ---------------------------------------------------------------------------
+// Patrons' Portal: communication
+// ---------------------------------------------------------------------------
+
+enum BroadcastAudience {
+  ALL_MEMBERS
+  STUDENTS
+  ALUMNI
+  EXECUTIVES
+}
+
+enum BroadcastStatus {
+  // Waiting for an administrator.
+  PENDING
+  // Approved and sent.
+  APPROVED
+  REJECTED
+}
+
+/// A message a patron wants sent to a group of members. Nothing is sent
+/// until an administrator approves it; approval posts it to the chosen
+/// portals and emails the group.
+model Broadcast {
+  id         String         @id @default(cuid())
+  patronId   String?
+  patron     PatronProfile? @relation(fields: [patronId], references: [id], onDelete: SetNull)
+  // The sender's name as shown to members, captured when it was written.
+  authorName String
+
+  audience     BroadcastAudience
+  sendEmail    Boolean           @default(true)
+  postToPortal Boolean           @default(true)
+  subject      String
+  // Sanitised rich text.
+  bodyHtml     String
+
+  // An optional attached letter or statement, stored in R2.
+  attachmentKey  String?
+  attachmentName String?
+  attachmentMime String?
+  attachmentSize Int?
+
+  status       BroadcastStatus @default(PENDING)
+  reviewedById String?
+  reviewedBy   AdminUser?      @relation("BroadcastReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  reviewNote   String?
+
+  sentAt         DateTime?
+  recipientCount Int?
+  emailsSent     Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([patronId])
+  @@index([sentAt])
+  @@map("broadcasts")
+}
+
+enum PatronThreadStatus {
+  OPEN
+  CLOSED
+}
+
+enum PatronMessageSender {
+  PATRON
+  ADMIN
+}
+
+/// A private conversation between one patron and the executive team.
+model PatronThread {
+  id       String        @id @default(cuid())
+  patronId String
+  patron   PatronProfile @relation(fields: [patronId], references: [id], onDelete: Cascade)
+
+  subject     String
+  // Who the patron addressed it to, e.g. "President" or "Executive Committee".
+  addressedTo String
+  status      PatronThreadStatus @default(OPEN)
+
+  lastMessageAt  DateTime @default(now())
+  unreadByPatron Boolean  @default(false)
+  unreadByAdmin  Boolean  @default(true)
+
+  messages PatronMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patronId])
+  @@index([lastMessageAt])
+  @@index([unreadByAdmin])
+  @@map("patron_threads")
+}
+
+model PatronMessage {
+  id       String       @id @default(cuid())
+  threadId String
+  thread   PatronThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  sender  PatronMessageSender
+  // The administrator who replied, for ADMIN messages.
+  adminId String?
+  admin   AdminUser?          @relation("PatronMessageAuthor", fields: [adminId], references: [id], onDelete: SetNull)
+  body    String
+
+  createdAt DateTime @default(now())
+
+  @@index([threadId, createdAt])
+  @@map("patron_messages")
+}
+
+// ---------------------------------------------------------------------------
+// Patrons' Portal: advocacy and rights
+// ---------------------------------------------------------------------------
+
+enum CampaignStatus {
+  ACTIVE
+  ACHIEVED
+  CLOSED
+}
+
+/// A rights or policy campaign patrons can officially endorse.
+model AdvocacyCampaign {
+  id          String         @id @default(cuid())
+  title       String
+  summary     String
+  details     String?
+  // Who started it, e.g. "Students' Executive Committee".
+  initiatedBy String?
+  // Who it asks for change, e.g. "University Management".
+  targetBody  String?
+  status      CampaignStatus @default(ACTIVE)
+
+  createdById String?
+  createdBy   AdminUser? @relation("CampaignCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  endorsements CampaignEndorsement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("advocacy_campaigns")
+}
+
+model CampaignEndorsement {
+  id         String           @id @default(cuid())
+  campaignId String
+  campaign   AdvocacyCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  patronId   String
+  patron     PatronProfile    @relation(fields: [patronId], references: [id], onDelete: Cascade)
+  comment    String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([campaignId, patronId])
+  @@map("campaign_endorsements")
+}
+
+enum IssueStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  PATRON_ACTION
+  RESOLVED
+}
+
+enum IssueCategory {
+  EXAMINATION_VENUES
+  LEARNING_MATERIALS
+  PHYSICAL_ACCESS
+  ASSISTIVE_TECHNOLOGY
+  ACCOMMODATION
+  DISCRIMINATION
+  OTHER
+}
+
+/// A rights or accessibility problem on campus, escalated to the patrons by
+/// the executive team. Written as a summary, never with the names or health
+/// details of the students affected.
+model AccessibilityIssue {
+  id             String        @id @default(cuid())
+  title          String
+  summary        String
+  category       IssueCategory
+  location       String?
+  status         IssueStatus   @default(SUBMITTED)
+  reportedOn     DateTime      @default(now())
+  resolvedAt     DateTime?
+  resolutionNote String?
+
+  createdById String?
+  createdBy   AdminUser? @relation("IssueCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  actions IssuePatronAction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("accessibility_issues")
+}
+
+enum IssueActionType {
+  MEETING_REQUEST
+  OFFICIAL_STATEMENT
+}
+
+/// A patron asking for a meeting with management, or making a statement, on an issue.
+model IssuePatronAction {
+  id       String             @id @default(cuid())
+  issueId  String
+  issue    AccessibilityIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  patronId String
+  patron   PatronProfile      @relation(fields: [patronId], references: [id], onDelete: Cascade)
+  type     IssueActionType
+  message  String
+
+  createdAt DateTime @default(now())
+
+  @@index([issueId])
+  @@map("issue_patron_actions")
 }

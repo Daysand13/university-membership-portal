@@ -92,3 +92,26 @@ export function medicalReportFileProblem(file: { name: string; size: number }, m
   }
   return "That type of file can't be used. Please choose a PDF or Word document, or a JPG or PNG photo of the report.";
 }
+
+const OFFICE_TYPES = [
+  "application/vnd.ms-excel",
+  ".xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".xlsx",
+  "application/vnd.ms-powerpoint",
+  ".ppt",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".pptx",
+];
+
+/**
+ * The `accept` list for a patron's document (a letter, statement or policy
+ * template). Same reasoning as the medical report above: on Android, no
+ * image types plus application/octet-stream, so Samsung phones open the
+ * file browser with everything selectable.
+ */
+export function patronDocumentAccept(android: boolean): string {
+  return android
+    ? [...DOCUMENT_TYPES, ...OFFICE_TYPES, "application/octet-stream"].join(",")
+    : [...DOCUMENT_TYPES, ...OFFICE_TYPES, ...IMAGE_TYPES].join(",");
+}

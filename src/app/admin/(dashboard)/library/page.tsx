@@ -14,9 +14,18 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default async function AdminLibraryPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const { q } = await searchParams;
-  const documents = await listDocumentsForAdmin({ search: q });
+export default async function AdminLibraryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; source?: string }>;
+}) {
+  const { q, source } = await searchParams;
+  const fromPatrons = source === "patrons";
+  const documents = await listDocumentsForAdmin({ search: q, fromPatrons });
+  const tabClasses = (active: boolean) =>
+    `px-3.5 py-2 text-sm font-semibold border-b-2 ${
+      active ? "border-primary-800 text-primary-950" : "border-transparent text-slate hover:text-primary-800"
+    }`;
 
   return (
     <div>
@@ -32,7 +41,21 @@ export default async function AdminLibraryPage({ searchParams }: { searchParams:
         </Link>
       </div>
 
+      <nav aria-label="Library filter" className="mb-4 border-b border-line flex gap-1">
+        <Link href="/admin/library" aria-current={!fromPatrons ? "page" : undefined} className={tabClasses(!fromPatrons)}>
+          All Documents
+        </Link>
+        <Link
+          href="/admin/library?source=patrons"
+          aria-current={fromPatrons ? "page" : undefined}
+          className={tabClasses(fromPatrons)}
+        >
+          From Patrons
+        </Link>
+      </nav>
+
       <form className="mb-5">
+        {fromPatrons && <input type="hidden" name="source" value="patrons" />}
         <input
           type="search"
           name="q"
@@ -62,7 +85,18 @@ export default async function AdminLibraryPage({ searchParams }: { searchParams:
                 <tr key={doc.id} className="hover:bg-surface-muted/60">
                   <td className="px-5 py-3.5 max-w-xs">
                     <p className="font-medium text-primary-950 truncate">{doc.title}</p>
-                    {!doc.isPublic && <span className="text-[11px] text-warning font-semibold">Private</span>}
+                    <div className="flex flex-wrap gap-x-2">
+                      {doc.audience === "PATRONS" ? (
+                        <span className="text-[11px] text-primary-800 font-semibold">Patrons only</span>
+                      ) : (
+                        !doc.isPublic && <span className="text-[11px] text-warning font-semibold">Private</span>
+                      )}
+                      {doc.uploadedByPatron && (
+                        <span className="text-[11px] text-slate">
+                          From patron {[doc.uploadedByPatron.title, doc.uploadedByPatron.fullName].filter(Boolean).join(" ")}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-5 py-3.5 text-slate">{doc.category?.name ?? "—"}</td>
                   <td className="px-5 py-3.5 text-slate font-data text-xs">{formatFileSize(doc.fileSize)}</td>

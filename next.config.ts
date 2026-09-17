@@ -35,6 +35,15 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/admin/members/**": ["./src/assets/fonts/**/*"],
   },
+  // The Patrons' Portal lives under /patrons/dashboard; these catch the
+  // shorter /patron/... addresses used in planning documents.
+  async redirects() {
+    return [
+      { source: "/patron", destination: "/patrons/dashboard", permanent: false },
+      { source: "/patron/dashboard", destination: "/patrons/dashboard", permanent: false },
+      { source: "/patron/:section(finances|messages|advocacy|membership|documents)", destination: "/patrons/dashboard/:section", permanent: false },
+    ];
+  },
   images: {
     remotePatterns: [
       ...(r2Hostname ? [{ protocol: "https" as const, hostname: r2Hostname }] : []),
