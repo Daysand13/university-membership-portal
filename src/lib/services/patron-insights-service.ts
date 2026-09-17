@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { PatronProfile, Prisma } from "@/generated/prisma/client";
 import { LEVELS } from "@/lib/validations/membership";
+import { ENROLLED_STUDENT, ON_THE_ROLL } from "@/lib/services/membership-roll";
 
 /**
  * What the Patrons' Portal shows about the membership — always as counts,
@@ -14,28 +15,36 @@ import { LEVELS } from "@/lib/validations/membership";
  * without their email address or telephone number.
  */
 
-const CURRENT_STUDENT: Prisma.MemberWhereInput = { status: "ACTIVE", graduatedAt: null };
 const ACTIVE_ALUMNI: Prisma.AlumniProfileWhereInput = { status: "ACTIVE" };
 const LISTED_ALUMNI: Prisma.AlumniProfileWhereInput = { status: "ACTIVE", directoryVisible: true };
 
 export interface MembershipOverview {
-  /** Every current student and alumnus, each person counted once. */
+  /** Every member on the roll and every alumnus, each person counted once. */
   totalMembers: number;
+  /** Members on the roll — the same figure as Admin > Members. */
+  students: number;
+  /** Those of them who aren't suspended. */
   activeStudents: number;
   alumni: number;
-  /** Alumni who are also enrolled again (further studies). */
+  /** Alumni who are also enrolled again (further studies), counted in both. */
   dualMembers: number;
   mentors: number;
 }
 
+/**
+ * The membership in numbers. Students are counted with the same rule as the
+ * admin Members list (ON_THE_ROLL), and anyone who is both a student and an
+ * alumnus is subtracted once, so totalMembers is people, not records.
+ */
 export async function getMembershipOverview(): Promise<MembershipOverview> {
-  const [activeStudents, alumni, dualMembers, mentors] = await Promise.all([
-    db.member.count({ where: CURRENT_STUDENT }),
+  const [students, activeStudents, alumni, dualMembers, mentors] = await Promise.all([
+    db.member.count({ where: ON_THE_ROLL }),
+    db.member.count({ where: ENROLLED_STUDENT }),
     db.alumniProfile.count({ where: ACTIVE_ALUMNI }),
-    db.alumniProfile.count({ where: { ...ACTIVE_ALUMNI, sourceMember: CURRENT_STUDENT } }),
+    db.alumniProfile.count({ where: { ...ACTIVE_ALUMNI, sourceMember: ON_THE_ROLL } }),
     db.alumniProfile.count({ where: { ...LISTED_ALUMNI, willingToMentor: true } }),
   ]);
-  return { totalMembers: activeStudents + alumni - dualMembers, activeStudents, alumni, dualMembers, mentors };
+  return { totalMembers: students + alumni - dualMembers, students, activeStudents, alumni, dualMembers, mentors };
 }
 
 export interface GrowthPoint {
@@ -46,14 +55,14 @@ export interface GrowthPoint {
   alumni: number;
 }
 
-/** New students (by year of admission) and new alumni (by graduation year), oldest year first. */
+/** New members (by year of admission) and new alumni (by graduation year), oldest year first. */
 export async function getMembershipGrowth(years = 6, now = new Date()): Promise<GrowthPoint[]> {
   const lastYear = now.getUTCFullYear();
   const firstYear = lastYear - years + 1;
   const [students, alumni] = await Promise.all([
     db.member.groupBy({
       by: ["yearOfAdmission"],
-      where: { ...CURRENT_STUDENT, yearOfAdmission: { gte: firstYear, lte: lastYear } },
+      where: { ...ON_THE_ROLL, yearOfAdmission: { gte: firstYear, lte: lastYear } },
       _count: { _all: true },
     }),
     db.alumniProfile.groupBy({
@@ -73,15 +82,15 @@ export async function getMembershipGrowth(years = 6, now = new Date()): Promise<
   return points;
 }
 
-/** Current students by level, with postgraduates on their own. */
+/** Members on the roll by level, with postgraduates on their own. */
 export async function getLevelDistribution(): Promise<{ label: string; count: number }[]> {
   const [undergraduates, postgraduates] = await Promise.all([
     db.member.groupBy({
       by: ["level"],
-      where: { ...CURRENT_STUDENT, NOT: { applicationTrack: "POSTGRADUATE" } },
+      where: { ...ON_THE_ROLL, NOT: { applicationTrack: "POSTGRADUATE" } },
       _count: { _all: true },
     }),
-    db.member.count({ where: { ...CURRENT_STUDENT, applicationTrack: "POSTGRADUATE" } }),
+    db.member.count({ where: { ...ON_THE_ROLL, applicationTrack: "POSTGRADUATE" } }),
   ]);
   const rows: { label: string; count: number }[] = LEVELS.map((level) => ({
     label: level,

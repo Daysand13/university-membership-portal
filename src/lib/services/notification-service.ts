@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { ON_THE_ROLL } from "@/lib/services/membership-roll";
 
 export async function getUnreadNotificationCount(): Promise<number> {
   return db.notification.count({ where: { isRead: false } });
@@ -43,11 +44,9 @@ export async function getDashboardCounts() {
     activeElections,
     newMessages,
   ] = await Promise.all([
-    // Matches what /admin/members itself shows: a graduated member moves to
-    // the Alumni pages and is no longer counted here (see buildMemberWhere
-    // in membership-service.ts) — otherwise this stat card and the page it
-    // links to would disagree with each other.
-    db.member.count({ where: { alumniProfile: null } }),
+    // Matches what /admin/members itself shows — otherwise this stat card
+    // and the page it links to would disagree with each other.
+    db.member.count({ where: ON_THE_ROLL }),
     db.membershipApplication.count({ where: { status: "PENDING" } }),
     db.news.count(),
     db.event.count({ where: { status: "PUBLISHED", endDate: { gte: new Date() } } }),

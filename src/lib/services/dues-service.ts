@@ -8,6 +8,7 @@ import {
   verifyTransaction,
 } from "@/lib/services/paystack-client";
 import { notifyCashDuesPaymentRemoved, notifyDuesPaymentReceived } from "@/lib/services/account-notification-service";
+import { ON_THE_ROLL } from "@/lib/services/membership-roll";
 
 /**
  * Yearly membership dues, charged through Paystack.
@@ -404,18 +405,16 @@ export interface MemberDuesRow {
  * dashboard) rather than a SQL join, since the fee itself depends on the
  * executive lookup, which isn't a column to join against.
  *
- * "Current member" is ACTIVE status AND no alumni profile — the same rule
- * buildMemberWhere uses for /admin/members and the dashboard's Total
- * Members count (see membership-service.ts). This used to check status
- * alone, which counted a graduated dual-status member here while every
- * other admin screen had already stopped counting them — the number on
- * this page disagreed with "Total Members" by exactly the one person that
- * distinction covers.
+ * Who owes dues is ACTIVE status AND still on the roll (ON_THE_ROLL in
+ * membership-roll.ts) — the same rule /admin/members and the dashboard's
+ * Total Members card use, so all three agree. An alumnus studying again is
+ * an enrolled student and owes dues like any other; a member who has
+ * graduated no longer does.
  */
 export async function listMemberDuesStatus(academicYear: string): Promise<MemberDuesRow[]> {
   const [members, successfulPayments] = await Promise.all([
     db.member.findMany({
-      where: { status: "ACTIVE", alumniProfile: null },
+      where: { status: "ACTIVE", ...ON_THE_ROLL },
       select: { id: true, firstName: true, middleName: true, lastName: true, indexNumber: true, level: true, applicationTrack: true },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),

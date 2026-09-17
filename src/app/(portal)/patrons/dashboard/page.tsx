@@ -91,21 +91,27 @@ export default async function PatronDashboardPage() {
         <StatTile
           label="Total Members"
           value={count.format(membership.totalMembers)}
-          detail="Students and alumni"
+          detail="Students and alumni, each counted once"
           icon={<Users size={18} />}
           href="/patrons/dashboard/membership"
         />
         <StatTile
-          label="Active Students"
-          value={count.format(membership.activeStudents)}
-          detail="Currently enrolled"
+          label="Enrolled Students"
+          value={count.format(membership.students)}
+          detail={
+            membership.students === membership.activeStudents
+              ? "Currently enrolled"
+              : `${count.format(membership.activeStudents)} active, the rest suspended`
+          }
           icon={<TrendingUp size={18} />}
           href="/patrons/dashboard/membership"
         />
         <StatTile
           label="Alumni Network"
           value={count.format(membership.alumni)}
-          detail={`${count.format(membership.mentors)} offering mentorship`}
+          detail={`${count.format(membership.mentors)} offering mentorship${
+            membership.dualMembers > 0 ? `, ${count.format(membership.dualMembers)} studying again` : ""
+          }`}
           icon={<GraduationCap size={18} />}
           href="/patrons/dashboard/membership#directory"
         />

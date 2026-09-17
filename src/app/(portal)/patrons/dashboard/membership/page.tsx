@@ -47,19 +47,42 @@ export default async function PatronMembershipPage({
   if (mentorsOnly) query.set("mentors", "1");
   const basePath = `/patrons/dashboard/membership?${query.toString()}`;
 
-  const students = overview.activeStudents;
+  // Everyone on the membership roll, the same figure the association's own
+  // Members list shows. A person who is both a student and an alumnus is in
+  // both counts, so the total subtracts them once.
+  const students = overview.students;
   const alumniOnly = overview.alumni - overview.dualMembers;
 
   return (
     <div className="space-y-6">
       <PortalPageHeader
         title="Membership Network"
-        description="Who makes up the association, shown as totals only. No student's personal or health details are shared here."
+        description="Who makes up the association, shown as totals only. No student's personal or health details are shared here. Students are counted exactly as the association's own membership roll counts them."
       />
 
       <section aria-label="Membership figures" className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Total Members" value={count.format(overview.totalMembers)} icon={<Users size={18} />} />
-        <StatTile label="Enrolled Students" value={count.format(students)} icon={<TrendingUp size={18} />} />
+        <StatTile
+          label="Total Members"
+          value={count.format(overview.totalMembers)}
+          detail={
+            overview.dualMembers > 0
+              ? `${count.format(students)} students + ${count.format(overview.alumni)} alumni − ${count.format(
+                  overview.dualMembers,
+                )} counted twice`
+              : `${count.format(students)} students + ${count.format(overview.alumni)} alumni`
+          }
+          icon={<Users size={18} />}
+        />
+        <StatTile
+          label="Enrolled Students"
+          value={count.format(students)}
+          detail={
+            students === overview.activeStudents
+              ? "On the membership roll"
+              : `${count.format(overview.activeStudents)} active, the rest suspended`
+          }
+          icon={<TrendingUp size={18} />}
+        />
         <StatTile
           label="Alumni"
           value={count.format(overview.alumni)}

@@ -36,6 +36,8 @@ import {
   type ProfilePictureChange,
 } from "@/lib/services/account-notification-service";
 import { extractObjectKeyFromPublicUrl } from "@/lib/storage/r2";
+// The rule the Members list, the dues register and the portal figures share.
+import { ON_THE_ROLL } from "@/lib/services/membership-roll";
 
 export class DuplicateIndexNumberError extends Error {
   constructor() {
@@ -977,12 +979,7 @@ function buildMemberWhere(filter?: MemberListFilter): Prisma.MemberWhereInput {
   const where: Prisma.MemberWhereInput = {};
   const and: Prisma.MemberWhereInput[] = [];
 
-  // A graduated member gets an AlumniProfile (see promoteMemberToAlumni) and
-  // moves to the Alumni admin pages — the Members list is meant to show
-  // current students, so once that promotion has happened the person should
-  // no longer appear here at all, not even as a still-technically-a-Member
-  // row. Their record itself is untouched; this only affects this listing.
-  and.push({ alumniProfile: null });
+  and.push(ON_THE_ROLL);
 
   if (filter?.search) {
     and.push({
