@@ -11,11 +11,16 @@ function canSee(item: { roles?: AdminRole[] }, role: AdminRole): boolean {
 
 export function AdminSidebar({ role }: { role: AdminRole }) {
   return (
-    <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-primary-950 text-primary-100 min-h-screen sticky top-0">
+    // self-start + h-screen is what makes "sticky" actually stick: as a
+    // stretched flex item the sidebar was as tall as the whole page, so it
+    // had nothing to stick within and scrolled away with the content beside
+    // it. Now it stays put and its own nav scrolls when the menu is longer
+    // than the screen.
+    <aside className="hidden lg:flex flex-col w-64 shrink-0 self-start sticky top-0 h-screen bg-primary-950 text-primary-100">
       <div className="px-5 py-5 border-b border-white/10">
         <Logo siteTitle="Admin CMS" onDark />
       </div>
-      <nav className="flex-1 overflow-y-auto py-4 px-3">
+      <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain py-4 px-3">
         {ADMIN_NAV.map((group) => {
           const visibleItems = group.items.filter((item) => canSee(item, role));
           if (visibleItems.length === 0) return null;
