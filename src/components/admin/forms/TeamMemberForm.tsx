@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { createTeamMemberAction, updateTeamMemberAction } from "@/lib/actions/content-actions";
 import { Label, inputClasses, FormAlert } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
@@ -36,9 +36,11 @@ export function TeamMemberForm({
 }) {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
   async function handleSubmit(formData: FormData) {
     setIsPending(true);
     setError(null);
+    setSaved(false);
     try {
       formData.set("type", type);
       // On success, create redirects to the new entry's edit page itself
@@ -49,6 +51,8 @@ export function TeamMemberForm({
         : await createTeamMemberAction(formData);
       if (result?.error) {
         setError(result.error);
+      } else {
+        setSaved(true);
       }
     } finally {
       setIsPending(false);
@@ -136,10 +140,17 @@ export function TeamMemberForm({
           />
           Active
         </label>
-        <Button type="submit" disabled={isPending} size="sm">
-          {isPending && <Loader2 size={14} className="animate-spin" />}
-          {isPending ? "Saving…" : member ? "Update" : "Add"}
-        </Button>
+        <div className="flex items-center gap-3">
+          {saved && !isPending && (
+            <p role="status" className="inline-flex items-center gap-1.5 text-sm font-semibold text-success">
+              <CheckCircle2 size={16} aria-hidden="true" /> Saved.
+            </p>
+          )}
+          <Button type="submit" disabled={isPending} size="sm">
+            {isPending && <Loader2 size={14} className="animate-spin" />}
+            {isPending ? "Saving…" : member ? "Update" : "Add"}
+          </Button>
+        </div>
       </div>
     </form>
   );

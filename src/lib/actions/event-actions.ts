@@ -40,7 +40,7 @@ async function createEventActionImpl(_prevState: ActionState, formData: FormData
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
   const imageUrl = formData.get("imageUrl");
-  await createEvent(
+  const event = await createEvent(
     parsed.data,
     typeof imageUrl === "string" && imageUrl ? imageUrl : null,
     admin.id,
@@ -49,7 +49,9 @@ async function createEventActionImpl(_prevState: ActionState, formData: FormData
   revalidatePath("/events");
   revalidatePath("/");
   revalidatePath("/admin/events");
-  redirect("/admin/events");
+  // To the saved event, as News does — landing back on the list gave no
+  // sign that anything had been saved.
+  redirect(`/admin/events/${event.id}?created=1`);
 }
 
 async function updateEventActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
@@ -68,7 +70,8 @@ async function updateEventActionImpl(_prevState: ActionState, formData: FormData
   revalidatePath(`/events/${updated.slug}`);
   revalidatePath("/");
   revalidatePath("/admin/events");
-  redirect("/admin/events");
+  // Stays put so the form can say it saved.
+  return { success: true };
 }
 
 async function deleteEventActionImpl(id: string): Promise<void> {

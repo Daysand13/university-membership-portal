@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
 import { upsertSocialLinkAction } from "@/lib/actions/content-actions";
 import { initialActionState } from "@/lib/actions/types";
-import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
+import { Label, inputClasses, FieldError, FormAlert, SavedNotice } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
 import type { SocialLink } from "@/generated/prisma/client";
 
@@ -47,10 +47,13 @@ export function SocialLinkForm({ link }: { link?: SocialLink }) {
           <input type="checkbox" name="isActive" defaultChecked={link?.isActive ?? true} className="h-4 w-4 rounded border-line text-primary-800" />
           Active
         </label>
-        <Button type="submit" disabled={isPending} size="sm">
-          {isPending && <Loader2 size={14} className="animate-spin" />}
-          {isPending ? "Saving…" : link ? "Update Link" : "Add Link"}
-        </Button>
+        <div className="flex items-center gap-3">
+          <SavedNotice state={state} isPending={isPending} />
+          <Button type="submit" disabled={isPending} size="sm">
+            {isPending && <Loader2 size={14} className="animate-spin" />}
+            {isPending ? "Saving…" : link ? "Update Link" : "Add Link"}
+          </Button>
+        </div>
       </div>
     </form>
   );

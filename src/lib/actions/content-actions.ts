@@ -58,47 +58,68 @@ async function updateDonateActionImpl(_prevState: ActionState, formData: FormDat
   return {};
 }
 
-async function createHeroSlideActionImpl(formData: FormData): Promise<void> {
-  await requireAdminRole(AdminRole.EDITOR);
+function heroSlideFields(formData: FormData) {
   const imageUrl = formData.get("imageUrl");
   const backgroundColor = formData.get("backgroundColor");
-  await createHeroSlide({
-    title: String(formData.get("title") ?? ""),
-    subtitle: String(formData.get("subtitle") ?? "") || undefined,
-    imageUrl: typeof imageUrl === "string" ? imageUrl : undefined,
-    backgroundColor: typeof backgroundColor === "string" && backgroundColor ? backgroundColor : undefined,
-    ctaText: String(formData.get("ctaText") ?? "") || undefined,
-    ctaUrl: String(formData.get("ctaUrl") ?? "") || undefined,
-    order: Number(formData.get("order") ?? 0),
+  return {
+    title: String(formData.get("title") ?? "").trim(),
+    subtitle: String(formData.get("subtitle") ?? "").trim() || null,
+    imageUrl: typeof imageUrl === "string" && imageUrl ? imageUrl : null,
+    backgroundColor: typeof backgroundColor === "string" && backgroundColor ? backgroundColor : null,
+    ctaText: String(formData.get("ctaText") ?? "").trim() || null,
+    ctaUrl: String(formData.get("ctaUrl") ?? "").trim() || null,
+    order: Number(formData.get("order") ?? 0) || 0,
     isActive: formData.get("isActive") === "on",
-  });
+  };
+}
+
+function revalidateHeroSlides() {
   revalidatePath("/");
   revalidatePath("/admin");
   revalidatePath("/admin/hero-slides");
 }
 
-async function updateHeroSlideActionImpl(id: string, formData: FormData): Promise<void> {
+async function createHeroSlideActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdminRole(AdminRole.EDITOR);
-  const imageUrl = formData.get("imageUrl");
-  const backgroundColor = formData.get("backgroundColor");
-  await updateHeroSlide(id, {
-    title: String(formData.get("title") ?? ""),
-    subtitle: String(formData.get("subtitle") ?? "") || null,
-    imageUrl: typeof imageUrl === "string" && imageUrl ? imageUrl : null,
-    backgroundColor: typeof backgroundColor === "string" && backgroundColor ? backgroundColor : null,
-    ctaText: String(formData.get("ctaText") ?? "") || null,
-    ctaUrl: String(formData.get("ctaUrl") ?? "") || null,
-    order: Number(formData.get("order") ?? 0),
-    isActive: formData.get("isActive") === "on",
+  const fields = heroSlideFields(formData);
+  if (!fields.title) return { fieldErrors: { title: ["Give the slide a title"] } };
+
+  await createHeroSlide({
+    ...fields,
+    subtitle: fields.subtitle ?? undefined,
+    imageUrl: fields.imageUrl ?? undefined,
+    backgroundColor: fields.backgroundColor ?? undefined,
+    ctaText: fields.ctaText ?? undefined,
+    ctaUrl: fields.ctaUrl ?? undefined,
   });
-  revalidatePath("/");
-  revalidatePath("/admin");
-  revalidatePath("/admin/hero-slides");
+  revalidateHeroSlides();
+  redirect("/admin/hero-slides?created=1");
+}
+
+async function updateHeroSlideActionImpl(id: string, _prevState: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdminRole(AdminRole.EDITOR);
+  const fields = heroSlideFields(formData);
+  if (!fields.title) return { fieldErrors: { title: ["Give the slide a title"] } };
+
+  await updateHeroSlide(id, fields);
+  revalidateHeroSlides();
+  // Stays put so the form can say it saved.
+  return { success: true };
+}
+
+/** The show/hide switch on the slides list. */
+async function setHeroSlideActiveActionImpl(id: string, isActive: boolean): Promise<void> {
+  await requireAdminRole(AdminRole.EDITOR);
+  await updateHeroSlide(id, { isActive });
+  revalidateHeroSlides();
 }
 
 async function deleteHeroSlideActionImpl(id: string): Promise<void> {
   await requireAdminRole(AdminRole.EDITOR);
   await deleteHeroSlide(id);
+  // Deleting from the slide's own page would otherwise leave the person on
+  // a page that no longer exists.
+  redirect("/admin/hero-slides");
   revalidatePath("/");
   revalidatePath("/admin");
   revalidatePath("/admin/hero-slides");
@@ -273,8 +294,12 @@ async function setTeamMemberActiveActionImpl(id: string, isActive: boolean): Pro
 
 export const updateAboutAction = withActionErrorHandling("updateAboutAction", updateAboutActionImpl);
 export const updateDonateAction = withActionErrorHandling("updateDonateAction", updateDonateActionImpl);
-export const createHeroSlideAction = withVoidActionErrorHandling("createHeroSlideAction", createHeroSlideActionImpl);
-export const updateHeroSlideAction = withVoidActionErrorHandling("updateHeroSlideAction", updateHeroSlideActionImpl);
+export const createHeroSlideAction = withActionErrorHandling("createHeroSlideAction", createHeroSlideActionImpl);
+export const updateHeroSlideAction = withActionErrorHandling("updateHeroSlideAction", updateHeroSlideActionImpl);
+export const setHeroSlideActiveAction = withVoidActionErrorHandling(
+  "setHeroSlideActiveAction",
+  setHeroSlideActiveActionImpl,
+);
 export const deleteHeroSlideAction = withVoidActionErrorHandling("deleteHeroSlideAction", deleteHeroSlideActionImpl);
 export const updateSiteSettingsAction = withActionErrorHandling("updateSiteSettingsAction", updateSiteSettingsActionImpl);
 export const upsertSocialLinkAction = withActionErrorHandling("upsertSocialLinkAction", upsertSocialLinkActionImpl);

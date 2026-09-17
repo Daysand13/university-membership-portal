@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
 import { createNewsAction, updateNewsAction } from "@/lib/actions/news-actions";
 import { initialActionState } from "@/lib/actions/types";
-import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
+import { Label, inputClasses, FieldError, FormAlert, SavedNotice } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
@@ -85,10 +85,15 @@ export function NewsForm({
         </div>
       </div>
 
-      <Button type="submit" disabled={isPending}>
-        {isPending && <Loader2 size={15} className="animate-spin" />}
-        {isPending ? "Saving…" : article ? "Save Changes" : "Create Article"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-4">
+        <Button type="submit" disabled={isPending}>
+          {isPending && <Loader2 size={15} className="animate-spin" />}
+          {isPending ? "Saving…" : article ? "Save Changes" : "Create Article"}
+        </Button>
+        <SavedNotice state={state} isPending={isPending}>
+          Saved. The article is up to date.
+        </SavedNotice>
+      </div>
     </form>
   );
 }

@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
 import { createDocumentAction, updateDocumentAction } from "@/lib/actions/document-actions";
 import { initialActionState } from "@/lib/actions/types";
-import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
+import { Label, inputClasses, FieldError, FormAlert, SavedNotice } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
 import { DocumentUploadField } from "@/components/admin/DocumentUploadField";
 import type { Document, DocumentCategory } from "@/generated/prisma/client";
@@ -74,10 +74,15 @@ export function DocumentForm({ document, categories }: { document?: Document; ca
         </div>
       </div>
 
-      <Button type="submit" disabled={isPending}>
-        {isPending && <Loader2 size={15} className="animate-spin" />}
-        {isPending ? "Saving…" : document ? "Save Changes" : "Add to Library"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-4">
+        <Button type="submit" disabled={isPending}>
+          {isPending && <Loader2 size={15} className="animate-spin" />}
+          {isPending ? "Saving…" : document ? "Save Changes" : "Add to Library"}
+        </Button>
+        <SavedNotice state={state} isPending={isPending}>
+          Saved.
+        </SavedNotice>
+      </div>
     </form>
   );
 }

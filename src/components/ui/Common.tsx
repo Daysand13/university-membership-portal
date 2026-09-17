@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { CheckCircle2 } from "lucide-react";
+import { hasJustSaved, type ActionState } from "@/lib/actions/types";
 
 export function EmptyState({
   title,
@@ -70,6 +72,27 @@ export function Pagination({
         Next
       </Link>
     </nav>
+  );
+}
+
+/**
+ * The "Saved" line beside a submit button. Every admin form that saves in
+ * place shows one, so pressing Save always visibly does something.
+ */
+export function SavedNotice({
+  state,
+  isPending,
+  children = "Saved.",
+}: {
+  state: ActionState;
+  isPending: boolean;
+  children?: ReactNode;
+}) {
+  if (!hasJustSaved(state, isPending)) return null;
+  return (
+    <p role="status" className="inline-flex items-center gap-1.5 text-sm font-semibold text-success">
+      <CheckCircle2 size={16} aria-hidden="true" /> {children}
+    </p>
   );
 }
 

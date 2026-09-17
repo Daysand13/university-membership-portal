@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { updateSiteSettingsAction } from "@/lib/actions/content-actions";
 import { initialActionState } from "@/lib/actions/types";
-import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
+import { Label, inputClasses, FieldError, FormAlert, SavedNotice } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import type { SiteSettingsInput } from "@/lib/validations/content";
@@ -126,10 +126,15 @@ export function SiteSettingsForm({ settings }: { settings: SiteSettingsInput }) 
         </p>
       </section>
 
-      <Button type="submit" disabled={isPending}>
-        {isPending && <Loader2 size={15} className="animate-spin" />}
-        {isPending ? "Saving…" : "Save Settings"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-4">
+        <Button type="submit" disabled={isPending}>
+          {isPending && <Loader2 size={15} className="animate-spin" />}
+          {isPending ? "Saving…" : "Save Settings"}
+        </Button>
+        <SavedNotice state={state} isPending={isPending}>
+          Settings saved.
+        </SavedNotice>
+      </div>
     </form>
   );
 }

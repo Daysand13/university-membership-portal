@@ -46,7 +46,7 @@ async function createNewsActionImpl(_prevState: ActionState, formData: FormData)
   revalidatePath("/news");
   revalidatePath("/");
   revalidatePath("/admin/news");
-  redirect(`/admin/news/${article.id}`);
+  redirect(`/admin/news/${article.id}?created=1`);
 }
 
 async function updateNewsActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
@@ -65,7 +65,7 @@ async function updateNewsActionImpl(_prevState: ActionState, formData: FormData)
   revalidatePath(`/news/${updated.slug}`);
   revalidatePath("/");
   revalidatePath("/admin/news");
-  return {};
+  return { success: true };
 }
 
 async function deleteNewsActionImpl(id: string): Promise<void> {

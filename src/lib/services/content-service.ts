@@ -200,6 +200,10 @@ export async function updateHeroSlide(
   return db.heroSlide.update({ where: { id }, data });
 }
 
+export async function getHeroSlideForAdmin(id: string) {
+  return db.heroSlide.findUnique({ where: { id } });
+}
+
 export async function deleteHeroSlide(id: string) {
   return db.heroSlide.delete({ where: { id } });
 }

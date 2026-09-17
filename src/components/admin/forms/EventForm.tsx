@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
 import { createEventAction, updateEventAction } from "@/lib/actions/event-actions";
 import { initialActionState } from "@/lib/actions/types";
-import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
+import { Label, inputClasses, FieldError, FormAlert, SavedNotice } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import type { Event, EventCategory } from "@/generated/prisma/client";
@@ -116,10 +116,15 @@ export function EventForm({ event, categories }: { event?: Event; categories: Ev
         </div>
       </div>
 
-      <Button type="submit" disabled={isPending}>
-        {isPending && <Loader2 size={15} className="animate-spin" />}
-        {isPending ? "Saving…" : event ? "Save Changes" : "Create Event"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-4">
+        <Button type="submit" disabled={isPending}>
+          {isPending && <Loader2 size={15} className="animate-spin" />}
+          {isPending ? "Saving…" : event ? "Save Changes" : "Create Event"}
+        </Button>
+        <SavedNotice state={state} isPending={isPending}>
+          Saved. The event is up to date.
+        </SavedNotice>
+      </div>
     </form>
   );
 }

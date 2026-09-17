@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { updateDonateAction } from "@/lib/actions/content-actions";
 import { initialActionState } from "@/lib/actions/types";
-import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
+import { Label, inputClasses, FieldError, FormAlert, SavedNotice } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import type { DonateContent } from "@/generated/prisma/client";
@@ -55,10 +55,15 @@ export function DonateContentForm({ donate }: { donate: DonateContent }) {
         <input id="contactInfo" name="contactInfo" defaultValue={donate.contactInfo ?? ""} className={inputClasses} />
       </div>
 
-      <Button type="submit" disabled={isPending}>
-        {isPending && <Loader2 size={15} className="animate-spin" />}
-        {isPending ? "Saving…" : "Save Changes"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-4">
+        <Button type="submit" disabled={isPending}>
+          {isPending && <Loader2 size={15} className="animate-spin" />}
+          {isPending ? "Saving…" : "Save Changes"}
+        </Button>
+        <SavedNotice state={state} isPending={isPending}>
+          Saved. The Donate page is up to date.
+        </SavedNotice>
+      </div>
     </form>
   );
 }

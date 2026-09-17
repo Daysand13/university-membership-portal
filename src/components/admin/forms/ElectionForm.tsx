@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { Loader2 } from "lucide-react";
 import { createElectionAction, updateElectionAction } from "@/lib/actions/election-actions";
 import { initialActionState } from "@/lib/actions/types";
-import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
+import { Label, inputClasses, FieldError, FormAlert, SavedNotice } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
 import type { Election } from "@/generated/prisma/client";
 
@@ -66,10 +66,15 @@ export function ElectionForm({ election }: { election?: Election }) {
         </select>
       </div>
 
-      <Button type="submit" disabled={isPending}>
-        {isPending && <Loader2 size={15} className="animate-spin" />}
-        {isPending ? "Saving…" : election ? "Save Changes" : "Create Election"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-4">
+        <Button type="submit" disabled={isPending}>
+          {isPending && <Loader2 size={15} className="animate-spin" />}
+          {isPending ? "Saving…" : election ? "Save Changes" : "Create Election"}
+        </Button>
+        <SavedNotice state={state} isPending={isPending}>
+          Saved.
+        </SavedNotice>
+      </div>
     </form>
   );
 }
