@@ -21,14 +21,20 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className="h-full antialiased">
+    // The pre-paint script below sets data-theme / data-text-size /
+    // data-contrast on <html> before React loads, so the server's HTML
+    // legitimately differs there. This silences that one element only.
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
       <head>
-        {/* Applied before paint so a saved dark/light theme never flashes
-            the default theme first on load. */}
+        {/* Applied before paint so a saved theme, text size or contrast
+            setting never flashes the default first on load. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{if(localStorage.getItem('a11y-theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}",
+              "try{var d=document.documentElement,s=localStorage;" +
+              "if(s.getItem('a11y-theme')==='dark')d.setAttribute('data-theme','dark');" +
+              "var t=s.getItem('a11y-text-size');if(t==='large'||t==='larger')d.setAttribute('data-text-size',t);" +
+              "if(s.getItem('a11y-contrast')==='high')d.setAttribute('data-contrast','high');}catch(e){}",
           }}
         />
       </head>

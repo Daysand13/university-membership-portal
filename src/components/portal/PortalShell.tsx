@@ -57,7 +57,10 @@ export function PortalShell({
       </a>
 
       <header className="sticky top-0 z-40 bg-white border-b border-line">
-        <div className="mx-auto max-w-7xl flex items-center gap-2 sm:gap-4 min-h-16 px-4 sm:px-6 lg:px-8">
+        {/* Wraps rather than overflowing: with the text size turned up on a
+            small phone, the controls move to a second row instead of
+            pushing the page sideways or sliding over the logo. */}
+        <div className="mx-auto max-w-7xl flex flex-wrap items-center gap-2 sm:gap-4 min-h-16 py-2 px-4 sm:px-6 lg:px-8">
           <PortalMobileMenu items={items} portalLabel={portalLabel} />
 
           <Link

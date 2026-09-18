@@ -299,6 +299,47 @@
 }
 
 /*
+  Text size, set by AccessibilityWidget via data-text-size on <html>.
+  Everything on the site is sized in rem, so changing the root size scales
+  the whole page — and, unlike the browser's zoom, the layout reflows to fit
+  the screen instead of sliding off the side of it.
+*/
+:root[data-text-size="large"] {
+  font-size: 112.5%;
+}
+:root[data-text-size="larger"] {
+  font-size: 125%;
+}
+
+/*
+  High contrast, set by AccessibilityWidget via data-contrast="high" on
+  <html>. Works in both themes: the muted greys used for secondary text and
+  borders become near-full strength, links are underlined so they don't
+  depend on colour alone, and the focus ring gets thicker. The brand navy
+  and gold already pass contrast and are left alone.
+*/
+:root[data-contrast="high"] {
+  --color-ink: #000000;
+  --color-slate: #1f2a37;
+  --color-slate-light: #334155;
+  --color-line: #475569;
+}
+:root[data-contrast="high"][data-theme="dark"] {
+  --color-ink: #ffffff;
+  --color-slate: #e5e9ee;
+  --color-slate-light: #cfd6de;
+  --color-line: #8b98a6;
+}
+:root[data-contrast="high"] main a:not([class*="bg-"]):not([class*="rounded"]) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+:root[data-contrast="high"] :focus-visible {
+  outline: 3px solid var(--color-accent-500) !important;
+  outline-offset: 2px;
+}
+
+/*
   Chart colours for the Patrons' Portal and admin finance pages. Each series
   keeps one colour wherever it appears (dues is always blue, and so on).
   Validated for colour-blind separation against a white card and, in dark
