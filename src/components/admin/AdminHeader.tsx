@@ -2,13 +2,16 @@ import { LogOut } from "lucide-react";
 import { adminLogoutAction } from "@/lib/actions/auth-actions";
 import { AdminMobileNav } from "./AdminMobileNav";
 import { NotificationBell } from "./NotificationBell";
+import { SystemHealthIndicator } from "./SystemHealthIndicator";
+import { getSystemHealth } from "@/lib/services/system-health-service";
 import { listRecentNotifications, getUnreadNotificationCount } from "@/lib/services/notification-service";
 import type { AdminUser } from "@/generated/prisma/client";
 
 export async function AdminHeader({ admin }: { admin: AdminUser }) {
-  const [notifications, unreadCount] = await Promise.all([
+  const [notifications, unreadCount, health] = await Promise.all([
     listRecentNotifications(8),
     getUnreadNotificationCount(),
+    getSystemHealth(),
   ]);
 
   return (
@@ -18,6 +21,7 @@ export async function AdminHeader({ admin }: { admin: AdminUser }) {
         <div className="hidden lg:block" />
 
         <div className="flex items-center gap-1.5">
+          <SystemHealthIndicator checks={health.checks} problems={health.problems} />
           <NotificationBell notifications={notifications} unreadCount={unreadCount} />
           <div className="w-px h-6 bg-line mx-1.5" />
           <div className="text-right hidden sm:block">
