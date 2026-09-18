@@ -399,6 +399,28 @@ export interface MemberDuesRow {
 }
 
 /**
+ * How much of this year's dues is in: how many students who owe them have
+ * paid. Two counts rather than the full per-member pass below, because the
+ * dashboard shows this on every page load.
+ */
+export async function getDuesCollectionRate(academicYear: string): Promise<{
+  owing: number;
+  paid: number;
+  percent: number;
+}> {
+  const [owing, paidMembers] = await Promise.all([
+    db.member.count({ where: { status: "ACTIVE", ...ON_THE_ROLL } }),
+    db.duesPayment.findMany({
+      where: { academicYear, status: "SUCCESS", member: { status: "ACTIVE", ...ON_THE_ROLL } },
+      select: { memberId: true },
+      distinct: ["memberId"],
+    }),
+  ]);
+  const paid = paidMembers.length;
+  return { owing, paid, percent: owing === 0 ? 0 : Math.round((paid / owing) * 100) };
+}
+
+/**
  * Every current member alongside whether they've paid dues for the given
  * academic year — the admin-facing view behind /admin/dues. Built as one
  * pass over the member list (fee is computed per member, same as the

@@ -21,6 +21,10 @@ import {
   Accessibility,
   Award,
   Landmark,
+  Scale,
+  LifeBuoy,
+  BriefcaseBusiness,
+  Radio,
 } from "lucide-react";
 import { AdminRole } from "@/generated/prisma/enums";
 
@@ -80,12 +84,33 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     ],
   },
   {
+    title: "Student Support",
+    items: [
+      { href: "/admin/advocacy", label: "Escalation Desk", icon: Scale, roles: [AdminRole.MEMBERSHIP_OFFICER] },
+      {
+        href: "/admin/support-requests",
+        label: "Support Requests",
+        icon: LifeBuoy,
+        roles: [AdminRole.MEMBERSHIP_OFFICER],
+      },
+      {
+        href: "/admin/opportunities",
+        label: "Opportunity Board",
+        icon: BriefcaseBusiness,
+        roles: [AdminRole.MEMBERSHIP_OFFICER],
+      },
+    ],
+  },
+  {
     title: "Library",
     items: [{ href: "/admin/library", label: "Documents", icon: BookOpen, roles: [AdminRole.LIBRARIAN] }],
   },
   {
     title: "Messages",
-    items: [{ href: "/admin/contact-messages", label: "Contact Messages", icon: Mail }],
+    items: [
+      { href: "/admin/broadcasts", label: "Broadcasts", icon: Radio, roles: [AdminRole.MEMBERSHIP_OFFICER] },
+      { href: "/admin/contact-messages", label: "Contact Messages", icon: Mail },
+    ],
   },
   {
     title: "Media & Site",

@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, BadgeCheck, Users } from "lucide-react";
+import { ArrowLeft, BadgeCheck, GraduationCap, Users } from "lucide-react";
 import { requirePatron } from "@/lib/auth/patron";
-import { getCampaign } from "@/lib/services/advocacy-service";
+import { getCampaign, splitEndorsements } from "@/lib/services/advocacy-service";
 import { PortalPageHeader } from "@/components/portal/PortalPageHeader";
 import { DashboardCard } from "@/components/portal/DashboardCard";
+import { SignatureList } from "@/components/portal/SignatureList";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EndorseCampaignForm } from "@/components/patron-portal/AdvocacyForms";
 import { campaignStatusLabel } from "@/lib/patron-portal-options";
@@ -18,6 +19,7 @@ export default async function PatronCampaignPage({ params }: { params: Promise<{
   const campaign = await getCampaign(id);
   if (!campaign) notFound();
   const endorsed = campaign.endorsements.some((e) => e.patronId === patron.id);
+  const signatures = splitEndorsements(campaign.endorsements, { patronId: patron.id });
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -47,26 +49,30 @@ export default async function PatronCampaignPage({ params }: { params: Promise<{
         <EndorseCampaignForm campaignId={campaign.id} endorsed={endorsed} canEndorse={campaign.status === "ACTIVE"} />
       </section>
 
-      <DashboardCard id="endorsers" title={`Endorsed by ${campaign.endorsements.length} Patron${campaign.endorsements.length === 1 ? "" : "s"}`} icon={<Users size={20} />}>
-        {campaign.endorsements.length === 0 ? (
+      <DashboardCard
+        id="endorsers"
+        title={`Endorsed by ${signatures.patrons.length} Patron${signatures.patrons.length === 1 ? "" : "s"}`}
+        icon={<Users size={20} />}
+      >
+        {signatures.patrons.length === 0 ? (
           <p className="text-slate">No patron has endorsed this campaign yet.</p>
         ) : (
-          <ul className="divide-y divide-line">
-            {campaign.endorsements.map((e) => (
-              <li key={e.id} className="py-3 first:pt-0">
-                <p className="font-semibold text-primary-950">
-                  {[e.patron.title, e.patron.fullName].filter(Boolean).join(" ")}
-                  {e.patronId === patron.id && <span className="text-sm font-normal text-slate"> (you)</span>}
-                </p>
-                <p className="text-sm text-slate">
-                  {[e.patron.jobTitle, e.patron.organization].filter(Boolean).join(", ") || e.patron.occupation}
-                </p>
-                {e.comment && <p className="text-[15px] text-ink mt-1 italic">&ldquo;{e.comment}&rdquo;</p>}
-              </li>
-            ))}
-          </ul>
+          <SignatureList lines={signatures.patrons} />
         )}
       </DashboardCard>
+
+      {signatures.alumni.length > 0 && (
+        <DashboardCard
+          id="alumni-signatories"
+          title={`Co-signed by ${signatures.alumni.length} Alumn${signatures.alumni.length === 1 ? "us" : "i"}`}
+          icon={<GraduationCap size={20} />}
+        >
+          <p className="text-sm text-slate mb-3">
+            Graduates of the association who have added their names in support of the students.
+          </p>
+          <SignatureList lines={signatures.alumni} />
+        </DashboardCard>
+      )}
     </div>
   );
 }

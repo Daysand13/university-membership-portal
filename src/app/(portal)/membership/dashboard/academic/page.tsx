@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { BookOpen, FileText, HeartHandshake } from "lucide-react";
+import { ArrowRight, BookOpen, FileText, HeartHandshake, Users } from "lucide-react";
 import { requireMember } from "@/lib/auth/member";
+import { countStudyGroupsForMember } from "@/lib/services/study-group-service";
 import { DashboardCard } from "@/components/portal/DashboardCard";
 import { PortalPageHeader } from "@/components/portal/PortalPageHeader";
 
-export const metadata = { title: "Course & Department" };
+export const metadata = { title: "Academic & Study Groups" };
 export const dynamic = "force-dynamic";
 
 const TRACK_LABEL: Record<string, string> = { UNDERGRADUATE: "Undergraduate", POSTGRADUATE: "Postgraduate" };
@@ -21,12 +22,13 @@ function Row({ label, value }: { label: string; value: string | number | null | 
 
 export default async function MemberAcademicPage() {
   const member = await requireMember();
+  const groupCount = await countStudyGroupsForMember(member.id);
 
   return (
     <>
       <PortalPageHeader
-        title="Course & Department"
-        description="Your academic details as the association holds them. These are managed by the association — if anything here is wrong, let us know and we'll correct it."
+        title="Academic & Study Groups"
+        description="Your academic details as the association holds them, and the study groups members are running. Academic details are managed by the association — if anything is wrong, tell us and we'll correct it."
       />
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -92,6 +94,24 @@ export default async function MemberAcademicPage() {
               )}
             </li>
           </ul>
+        </DashboardCard>
+
+        <DashboardCard
+          id="study-groups"
+          title="Study Groups"
+          icon={<Users size={20} />}
+          className="xl:col-span-2"
+          footer={
+            <Link href="/membership/dashboard/study-groups" className="inline-flex items-center gap-1.5 font-semibold text-primary-800 hover:text-accent-600">
+              Open study groups <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+          }
+        >
+          <p className="text-[15px] text-ink">
+            {groupCount > 0
+              ? `You're in ${groupCount} study group${groupCount === 1 ? "" : "s"}. Revising together beats revising alone — especially when the reading has to be converted first.`
+              : "Students run their own study groups here — say what you're studying and when you'd meet, or join one that's already going."}
+          </p>
         </DashboardCard>
       </div>
 

@@ -41,6 +41,13 @@ export interface AlumniDashboardViewProps {
   isCurrentlyEnrolled: boolean;
   /** Executive or patron positions this person holds, shown as badges. */
   teamRoles: TeamRoleBadge[];
+  /** What this graduate has put in: mentoring, giving, and what it's called. */
+  standing: {
+    activeMentees: number;
+    pendingRequests: number;
+    lifetimeGivingLabel: string;
+    rank: { label: string; detail: string };
+  };
   /** The patrons' announcements card, when there are any. */
   announcements?: ReactNode;
 }
@@ -65,6 +72,34 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 const footerLinkClasses = "inline-flex items-center gap-1.5 font-semibold text-primary-800 hover:text-accent-600";
 
+/** One of the three "what you've put in" tiles. */
+function StandingTile({
+  href,
+  label,
+  value,
+  detail,
+  attention = false,
+}: {
+  href: string;
+  label: string;
+  value: string;
+  detail: string;
+  attention?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`block rounded-xl border p-4 min-w-0 hover:border-primary-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 ${
+        attention ? "border-accent-400 bg-accent-50" : "border-line bg-white"
+      }`}
+    >
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate">{label}</p>
+      <p className="mt-1 font-display font-bold text-lg text-primary-950 break-words">{value}</p>
+      <p className="text-xs text-slate mt-0.5">{detail}</p>
+    </Link>
+  );
+}
+
 export function AlumniDashboardView({
   alumni,
   notices,
@@ -73,6 +108,7 @@ export function AlumniDashboardView({
   furtherStudies,
   isCurrentlyEnrolled,
   teamRoles,
+  standing,
   announcements,
 }: AlumniDashboardViewProps) {
   const pendingFurtherStudies =
@@ -107,6 +143,34 @@ export function AlumniDashboardView({
           <BannerStat label="Programme Completed" value={alumni.programme} />
           <BannerStat label="Registered Email" value={alumni.email} />
         </dl>
+      </section>
+
+      <section aria-label="What you've put in" className="grid gap-3 sm:grid-cols-3">
+        <StandingTile
+          href="/alumni/mentorship"
+          label="Students you're guiding"
+          value={String(standing.activeMentees)}
+          detail={
+            standing.pendingRequests > 0
+              ? `${standing.pendingRequests} waiting for your answer`
+              : alumni.willingToMentor
+                ? "You're listed as available"
+                : "Turn on availability to be asked"
+          }
+          attention={standing.pendingRequests > 0}
+        />
+        <StandingTile
+          href="/alumni/giving"
+          label="Lifetime giving"
+          value={standing.lifetimeGivingLabel}
+          detail="Every cedi goes to students here"
+        />
+        <StandingTile
+          href="/alumni/advocacy"
+          label="Network standing"
+          value={standing.rank.label}
+          detail={standing.rank.detail}
+        />
       </section>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">

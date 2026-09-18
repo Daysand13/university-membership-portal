@@ -115,3 +115,33 @@ export function patronDocumentAccept(android: boolean): string {
     ? [...DOCUMENT_TYPES, ...OFFICE_TYPES, "application/octet-stream"].join(",")
     : [...DOCUMENT_TYPES, ...OFFICE_TYPES, ...IMAGE_TYPES].join(",");
 }
+
+const AUDIO_TYPES = [
+  "audio/mpeg",
+  ".mp3",
+  "audio/mp4",
+  ".m4a",
+  "audio/wav",
+  ".wav",
+  "audio/ogg",
+  ".ogg",
+  "audio/webm",
+  ".weba",
+];
+
+/**
+ * The `accept` list for evidence on a barrier report: a photo of the
+ * barrier, a voice note describing it, or a PDF.
+ *
+ * Android gets documents plus application/octet-stream for the reason
+ * above — the file browser, with everything selectable, reachable on
+ * Samsung. Listing audio types there would only add a Voice Recorder
+ * shortcut to the same sheet that hides My Files. On everything else,
+ * naming the audio types is what makes a saved recording selectable
+ * alongside photos.
+ */
+export function barrierEvidenceAccept(android: boolean): string {
+  return android
+    ? [...DOCUMENT_TYPES, "application/octet-stream"].join(",")
+    : ["application/pdf", ".pdf", ...IMAGE_TYPES, ...AUDIO_TYPES].join(",");
+}

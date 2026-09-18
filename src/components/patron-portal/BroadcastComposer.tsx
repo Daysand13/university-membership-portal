@@ -8,7 +8,7 @@ import { FieldError, FormAlert, Label, inputClasses } from "@/components/ui/Comm
 import { Button } from "@/components/ui/Button";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { PatronFileField } from "./PatronFileField";
-import { BROADCAST_AUDIENCES } from "@/lib/patron-portal-options";
+import { PATRON_BROADCAST_AUDIENCES } from "@/lib/patron-portal-options";
 
 function escapeHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -29,7 +29,7 @@ function AudienceChoice({ defaultValue, compact }: { defaultValue: string; compa
     <fieldset>
       <legend className="text-sm font-semibold text-primary-950 mb-2">Send to</legend>
       <div className={`grid gap-2 ${compact ? "" : "sm:grid-cols-2"}`}>
-        {BROADCAST_AUDIENCES.map((audience) => (
+        {PATRON_BROADCAST_AUDIENCES.map((audience) => (
           <label
             key={audience.value}
             className="flex items-start gap-3 rounded-lg border border-line bg-white p-3 cursor-pointer hover:border-primary-400 has-[:checked]:border-primary-800 has-[:checked]:bg-primary-50"
@@ -155,7 +155,7 @@ export function QuickBroadcastPanel() {
       <div>
         <Label htmlFor="quick-audience">Send to</Label>
         <select id="quick-audience" name="audience" defaultValue="ALL_MEMBERS" className={inputClasses}>
-          {BROADCAST_AUDIENCES.map((audience) => (
+          {PATRON_BROADCAST_AUDIENCES.map((audience) => (
             <option key={audience.value} value={audience.value}>
               {audience.label}
             </option>

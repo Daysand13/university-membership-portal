@@ -6,6 +6,11 @@ import { firstNameOf } from "@/lib/services/account-notification-service";
 import { getUpcomingEventsForHome } from "@/lib/services/event-service";
 import { getTeamRoleBadges } from "@/lib/services/team-role-service";
 import { listAnnouncementsForAlumni } from "@/lib/services/broadcast-service";
+import { getMentorMetrics } from "@/lib/services/mentorship-service";
+import { getGivingSummary } from "@/lib/services/alumni-giving-service";
+import { countAlumniEndorsements } from "@/lib/services/advocacy-service";
+import { alumniRank } from "@/lib/portal-options";
+import { formatCedis } from "@/lib/patron-portal-options";
 import { AnnouncementsCard } from "@/components/patron-portal/Display";
 
 export const metadata = { title: "Alumni Portal" };
@@ -17,15 +22,19 @@ export default async function AlumniDashboardPage({
   searchParams: Promise<{ passwordChanged?: string }>;
 }) {
   const alumni = await requireAlumni();
-  const [sp, isCurrentlyEnrolled, counts, study, events, teamRoles, announcements] = await Promise.all([
-    searchParams,
-    alumniHasMemberStanding(alumni),
-    getAlumniNetworkCounts(),
-    getAlumniStudyRecords(alumni),
-    getUpcomingEventsForHome(2),
-    getTeamRoleBadges({ memberIds: [alumni.sourceMemberId], userId: alumni.userId }),
-    listAnnouncementsForAlumni(3),
-  ]);
+  const [sp, isCurrentlyEnrolled, counts, study, events, teamRoles, announcements, mentoring, giving, endorsements] =
+    await Promise.all([
+      searchParams,
+      alumniHasMemberStanding(alumni),
+      getAlumniNetworkCounts(),
+      getAlumniStudyRecords(alumni),
+      getUpcomingEventsForHome(2),
+      getTeamRoleBadges({ memberIds: [alumni.sourceMemberId], userId: alumni.userId }),
+      listAnnouncementsForAlumni(3),
+      getMentorMetrics(alumni.id),
+      getGivingSummary(alumni.id),
+      countAlumniEndorsements(alumni.id),
+    ]);
   const latestApplication = study.furtherStudiesApplications[0] ?? null;
 
   return (
@@ -57,6 +66,16 @@ export default async function AlumniDashboardPage({
       }
       isCurrentlyEnrolled={isCurrentlyEnrolled}
       teamRoles={teamRoles}
+      standing={{
+        activeMentees: mentoring.activeMentees,
+        pendingRequests: mentoring.pendingRequests,
+        lifetimeGivingLabel: formatCedis(giving.lifetimePesewas),
+        rank: alumniRank({
+          activeMentees: mentoring.activeMentees,
+          lifetimeGivingPesewas: giving.lifetimePesewas,
+          endorsements,
+        }),
+      }}
       announcements={
         announcements.length > 0 ? <AnnouncementsCard announcements={announcements} href="/alumni/announcements" /> : undefined
       }

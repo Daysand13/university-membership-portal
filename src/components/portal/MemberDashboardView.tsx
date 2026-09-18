@@ -6,8 +6,10 @@ import {
   IdCard,
   LifeBuoy,
   Megaphone,
+  Scale,
   User,
   UserCog,
+  UsersRound,
   Vote,
   Wallet,
   Zap,
@@ -46,6 +48,13 @@ export interface MemberDashboardViewProps {
   card: { qrSvg: string } | null;
   /** Executive or patron positions this member holds, shown as badges. */
   teamRoles: TeamRoleBadge[];
+  /** The three numbers across the top: where this student stands right now. */
+  standing: {
+    duesPaid: boolean;
+    mentorName: string | null;
+    openReports: number;
+    openRequests: number;
+  };
   /** The patrons' announcements card, when there are any. */
   announcements?: ReactNode;
 }
@@ -91,7 +100,47 @@ function QuickAction({
 
 const footerLinkClasses = "inline-flex items-center gap-1.5 font-semibold text-primary-800 hover:text-accent-600";
 
-export function MemberDashboardView({ member, notices, dues, news, card, teamRoles, announcements }: MemberDashboardViewProps) {
+/**
+ * One of the four "where you stand" tiles. A link, always — a number a
+ * student can't act on is just decoration.
+ */
+function StandingTile({
+  href,
+  label,
+  value,
+  detail,
+  attention = false,
+}: {
+  href: string;
+  label: string;
+  value: string;
+  detail: string;
+  attention?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`block rounded-xl border p-4 min-w-0 hover:border-primary-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 ${
+        attention ? "border-accent-400 bg-accent-50" : "border-line bg-white"
+      }`}
+    >
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate">{label}</p>
+      <p className="mt-1 font-display font-bold text-lg text-primary-950 break-words">{value}</p>
+      <p className="text-xs text-slate mt-0.5">{detail}</p>
+    </Link>
+  );
+}
+
+export function MemberDashboardView({
+  member,
+  notices,
+  dues,
+  news,
+  card,
+  teamRoles,
+  standing,
+  announcements,
+}: MemberDashboardViewProps) {
   return (
     <div className="space-y-6">
       {notices.passwordChanged && <PortalNotice tone="success">Your password has been changed.</PortalNotice>}
@@ -149,6 +198,35 @@ export function MemberDashboardView({ member, notices, dues, news, card, teamRol
           <BannerStat label={member.departmentLabel} value={member.department} />
           <BannerStat label="Level" value={member.level} />
         </dl>
+      </section>
+
+      <section aria-label="Where you stand" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StandingTile
+          href="/membership/dashboard/dues"
+          label="Dues"
+          value={standing.duesPaid ? "Paid" : "Outstanding"}
+          detail={`${dues.academicYear} · ${dues.amountLabel}`}
+          attention={!standing.duesPaid}
+        />
+        <StandingTile
+          href="/membership/dashboard/mentorship"
+          label="Mentor"
+          value={standing.mentorName ?? "None yet"}
+          detail={standing.mentorName ? "Open your conversation" : "Graduates are offering to guide students"}
+        />
+        <StandingTile
+          href="/membership/dashboard/rights"
+          label="Barrier reports"
+          value={standing.openReports === 0 ? "None open" : `${standing.openReports} open`}
+          detail={standing.openReports === 0 ? "Report anything blocking you" : "Follow what's being done"}
+          attention={standing.openReports > 0}
+        />
+        <StandingTile
+          href="/membership/dashboard/support"
+          label="Support requests"
+          value={standing.openRequests === 0 ? "None open" : `${standing.openRequests} open`}
+          detail={standing.openRequests === 0 ? "Ask for tech, a note-taker or welfare" : "Waiting on the executives"}
+        />
       </section>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
@@ -244,6 +322,24 @@ export function MemberDashboardView({ member, notices, dues, news, card, teamRol
         <DashboardCard id="quick-actions" title="Quick Actions" icon={<Zap size={20} />}>
           <ul className="space-y-2.5">
             <QuickAction
+              href="/membership/dashboard/rights/new"
+              icon={<Scale size={18} />}
+              title="Report an Accessibility Barrier"
+              description="Something on campus that's shutting you out"
+            />
+            <QuickAction
+              href="/membership/dashboard/support"
+              icon={<LifeBuoy size={18} />}
+              title="Ask for Support"
+              description="Assistive tech, a note-taker or welfare help"
+            />
+            <QuickAction
+              href="/membership/dashboard/mentorship"
+              icon={<UsersRound size={18} />}
+              title="Find an Alumni Mentor"
+              description="Graduates who've offered to guide students"
+            />
+            <QuickAction
               href="/membership/dashboard/elections"
               icon={<Vote size={18} />}
               title="Vote in Elections"
@@ -254,12 +350,6 @@ export function MemberDashboardView({ member, notices, dues, news, card, teamRol
               icon={<UserCog size={18} />}
               title="Update Profile Details"
               description="Phone, address and emergency contact"
-            />
-            <QuickAction
-              href="/contact?subject=Accessibility%20support%20request"
-              icon={<LifeBuoy size={18} />}
-              title="Request Support / Accessibility Assistance"
-              description="Tell the association what help you need"
             />
             <QuickAction
               href="/membership/dashboard/events"

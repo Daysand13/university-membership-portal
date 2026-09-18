@@ -18,8 +18,22 @@ export const ALLOWED_DOCUMENT_TYPES = [
   "image/png",
 ] as const;
 
+/**
+ * Recordings. Here because a student reporting a barrier may find it far
+ * easier to say what happened than to type it — a voice note is an
+ * accessibility feature, not a nice-to-have.
+ */
+export const ALLOWED_AUDIO_TYPES = [
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/wav",
+  "audio/ogg",
+  "audio/webm",
+] as const;
+
 export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 export const MAX_DOCUMENT_SIZE_BYTES = 30 * 1024 * 1024; // 30 MB
+export const MAX_AUDIO_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 
 const EXTENSION_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -34,6 +48,11 @@ const EXTENSION_BY_MIME: Record<string, string> = {
   "application/vnd.ms-powerpoint": "ppt",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
   "application/zip": "zip",
+  "audio/mpeg": "mp3",
+  "audio/mp4": "m4a",
+  "audio/wav": "wav",
+  "audio/ogg": "ogg",
+  "audio/webm": "weba",
 };
 
 // A short allow-list of extensions we trust even if a browser reports a
@@ -54,6 +73,14 @@ const ALLOWED_EXTENSIONS = new Set([
   "ppt",
   "pptx",
   "zip",
+  "mp3",
+  "m4a",
+  "mp4",
+  "wav",
+  "ogg",
+  "oga",
+  "weba",
+  "webm",
 ]);
 
 export function isAllowedImageType(mimeType: string): boolean {
@@ -62,6 +89,10 @@ export function isAllowedImageType(mimeType: string): boolean {
 
 export function isAllowedDocumentType(mimeType: string): boolean {
   return (ALLOWED_DOCUMENT_TYPES as readonly string[]).includes(mimeType);
+}
+
+export function isAllowedAudioType(mimeType: string): boolean {
+  return (ALLOWED_AUDIO_TYPES as readonly string[]).includes(mimeType);
 }
 
 export function getExtensionFromFilename(filename: string): string {
@@ -127,13 +158,26 @@ export function validateUploadRequest(params: {
   filename: string;
   mimeType: string;
   fileSize: number;
-  category: "image" | "document";
+  category: "image" | "document" | "evidence";
   maxSizeBytes?: number;
 }): { ok: true } | { ok: false; error: string } {
   const { filename, mimeType, fileSize, category, maxSizeBytes } = params;
 
   if (!isAllowedExtension(filename)) {
     return { ok: false, error: "That file type isn't supported." };
+  }
+
+  // Evidence for a barrier report: a photo of it, a recording describing it,
+  // or a document. The caller's own list narrows this further.
+  if (category === "evidence") {
+    if (!isAllowedImageType(mimeType) && !isAllowedAudioType(mimeType) && !isAllowedDocumentType(mimeType)) {
+      return { ok: false, error: "Attach a photo, a voice recording or a PDF." };
+    }
+    const limit = maxSizeBytes ?? MAX_AUDIO_SIZE_BYTES;
+    if (fileSize > limit) {
+      return { ok: false, error: `Attachments must be ${Math.round(limit / (1024 * 1024))} MB or smaller.` };
+    }
+    return { ok: true };
   }
 
   if (category === "image") {
@@ -190,6 +234,43 @@ export function sniffDocumentMimeType(bytes: Uint8Array): string | null {
   return null;
 }
 
+/**
+ * Magic-byte sniff for the recording formats we accept. Same purpose as the
+ * document sniff: the browser's Content-Type is a claim, and the only
+ * evidence is the bytes.
+ *
+ * Like documents, this returns a family rather than an exact type. An MP4
+ * container holds audio or video depending on its brand, and Ogg and WebM
+ * are containers too — so a match means "the bytes are consistent with a
+ * recording of the declared type", which is what the caller needs to know.
+ */
+export function sniffAudioMimeType(bytes: Uint8Array): string | null {
+  // "ID3" tag, or an MPEG frame sync (11 set bits) — both mean MP3 here.
+  if (bytes.length >= 3 && bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) return "audio/mpeg";
+  if (bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) return "audio/mpeg";
+  // "RIFF" .... "WAVE"
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+    bytes[8] === 0x57 && bytes[9] === 0x41 && bytes[10] === 0x56 && bytes[11] === 0x45
+  ) {
+    return "audio/wav";
+  }
+  // "OggS"
+  if (bytes.length >= 4 && bytes[0] === 0x4f && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) {
+    return "audio/ogg";
+  }
+  // "ftyp" at offset 4 — the ISO base media container (.m4a, .mp4).
+  if (bytes.length >= 8 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
+    return "audio/mp4";
+  }
+  // EBML header — Matroska/WebM.
+  if (bytes.length >= 4 && bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) {
+    return "audio/webm";
+  }
+  return null;
+}
+
 /** ZIP- and OLE-based Office types that a container sniff can legitimately back. */
 const ZIP_BACKED_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -215,6 +296,14 @@ const OLE_BACKED_TYPES = new Set([
 export function bytesMatchDeclaredType(bytes: Uint8Array, declaredType: string): boolean {
   const image = sniffImageMimeType(bytes);
   if (image) return image === declaredType;
+
+  if (isAllowedAudioType(declaredType)) {
+    const audio = sniffAudioMimeType(bytes);
+    // An MP4/Ogg/WebM container can legitimately be labelled as either its
+    // own type or the codec-specific one a phone chose, so a recording only
+    // has to sniff as SOME recording.
+    return audio !== null;
+  }
 
   const doc = sniffDocumentMimeType(bytes);
   if (!doc) return false;

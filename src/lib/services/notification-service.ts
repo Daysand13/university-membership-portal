@@ -56,6 +56,15 @@ export async function getDashboardCounts() {
     db.contactMessage.count({ where: { status: "NEW" } }),
   ]);
 
+  // The executives' own operational numbers: what's waiting on somebody, and
+  // what students are still blocked by.
+  const [openReports, pendingSupport, pendingBroadcasts, pendingOpportunities] = await Promise.all([
+    db.barrierReport.count({ where: { status: { in: ["SUBMITTED", "UNDER_REVIEW", "IN_PROGRESS", "ESCALATED"] } } }),
+    db.supportRequest.count({ where: { status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } }),
+    db.broadcast.count({ where: { status: "PENDING" } }),
+    db.opportunity.count({ where: { status: "PENDING" } }),
+  ]);
+
   return {
     totalMembers,
     pendingApplications,
@@ -65,5 +74,11 @@ export async function getDashboardCounts() {
     libraryDocuments,
     activeElections,
     newMessages,
+    openReports,
+    pendingSupport,
+    pendingBroadcasts,
+    pendingOpportunities,
+    /** Everything sitting in somebody's queue, for the one "to do" tile. */
+    pendingApprovals: pendingApplications + pendingSupport + pendingBroadcasts + pendingOpportunities,
   };
 }

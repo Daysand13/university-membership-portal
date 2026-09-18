@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import type {
+  AlumniProfile,
   CampaignStatus,
   IssueActionType,
   IssueCategory,
@@ -12,6 +13,7 @@ import {
   notifyAdminsOfEndorsement,
   notifyAdminsOfIssueAction,
 } from "@/lib/services/patron-portal-notification-service";
+import { notifyAdminsOfAlumniEndorsement } from "@/lib/services/portal-notification-service";
 
 /**
  * The Advocacy & Rights hub: campaigns the executive team runs (which
@@ -38,14 +40,20 @@ export interface CampaignFields {
   status: CampaignStatus;
 }
 
-export async function listCampaigns(params?: { status?: CampaignStatus; patronId?: string }) {
+export async function listCampaigns(params?: { status?: CampaignStatus; patronId?: string; alumniId?: string }) {
   const campaigns = await db.advocacyCampaign.findMany({
     where: params?.status ? { status: params.status } : {},
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     include: {
       _count: { select: { endorsements: true } },
-      // Only ever the viewing patron's own endorsement (none for an admin).
-      endorsements: { where: { patronId: params?.patronId ?? "" }, select: { id: true } },
+      // Only ever the viewer's own endorsement — a patron's seal or an
+      // alumnus's co-signature (neither, for an admin or a student).
+      endorsements: {
+        where: params?.alumniId
+          ? { alumniId: params.alumniId }
+          : { patronId: params?.patronId ?? "" },
+        select: { id: true },
+      },
     },
     take: 200,
   });
@@ -64,11 +72,78 @@ export async function getCampaign(id: string) {
         orderBy: { createdAt: "asc" },
         include: {
           patron: { select: { id: true, title: true, fullName: true, jobTitle: true, organization: true, occupation: true } },
+          alumni: { select: { id: true, fullName: true, graduationYear: true, programme: true, currentPosition: true, currentOrganization: true, profession: true } },
         },
       },
       createdBy: { select: { name: true } },
     },
   });
+}
+
+/** One line on a campaign's signature sheet, ready to display. */
+export interface SignatureLine {
+  id: string;
+  name: string;
+  /** Who they are, in one line: a patron's post, or an alumnus's class. */
+  description: string;
+  comment: string | null;
+  at: Date;
+  isMine: boolean;
+}
+
+interface EndorsementRow {
+  id: string;
+  comment: string | null;
+  createdAt: Date;
+  patronId: string | null;
+  alumniId: string | null;
+  patron: { title: string | null; fullName: string; jobTitle: string | null; organization: string | null; occupation: string } | null;
+  alumni: {
+    fullName: string;
+    graduationYear: number;
+    programme: string;
+    currentPosition: string | null;
+    currentOrganization: string | null;
+    profession: string | null;
+  } | null;
+}
+
+/**
+ * Splits a campaign's signatures into the patrons' seal and the alumni who
+ * co-signed. They are shown apart because they carry different weight: a
+ * patron signs with their standing in the university, an alumnus signs as a
+ * graduate of the same programmes.
+ */
+export function splitEndorsements(
+  endorsements: EndorsementRow[],
+  viewer?: { patronId?: string; alumniId?: string },
+): { patrons: SignatureLine[]; alumni: SignatureLine[] } {
+  const patrons: SignatureLine[] = [];
+  const alumni: SignatureLine[] = [];
+
+  for (const e of endorsements) {
+    if (e.patron) {
+      patrons.push({
+        id: e.id,
+        name: [e.patron.title, e.patron.fullName].filter(Boolean).join(" "),
+        description: [e.patron.jobTitle, e.patron.organization].filter(Boolean).join(", ") || e.patron.occupation,
+        comment: e.comment,
+        at: e.createdAt,
+        isMine: Boolean(viewer?.patronId && e.patronId === viewer.patronId),
+      });
+    } else if (e.alumni) {
+      const role = [e.alumni.currentPosition, e.alumni.currentOrganization].filter(Boolean).join(" at ");
+      alumni.push({
+        id: e.id,
+        name: e.alumni.fullName,
+        description: [`Class of ${e.alumni.graduationYear}`, role || e.alumni.profession].filter(Boolean).join(" · "),
+        comment: e.comment,
+        at: e.createdAt,
+        isMine: Boolean(viewer?.alumniId && e.alumniId === viewer.alumniId),
+      });
+    }
+  }
+  return { patrons, alumni };
 }
 
 export async function createCampaign(fields: CampaignFields, adminId: string) {
@@ -125,6 +200,51 @@ export async function endorseCampaign(params: { campaignId: string; patron: Patr
 
 export async function withdrawEndorsement(params: { campaignId: string; patronId: string }) {
   await db.campaignEndorsement.deleteMany({ where: { campaignId: params.campaignId, patronId: params.patronId } });
+}
+
+/**
+ * An alumnus co-signing a campaign. The same signature sheet as a patron's,
+ * with one difference in meaning: a patron signs with their standing, an
+ * alumnus signs as someone who sat in the same lecture halls.
+ */
+export async function endorseCampaignAsAlumni(params: {
+  campaignId: string;
+  alumni: Pick<AlumniProfile, "id" | "fullName" | "graduationYear">;
+  comment: string | null;
+}) {
+  const { campaignId, alumni, comment } = params;
+  const campaign = await db.advocacyCampaign.findUnique({ where: { id: campaignId } });
+  if (!campaign) throw new AdvocacyError("That campaign couldn't be found.");
+  if (campaign.status !== "ACTIVE") throw new AdvocacyError("This campaign is no longer taking signatures.");
+
+  try {
+    await db.campaignEndorsement.create({ data: { campaignId, alumniId: alumni.id, comment } });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      throw new AdvocacyError("You've already co-signed this campaign.");
+    }
+    throw err;
+  }
+  await notifyAdminsOfAlumniEndorsement({ campaign, alumni, comment });
+}
+
+export async function withdrawAlumniEndorsement(params: { campaignId: string; alumniId: string }) {
+  await db.campaignEndorsement.deleteMany({ where: { campaignId: params.campaignId, alumniId: params.alumniId } });
+}
+
+export async function countAlumniEndorsements(alumniId: string): Promise<number> {
+  return db.campaignEndorsement.count({ where: { alumniId } });
+}
+
+/** Campaigns as a student sees them: read-only, with who has signed. */
+export async function listCampaignsForStudents() {
+  const campaigns = await db.advocacyCampaign.findMany({
+    where: { status: { in: ["ACTIVE", "ACHIEVED"] } },
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    include: { _count: { select: { endorsements: true } } },
+    take: 50,
+  });
+  return campaigns.map((c) => ({ ...c, endorsementCount: c._count.endorsements }));
 }
 
 // ---------------------------------------------------------------------------

@@ -62,6 +62,9 @@ export const R2_PREFIXES = {
   elections: "elections",
   donations: "donations",
   media: "media",
+  // Evidence attached to a student's barrier report. Its own folder because
+  // nothing in it is ever served publicly.
+  reports: "reports",
 } as const;
 
 export type R2Prefix = (typeof R2_PREFIXES)[keyof typeof R2_PREFIXES];

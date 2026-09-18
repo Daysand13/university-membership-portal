@@ -22,7 +22,10 @@ export type PortalIconName =
   | "messages"
   | "advocacy"
   | "documents"
-  | "announcements";
+  | "announcements"
+  | "support"
+  | "mentorship"
+  | "jobs";
 
 export interface PortalNavItem {
   href: string;
@@ -49,7 +52,15 @@ export const PORTAL_HOME: Record<PortalMode, string> = {
 export const PORTAL_NAV: Record<PortalMode, PortalNavItem[]> = {
   member: [
     { href: "/membership/dashboard", label: "Dashboard", icon: "dashboard", exact: true },
-    { href: "/membership/dashboard/academic", label: "Course & Department", icon: "academic" },
+    { href: "/membership/dashboard/rights", label: "My Rights & Advocacy", icon: "advocacy" },
+    { href: "/membership/dashboard/support", label: "Support & Assistance", icon: "support" },
+    {
+      href: "/membership/dashboard/academic",
+      label: "Academic & Study Groups",
+      icon: "academic",
+      alsoActiveOn: ["/membership/dashboard/study-groups"],
+    },
+    { href: "/membership/dashboard/mentorship", label: "Mentorship & Alumni", icon: "mentorship" },
     { href: "/membership/dashboard/dues", label: "Dues & Payments", icon: "dues" },
     { href: "/membership/dashboard/events", label: "Association Events", icon: "events" },
     { href: "/membership/dashboard/elections", label: "Voting & Elections", icon: "elections" },
@@ -63,8 +74,11 @@ export const PORTAL_NAV: Record<PortalMode, PortalNavItem[]> = {
   ],
   alumni: [
     { href: "/alumni/dashboard", label: "Dashboard", icon: "dashboard", exact: true },
+    { href: "/alumni/mentorship", label: "Mentorship Centre", icon: "mentorship" },
+    { href: "/alumni/giving", label: "Donations & Giving", icon: "finances" },
+    { href: "/alumni/opportunities", label: "Opportunity Board", icon: "jobs" },
+    { href: "/alumni/advocacy", label: "Advocacy Backing", icon: "advocacy" },
     { href: "/alumni/directory", label: "Alumni Directory", icon: "directory" },
-    { href: "/alumni/mentorship", label: "Networking & Mentorship", icon: "network" },
     { href: "/alumni/career", label: "Career Updates", icon: "career" },
     { href: "/alumni/records", label: "Academic Records", icon: "records" },
     { href: "/alumni/further-studies", label: "Register for Further Studies", icon: "further" },

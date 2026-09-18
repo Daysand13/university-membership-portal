@@ -9,6 +9,7 @@ import {
   ISSUE_STATUS_VALUES,
   MAX_DONATION_CEDIS,
   MIN_DONATION_CEDIS,
+  PATRON_BROADCAST_AUDIENCE_VALUES,
 } from "@/lib/patron-portal-options";
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
@@ -87,7 +88,7 @@ function hasText(html: string): boolean {
 
 export const broadcastSchema = z
   .object({
-    audience: z.enum(BROADCAST_AUDIENCE_VALUES, { message: "Choose who should receive this" }),
+    audience: z.enum(PATRON_BROADCAST_AUDIENCE_VALUES, { message: "Choose who should receive this" }),
     subject: z.string().trim().min(3, "Add a subject").max(150),
     bodyHtml: z.string().max(50_000, "This message is too long").refine(hasText, "Write your message"),
     sendEmail: z.boolean(),
@@ -98,6 +99,26 @@ export const broadcastSchema = z
     path: ["sendEmail"],
   });
 export type BroadcastInput = z.infer<typeof broadcastSchema>;
+
+/**
+ * An executive's own broadcast. They can write to every group, the patrons
+ * included, and they say who it comes from — "the President" and "the
+ * Welfare Committee" carry different weight, and members should be told
+ * which one is writing.
+ */
+export const adminBroadcastSchema = z
+  .object({
+    audience: z.enum(BROADCAST_AUDIENCE_VALUES, { message: "Choose who should receive this" }),
+    authorName: z.string().trim().min(2, "Say who this is from").max(120),
+    subject: z.string().trim().min(3, "Add a subject").max(150),
+    bodyHtml: z.string().max(50_000, "This message is too long").refine(hasText, "Write your message"),
+    sendEmail: z.boolean(),
+    postToPortal: z.boolean(),
+  })
+  .refine((data) => data.sendEmail || data.postToPortal, {
+    message: "Choose at least one way to send it",
+    path: ["sendEmail"],
+  });
 
 export const broadcastReviewSchema = z
   .object({

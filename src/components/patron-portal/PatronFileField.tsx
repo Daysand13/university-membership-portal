@@ -22,6 +22,11 @@ export function PatronFileField({
   required = false,
   errors,
   resetKey,
+  // Executives attach files to their own broadcasts with the same field, but
+  // they hold an admin session rather than a patron one, so the routes that
+  // issue the signed ticket differ. Everything after the ticket is identical.
+  ticketUrl = "/api/patrons/upload/ticket",
+  fallbackUrl = "/api/patrons/upload",
 }: {
   name: string;
   label: string;
@@ -30,6 +35,8 @@ export function PatronFileField({
   errors?: string[];
   /** Changing this clears the field. */
   resetKey?: number;
+  ticketUrl?: string;
+  fallbackUrl?: string;
 }) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -58,8 +65,8 @@ export function PatronFileField({
       kind: "patron-document",
       file: selected,
       targetBytes: Math.floor(1.5 * 1024 * 1024),
-      ticketUrl: "/api/patrons/upload/ticket",
-      fallbackUrl: "/api/patrons/upload",
+      ticketUrl,
+      fallbackUrl,
       onProgress: setProgress,
     });
     setProgress(null);

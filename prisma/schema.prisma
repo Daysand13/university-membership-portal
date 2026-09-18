@@ -129,6 +129,12 @@ model AdminUser {
   auditLogs            AuditLog[]
   uploadedMedia        Media[]
 
+  sentBroadcasts        Broadcast[]           @relation("BroadcastAuthor")
+  assignedReports       BarrierReport[]       @relation("BarrierReportAssignee")
+  reportUpdates         BarrierReportUpdate[] @relation("BarrierReportUpdateAuthor")
+  reviewedSupport       SupportRequest[]      @relation("SupportRequestReviewer")
+  reviewedOpportunities Opportunity[]         @relation("OpportunityReviewer")
+
   // Link to the unified identity row. The granular AdminRole above stays
   // the source of truth for what an admin may actually do — the unified
   // model only records THAT they're an admin, never flattening these six
@@ -186,6 +192,11 @@ model Member {
   passwordResetTokens PasswordResetToken[]
   alumniProfile       AlumniProfile?
   duesPayments        DuesPayment[]
+  barrierReports      BarrierReport[]
+  supportRequests     SupportRequest[]
+  mentorships         Mentorship[]
+  studyGroups         StudyGroupMember[]
+  createdStudyGroups  StudyGroup[]         @relation("StudyGroupCreator")
   // The public Leadership/Patron listing this account is linked to, if any
   // — the far side of TeamMember.memberId, used to charge the Executive
   // dues rate instead of the level/track rate.
@@ -656,6 +667,12 @@ model AlumniProfile {
   willingToMentor Boolean      @default(false)
   status          AlumniStatus @default(ACTIVE)
 
+  // Mentoring, in the mentor's own words: when they're generally free, and
+  // how many students they're willing to take at once. Only read while
+  // willingToMentor is on.
+  mentorAvailability String?
+  mentorCapacity     Int     @default(3)
+
   // Visible in the members-only directory to other signed-in alumni. This
   // has never meant "visible on the public web" and still doesn't — see
   // publicProfile below, which is the separate, deliberately stricter gate.
@@ -706,6 +723,10 @@ model AlumniProfile {
 
   passwordResetTokens AlumniPasswordResetToken[]
   spotlight           AlumniSpotlight?
+  mentorships         Mentorship[]
+  opportunities       Opportunity[]
+  donations           Donation[]
+  endorsements        CampaignEndorsement[]
 
   @@index([status])
   @@index([willingToMentor])
@@ -1076,6 +1097,11 @@ model Donation {
   // The patron who gave it, when it was given from the Patrons' Portal.
   patronId String?
   patron   PatronProfile? @relation(fields: [patronId], references: [id], onDelete: SetNull)
+  // The alumnus who gave it, when it was given from the Alumni Portal. A
+  // donation has at most one of these — they are two different portals, not
+  // two names for the same giver.
+  alumniId String?
+  alumni   AlumniProfile? @relation(fields: [alumniId], references: [id], onDelete: SetNull)
 
   // Captured when the donation is made, so the record still reads correctly
   // if the patron account is later removed.
@@ -1103,6 +1129,7 @@ model Donation {
 
   @@index([status])
   @@index([patronId])
+  @@index([alumniId])
   @@index([paidAt])
   @@map("donations")
 }
@@ -1128,6 +1155,9 @@ model Expense {
   recordedById String?
   recordedBy   AdminUser? @relation("ExpenseRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
 
+  /// The student support request this payout settled, where it was one.
+  supportRequest SupportRequest?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1145,6 +1175,7 @@ enum BroadcastAudience {
   STUDENTS
   ALUMNI
   EXECUTIVES
+  PATRONS
 }
 
 enum BroadcastStatus {
@@ -1159,11 +1190,16 @@ enum BroadcastStatus {
 /// until an administrator approves it; approval posts it to the chosen
 /// portals and emails the group.
 model Broadcast {
-  id         String         @id @default(cuid())
-  patronId   String?
-  patron     PatronProfile? @relation(fields: [patronId], references: [id], onDelete: SetNull)
+  id               String         @id @default(cuid())
+  patronId         String?
+  patron           PatronProfile? @relation(fields: [patronId], references: [id], onDelete: SetNull)
+  // Set instead of patronId when an executive wrote it in the admin area.
+  // Executives send their own broadcasts directly: there is nobody above
+  // them to approve it, so these rows are created already APPROVED.
+  createdByAdminId String?
+  createdByAdmin   AdminUser?     @relation("BroadcastAuthor", fields: [createdByAdminId], references: [id], onDelete: SetNull)
   // The sender's name as shown to members, captured when it was written.
-  authorName String
+  authorName       String
 
   audience     BroadcastAudience
   sendEmail    Boolean           @default(true)
@@ -1284,17 +1320,23 @@ model AdvocacyCampaign {
   @@map("advocacy_campaigns")
 }
 
+/// One signature on a campaign. A patron's carries the patron's seal; an
+/// alumnus co-signs as a graduate backing the students. Exactly one of
+/// patronId and alumniId is set — which one is what the endorsement means.
 model CampaignEndorsement {
   id         String           @id @default(cuid())
   campaignId String
   campaign   AdvocacyCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  patronId   String
-  patron     PatronProfile    @relation(fields: [patronId], references: [id], onDelete: Cascade)
+  patronId   String?
+  patron     PatronProfile?   @relation(fields: [patronId], references: [id], onDelete: Cascade)
+  alumniId   String?
+  alumni     AlumniProfile?   @relation(fields: [alumniId], references: [id], onDelete: Cascade)
   comment    String?
 
   createdAt DateTime @default(now())
 
   @@unique([campaignId, patronId])
+  @@unique([campaignId, alumniId])
   @@map("campaign_endorsements")
 }
 
@@ -1332,7 +1374,9 @@ model AccessibilityIssue {
   createdById String?
   createdBy   AdminUser? @relation("IssueCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
-  actions IssuePatronAction[]
+  actions      IssuePatronAction[]
+  /// The student's own report this was escalated from, where there was one.
+  sourceReport BarrierReport?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1360,4 +1404,335 @@ model IssuePatronAction {
 
   @@index([issueId])
   @@map("issue_patron_actions")
+}
+
+// ---------------------------------------------------------------------------
+// Student Portal: rights, barriers and support
+// ---------------------------------------------------------------------------
+
+/// Where a student's barrier report has got to. Deliberately longer than the
+/// patrons' IssueStatus: this is the working queue the executives triage,
+/// and ESCALATED is the point where a de-identified summary crosses over
+/// into the patrons' advocacy log.
+enum BarrierReportStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  IN_PROGRESS
+  ESCALATED
+  RESOLVED
+  CLOSED
+}
+
+/// A barrier a student ran into on campus — a locked lift, an exam venue
+/// upstairs, an exam paper with no audio version — reported from the Student
+/// Portal with photos or a voice note as evidence.
+///
+/// This is the student's own account, with their name attached, and it stays
+/// with the executive team. What reaches the patrons is the separate,
+/// de-identified AccessibilityIssue an executive writes when escalating (see
+/// escalatedIssue below).
+model BarrierReport {
+  id       String @id @default(cuid())
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String
+  category    IssueCategory
+  location    String?
+  /// When the student hit the barrier, if they said.
+  occurredOn  DateTime?
+
+  status BarrierReportStatus @default(SUBMITTED)
+
+  /// The executive handling it, e.g. the PRO.
+  assignedToId String?
+  assignedTo   AdminUser? @relation("BarrierReportAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  resolutionNote String?
+  resolvedAt     DateTime?
+
+  /// Set when an executive escalates it to the patrons.
+  escalatedIssueId String?             @unique
+  escalatedIssue   AccessibilityIssue? @relation(fields: [escalatedIssueId], references: [id], onDelete: SetNull)
+
+  attachments BarrierReportAttachment[]
+  updates     BarrierReportUpdate[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([memberId])
+  @@map("barrier_reports")
+}
+
+/// A photo, voice note or document a student attached to a report. Stored in
+/// R2 and only ever served to the student who filed it or an administrator.
+model BarrierReportAttachment {
+  id       String        @id @default(cuid())
+  reportId String
+  report   BarrierReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  objectKey String
+  fileName  String
+  mimeType  String
+  fileSize  Int
+
+  createdAt DateTime @default(now())
+
+  @@index([reportId])
+  @@map("barrier_report_attachments")
+}
+
+/// A note on a report's progress. Everything here is shown to the student who
+/// filed it — it is what makes the tracker on their dashboard truthful.
+model BarrierReportUpdate {
+  id       String        @id @default(cuid())
+  reportId String
+  report   BarrierReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  adminId    String?
+  admin      AdminUser? @relation("BarrierReportUpdateAuthor", fields: [adminId], references: [id], onDelete: SetNull)
+  /// Captured when written, so the note still reads correctly if the
+  /// administrator's account is later removed.
+  authorName String
+
+  body   String
+  /// The status the report moved to with this note, when it moved.
+  status BarrierReportStatus?
+
+  createdAt DateTime @default(now())
+
+  @@index([reportId, createdAt])
+  @@map("barrier_report_updates")
+}
+
+/// The kinds of help a student can ask the association for.
+enum SupportRequestType {
+  ASSISTIVE_TECH
+  NOTE_TAKER
+  WELFARE
+  OTHER
+}
+
+enum SupportRequestStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  DECLINED
+  FULFILLED
+}
+
+/// One request for assistive technology, a lecture note-taker, or welfare
+/// support. Financial requests carry an amount; the executive who approves a
+/// payout records the spending against it, which is what links the welfare
+/// fund to the finance ledger.
+model SupportRequest {
+  id       String @id @default(cuid())
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  type                   SupportRequestType
+  details                String
+  /// Pesewas, for welfare requests. Null for a request that isn't about money.
+  amountRequestedPesewas Int?
+  neededBy               DateTime?
+
+  status SupportRequestStatus @default(SUBMITTED)
+
+  reviewedById String?
+  reviewedBy   AdminUser? @relation("SupportRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  reviewNote   String?
+
+  approvedAmountPesewas Int?
+  /// The recorded spending, once a payout has been made.
+  expenseId             String?   @unique
+  expense               Expense?  @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  fulfilledAt           DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([memberId])
+  @@map("support_requests")
+}
+
+/// A study group students run among themselves. Open to any member to join;
+/// the student who created it can close it.
+model StudyGroup {
+  id          String  @id @default(cuid())
+  name        String
+  /// The course or subject it's for.
+  focus       String
+  description String?
+  /// Where and when they meet, in the students' own words.
+  meetingInfo String?
+
+  createdByMemberId String?
+  createdBy         Member? @relation("StudyGroupCreator", fields: [createdByMemberId], references: [id], onDelete: SetNull)
+
+  isOpen Boolean @default(true)
+
+  members StudyGroupMember[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isOpen])
+  @@map("study_groups")
+}
+
+model StudyGroupMember {
+  id       String     @id @default(cuid())
+  groupId  String
+  group    StudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  memberId String
+  member   Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  joinedAt DateTime @default(now())
+
+  @@unique([groupId, memberId])
+  @@index([memberId])
+  @@map("study_group_members")
+}
+
+// ---------------------------------------------------------------------------
+// Alumni Portal: mentorship and the opportunity board
+// ---------------------------------------------------------------------------
+
+enum MentorshipStatus {
+  REQUESTED
+  ACTIVE
+  DECLINED
+  ENDED
+}
+
+/// A student and an alumni mentor, from the student's request through to the
+/// end of the pairing. Carries its own conversation and its own sessions, so
+/// neither side has to leave the portal or share an email address.
+model Mentorship {
+  id       String        @id @default(cuid())
+  memberId String
+  member   Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  alumniId String
+  alumni   AlumniProfile @relation(fields: [alumniId], references: [id], onDelete: Cascade)
+
+  status      MentorshipStatus @default(REQUESTED)
+  /// Why the student asked for this mentor.
+  requestNote String?
+  /// What they agreed to work on.
+  goals       String?
+
+  respondedAt   DateTime?
+  declineReason String?
+  endedAt       DateTime?
+
+  lastMessageAt   DateTime @default(now())
+  unreadByStudent Boolean  @default(false)
+  unreadByMentor  Boolean  @default(true)
+
+  sessions MentorshipSession[]
+  messages MentorshipMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([memberId, alumniId])
+  @@index([alumniId, status])
+  @@index([memberId, status])
+  @@map("mentorships")
+}
+
+enum MentorshipSessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model MentorshipSession {
+  id           String     @id @default(cuid())
+  mentorshipId String
+  mentorship   Mentorship @relation(fields: [mentorshipId], references: [id], onDelete: Cascade)
+
+  scheduledFor    DateTime
+  topic           String?
+  status          MentorshipSessionStatus @default(SCHEDULED)
+  note            String?
+  /// True when the student booked it, false when the mentor did.
+  bookedByStudent Boolean                 @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([mentorshipId, scheduledFor])
+  @@map("mentorship_sessions")
+}
+
+enum MentorshipSender {
+  STUDENT
+  MENTOR
+}
+
+model MentorshipMessage {
+  id           String     @id @default(cuid())
+  mentorshipId String
+  mentorship   Mentorship @relation(fields: [mentorshipId], references: [id], onDelete: Cascade)
+
+  sender MentorshipSender
+  body   String
+
+  createdAt DateTime @default(now())
+
+  @@index([mentorshipId, createdAt])
+  @@map("mentorship_messages")
+}
+
+enum OpportunityType {
+  JOB
+  INTERNSHIP
+  SCHOLARSHIP
+  VOLUNTEER
+}
+
+enum OpportunityStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// A job, internship, scholarship or volunteering opening posted by an
+/// alumnus for students and fellow graduates. Reviewed by an administrator
+/// before it appears, for the same reason broadcasts are: it carries an
+/// outside link into the portal.
+model Opportunity {
+  id           String         @id @default(cuid())
+  alumniId     String?
+  alumni       AlumniProfile? @relation(fields: [alumniId], references: [id], onDelete: SetNull)
+  /// Who posted it, captured when written.
+  postedByName String
+
+  title        String
+  organization String
+  type         OpportunityType
+  location     String?
+  description  String
+  applyUrl     String?
+  applyEmail   String?
+  closingDate  DateTime?
+
+  status       OpportunityStatus @default(PENDING)
+  reviewedById String?
+  reviewedBy   AdminUser?        @relation("OpportunityReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  reviewNote   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([alumniId])
+  @@map("opportunities")
 }

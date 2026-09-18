@@ -4,7 +4,9 @@ import { getCurrentUser } from "@/lib/auth/user";
 import { unifiedLogoutAction } from "@/lib/actions/auth-actions";
 import { getSiteSettings } from "@/lib/services/content-service";
 import { alumniHasMemberStanding } from "@/lib/services/dual-status-service";
+import { HandHeart } from "lucide-react";
 import { PortalShell } from "@/components/portal/PortalShell";
+import { QuickActionLink } from "@/components/portal/QuickActionLink";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +37,7 @@ export default async function AlumniPortalLayout({ children }: { children: React
         isAdmin: session?.roles.includes("ADMIN") ?? false,
       }}
       signOutAction={unifiedLogoutAction}
+      headerTools={<QuickActionLink href="/alumni/giving" icon={<HandHeart size={16} />} label="Give" />}
     >
       {children}
     </PortalShell>

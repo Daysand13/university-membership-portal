@@ -14,6 +14,7 @@ import { validateUploadRequest, bytesMatchDeclaredType } from "@/lib/storage/val
 import { MAX_PASSPORT_PICTURE_BYTES, MAX_MEDICAL_REPORT_BYTES } from "@/lib/validations/membership";
 import { MEDICAL_REPORT_MIME_TYPES } from "@/lib/client/file-accept";
 import { MAX_PATRON_DOCUMENT_BYTES, PATRON_DOCUMENT_MIME_TYPES } from "@/lib/patron-portal-options";
+import { BARRIER_EVIDENCE_MIME_TYPES, MAX_BARRIER_EVIDENCE_BYTES } from "@/lib/portal-options";
 
 /**
  * Direct-to-R2 uploads for the PUBLIC enrollment form.
@@ -50,7 +51,7 @@ import { MAX_PATRON_DOCUMENT_BYTES, PATRON_DOCUMENT_MIME_TYPES } from "@/lib/pat
  * same signed, verified path; only its own route handlers issue it, and
  * only to a signed-in patron.
  */
-export type EnrollmentUploadKind = "passport" | "medical" | "patron-document";
+export type EnrollmentUploadKind = "passport" | "medical" | "patron-document" | "barrier-evidence";
 
 /** The kinds the public enrollment and further-studies forms may request. */
 export const APPLICANT_UPLOAD_KINDS: readonly EnrollmentUploadKind[] = ["passport", "medical"];
@@ -58,14 +59,14 @@ export const APPLICANT_UPLOAD_KINDS: readonly EnrollmentUploadKind[] = ["passpor
 const KIND_CONFIG: Record<
   EnrollmentUploadKind,
   {
-    category: "image" | "document";
+    category: "image" | "document" | "evidence";
     maxBytes: number;
     label: string;
     /** Narrower than the category allows, where the category is too broad. */
     mimeTypes?: readonly string[];
     wrongTypeMessage?: string;
     /** The bucket folder the object is stored under. */
-    prefix: "members" | "library";
+    prefix: "members" | "library" | "reports";
     /** How to describe a file that fails the byte check. */
     expectedFiles?: string;
   }
@@ -91,10 +92,29 @@ const KIND_CONFIG: Record<
     prefix: "library",
     expectedFiles: "a PDF, Office document, JPG or PNG",
   },
+  // A photo of the barrier, or a recording describing it. Never served
+  // publicly — see barrier-report-service.getReportEvidence for who may
+  // read one back.
+  "barrier-evidence": {
+    category: "evidence",
+    maxBytes: MAX_BARRIER_EVIDENCE_BYTES,
+    label: "attachment",
+    mimeTypes: BARRIER_EVIDENCE_MIME_TYPES,
+    wrongTypeMessage: "Attach a photo (JPG or PNG), a voice recording, or a PDF.",
+    prefix: "reports",
+    expectedFiles: "a photo, a voice recording or a PDF",
+  },
 };
 
 function expectedFilesFor(kind: EnrollmentUploadKind): string {
   return KIND_CONFIG[kind].expectedFiles ?? "a JPG, PNG or PDF";
+}
+
+/** What to call the file in "that doesn't look like a valid …" messages. */
+function categoryNoun(category: "image" | "document" | "evidence"): string {
+  if (category === "image") return "image";
+  if (category === "evidence") return "attachment";
+  return "document";
 }
 
 function typeProblem(kind: EnrollmentUploadKind, mimeType: string): string | null {
@@ -303,7 +323,7 @@ export async function storeEnrollmentUpload(params: {
     return {
       ok: false,
       error: `Your ${config.label} doesn't look like a valid ${
-        config.category === "image" ? "image" : "document"
+        categoryNoun(config.category)
       }. Please attach ${expectedFilesFor(kind)}.`,
     };
   }
@@ -346,6 +366,11 @@ export interface AdoptedUpload {
  */
 export async function adoptPatronDocumentUpload(token: string | null | undefined): Promise<AdoptedUpload | null> {
   return inspectUpload("patron-document", token);
+}
+
+/** The same checks for a photo or voice note attached to a barrier report. */
+export async function adoptBarrierEvidenceUpload(token: string | null | undefined): Promise<AdoptedUpload | null> {
+  return inspectUpload("barrier-evidence", token);
 }
 
 async function inspectUpload(kind: EnrollmentUploadKind, token: string | null | undefined): Promise<AdoptedUpload | null> {
@@ -394,7 +419,7 @@ async function inspectUpload(kind: EnrollmentUploadKind, token: string | null | 
   if (!head || !bytesMatchDeclaredType(head, payload.ct)) {
     await reject(
       `Your ${config.label} doesn't look like a valid ${
-        config.category === "image" ? "image" : "document"
+        categoryNoun(config.category)
       }. Please attach ${expectedFilesFor(kind)}.`,
     );
   }

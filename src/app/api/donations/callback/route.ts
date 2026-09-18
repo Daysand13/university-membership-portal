@@ -1,24 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAndRecordDonation } from "@/lib/services/patron-finance-service";
+import { getDonationPortalPath } from "@/lib/services/alumni-giving-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Where Paystack sends a patron back after giving. Like the dues callback,
- * this is the fast path for the patron's own page; the webhook records the
+ * Where Paystack sends a donor back after giving. Like the dues callback,
+ * this is the fast path for the donor's own page; the webhook records the
  * donation even if the browser never comes back.
+ *
+ * Patrons and graduates give through the same Paystack flow, so which
+ * portal to return to is decided by the donation itself rather than by two
+ * separate callback URLs that could drift apart.
  */
 export async function GET(request: NextRequest) {
   const reference = request.nextUrl.searchParams.get("reference") ?? request.nextUrl.searchParams.get("trxref");
-  const financesUrl = new URL("/patrons/dashboard/finances", request.nextUrl.origin);
 
   if (!reference) {
-    financesUrl.searchParams.set("donation", "error");
-    return NextResponse.redirect(financesUrl);
+    const url = new URL("/patrons/dashboard/finances", request.nextUrl.origin);
+    url.searchParams.set("donation", "error");
+    return NextResponse.redirect(url);
   }
 
-  const result = await verifyAndRecordDonation(reference);
-  financesUrl.searchParams.set("donation", result.ok ? result.status.toLowerCase() : "error");
-  return NextResponse.redirect(financesUrl);
+  const [result, path] = await Promise.all([
+    verifyAndRecordDonation(reference),
+    getDonationPortalPath(reference),
+  ]);
+  const url = new URL(path, request.nextUrl.origin);
+  url.searchParams.set("donation", result.ok ? result.status.toLowerCase() : "error");
+  return NextResponse.redirect(url);
 }

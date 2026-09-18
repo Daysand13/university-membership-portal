@@ -5,7 +5,7 @@ import { sanitizeRichText } from "@/components/ui/RichText";
 import { sendBatchEmails } from "@/lib/email/client";
 import { patronBroadcastEmail } from "@/lib/email/templates";
 import { getEmailBrand } from "@/lib/services/content-service";
-import { firstNameOf } from "@/lib/services/account-notification-service";
+import { firstNameOf, patronSalutation } from "@/lib/services/account-notification-service";
 import {
   notifyAdminsOfBroadcast,
   notifyPatronBroadcastDecision,
@@ -80,9 +80,14 @@ export async function withdrawBroadcast(params: { patronId: string; broadcastId:
   return count > 0;
 }
 
+/**
+ * The patrons' broadcasts, for the approval queue. Scoped to patron-written
+ * ones: an executive's own broadcast never needs approving, so listing it
+ * here would only clutter the queue with rows nobody can act on.
+ */
 export async function listBroadcastsForAdmin(status?: BroadcastStatus) {
   return db.broadcast.findMany({
-    where: status ? { status } : {},
+    where: { patronId: { not: null }, ...(status ? { status } : {}) },
     orderBy: { createdAt: "desc" },
     include: { reviewedBy: { select: { name: true } } },
     take: 200,
@@ -90,7 +95,11 @@ export async function listBroadcastsForAdmin(status?: BroadcastStatus) {
 }
 
 export async function countBroadcastsByStatus(): Promise<Record<BroadcastStatus, number>> {
-  const groups = await db.broadcast.groupBy({ by: ["status"], _count: { _all: true } });
+  const groups = await db.broadcast.groupBy({
+    by: ["status"],
+    where: { patronId: { not: null } },
+    _count: { _all: true },
+  });
   const counts: Record<BroadcastStatus, number> = { PENDING: 0, APPROVED: 0, REJECTED: 0 };
   for (const g of groups) counts[g.status] = g._count._all;
   return counts;
@@ -144,6 +153,13 @@ export async function resolveBroadcastRecipients(audience: BroadcastAudience): P
     });
     executives.forEach((e) => e.member && add(e.member.email, e.member.firstName));
   }
+  if (audience === "PATRONS") {
+    const patrons = await db.patronProfile.findMany({
+      where: { status: "APPROVED" },
+      select: { email: true, title: true, fullName: true },
+    });
+    patrons.forEach((p) => add(p.email, patronSalutation(p)));
+  }
   return [...byEmail.values()];
 }
 
@@ -158,6 +174,137 @@ export async function countBroadcastRecipients(audience: BroadcastAudience): Pro
 function siteUrl(path: string): string | null {
   const base = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "");
   return base ? `${base}${path}` : null;
+}
+
+interface SendableBroadcast {
+  id: string;
+  subject: string;
+  bodyHtml: string;
+  authorName: string;
+  audience: BroadcastAudience;
+  sendEmail: boolean;
+  postToPortal: boolean;
+  attachmentKey: string | null;
+  attachmentName: string | null;
+}
+
+/**
+ * Emails one approved broadcast to its group and records how many got
+ * through. Shared by the patron path (an administrator approves it) and the
+ * executive path (an administrator writes it), so a broadcast reads and
+ * arrives exactly the same either way.
+ *
+ * A failure here is logged, not thrown: the broadcast is already approved,
+ * and losing the portal copy because an email provider hiccupped would be
+ * the worse outcome.
+ */
+async function deliverBroadcastEmails(broadcast: SendableBroadcast, recipients: BroadcastRecipient[]): Promise<number> {
+  if (!broadcast.sendEmail || recipients.length === 0) return 0;
+
+  let emailsSent = 0;
+  try {
+    const brand = await getEmailBrand();
+    const attachmentUrl =
+      broadcast.attachmentKey && broadcast.attachmentName
+        ? siteUrl(`/api/broadcasts/${broadcast.id}/attachment`)
+        : null;
+    const audienceLabel = broadcastAudienceLabel(broadcast.audience);
+    const messages = recipients.map((r) => {
+      const { subject, html } = patronBroadcastEmail({
+        firstName: r.firstName,
+        subject: broadcast.subject,
+        bodyHtml: broadcast.bodyHtml,
+        authorName: broadcast.authorName,
+        audienceLabel,
+        attachment: attachmentUrl && broadcast.attachmentName ? { url: attachmentUrl, name: broadcast.attachmentName } : null,
+        portalUrl: broadcast.postToPortal ? siteUrl("/login") : null,
+        brand,
+      });
+      return { to: r.email, subject, html };
+    });
+    ({ delivered: emailsSent } = await sendBatchEmails({
+      messages,
+      template: "patron-broadcast",
+      entityType: "Broadcast",
+      entityId: broadcast.id,
+    }));
+  } catch (err) {
+    console.error("[broadcasts] sending the broadcast emails failed", broadcast.id, err);
+  }
+  await db.broadcast.update({ where: { id: broadcast.id }, data: { emailsSent } });
+  return emailsSent;
+}
+
+/**
+ * An executive's own broadcast. There is nobody above the executive board to
+ * approve it, so it is created already approved and goes out immediately —
+ * the audit log is what holds them to account for it afterwards.
+ */
+export async function sendAdminBroadcast(params: {
+  admin: { id: string; name: string };
+  /** How the sender is introduced to members, e.g. "General Secretary". */
+  authorName: string;
+  audience: BroadcastAudience;
+  subject: string;
+  bodyHtml: string;
+  sendEmail: boolean;
+  postToPortal: boolean;
+  attachment: (AdoptedUpload & { name: string }) | null;
+}) {
+  const { admin, attachment } = params;
+  const recipients = await resolveBroadcastRecipients(params.audience);
+  const now = new Date();
+
+  const broadcast = await db.broadcast.create({
+    data: {
+      createdByAdminId: admin.id,
+      authorName: params.authorName,
+      audience: params.audience,
+      subject: params.subject,
+      bodyHtml: sanitizeRichText(params.bodyHtml),
+      sendEmail: params.sendEmail,
+      postToPortal: params.postToPortal,
+      attachmentKey: attachment?.objectKey ?? null,
+      attachmentName: attachment?.name ?? null,
+      attachmentMime: attachment?.mimeType ?? null,
+      attachmentSize: attachment?.fileSize ?? null,
+      status: "APPROVED",
+      reviewedById: admin.id,
+      reviewedAt: now,
+      sentAt: now,
+      recipientCount: recipients.length,
+    },
+  });
+
+  const emailsSent = await deliverBroadcastEmails(broadcast, recipients);
+
+  await db.auditLog.create({
+    data: {
+      adminId: admin.id,
+      action: "SEND_BROADCAST",
+      entityType: "Broadcast",
+      entityId: broadcast.id,
+      newValue: {
+        audience: broadcast.audience,
+        subject: broadcast.subject,
+        recipients: recipients.length,
+        emailsSent,
+        postToPortal: broadcast.postToPortal,
+      },
+    },
+  });
+
+  return { broadcast, recipients: recipients.length, emailsSent };
+}
+
+/** Broadcasts the executives sent themselves, newest first. */
+export async function listAdminBroadcasts() {
+  return db.broadcast.findMany({
+    where: { createdByAdminId: { not: null } },
+    orderBy: { createdAt: "desc" },
+    include: { createdByAdmin: { select: { name: true } } },
+    take: 100,
+  });
 }
 
 export async function approveBroadcast(params: { id: string; adminId: string; note: string | null }) {
@@ -184,39 +331,7 @@ export async function approveBroadcast(params: { id: string; adminId: string; no
   });
   if (count === 0) throw new BroadcastReviewError("This broadcast has already been reviewed.");
 
-  let emailsSent = 0;
-  if (broadcast.sendEmail && recipients.length > 0) {
-    try {
-      const brand = await getEmailBrand();
-      const attachment =
-        broadcast.attachmentKey && broadcast.attachmentName
-          ? { url: siteUrl(`/api/broadcasts/${broadcast.id}/attachment`), name: broadcast.attachmentName }
-          : null;
-      const audienceLabel = broadcastAudienceLabel(broadcast.audience);
-      const messages = recipients.map((r) => {
-        const { subject, html } = patronBroadcastEmail({
-          firstName: r.firstName,
-          subject: broadcast.subject,
-          bodyHtml: broadcast.bodyHtml,
-          authorName: broadcast.authorName,
-          audienceLabel,
-          attachment: attachment?.url ? { url: attachment.url, name: attachment.name } : null,
-          portalUrl: broadcast.postToPortal ? siteUrl("/login") : null,
-          brand,
-        });
-        return { to: r.email, subject, html };
-      });
-      ({ delivered: emailsSent } = await sendBatchEmails({
-        messages,
-        template: "patron-broadcast",
-        entityType: "Broadcast",
-        entityId: broadcast.id,
-      }));
-    } catch (err) {
-      console.error("[broadcasts] sending the broadcast emails failed", broadcast.id, err);
-    }
-    await db.broadcast.update({ where: { id: broadcast.id }, data: { emailsSent } });
-  }
+  const emailsSent = await deliverBroadcastEmails(broadcast, recipients);
 
   await db.auditLog.create({
     data: {

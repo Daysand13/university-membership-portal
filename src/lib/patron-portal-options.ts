@@ -59,35 +59,58 @@ export function expenseCategoryLabel(value: string): string {
   return EXPENSE_CATEGORIES.find((c) => c.value === value)?.label ?? value;
 }
 
+/**
+ * Who a broadcast can go to. `forPatrons` marks the groups a patron may
+ * write to from the Patrons' Portal — patrons address the association's
+ * members, so writing to the patrons themselves is an executive's job.
+ */
 export const BROADCAST_AUDIENCES = [
   {
     value: "ALL_MEMBERS",
     label: "All Members",
     description: "Enrolled students, alumni and executives.",
     dot: "#157a4a",
+    forPatrons: true,
   },
   {
     value: "STUDENTS",
     label: "Enrolled Students",
     description: "Students with special needs currently enrolled.",
     dot: "#2a78d6",
+    forPatrons: true,
   },
   {
     value: "ALUMNI",
     label: "Alumni Network",
     description: "Graduates registered in the Alumni Portal.",
     dot: "#4a3aa7",
+    forPatrons: true,
   },
   {
     value: "EXECUTIVES",
     label: "Executive Board Only",
     description: "Students serving on the executive committee.",
     dot: "#c9971f",
+    forPatrons: true,
+  },
+  {
+    value: "PATRONS",
+    label: "Patrons of the Association",
+    description: "Patrons with an approved account in the Patrons' Portal.",
+    dot: "#eb6834",
+    forPatrons: false,
   },
 ] as const;
 
 export type BroadcastAudienceValue = (typeof BROADCAST_AUDIENCES)[number]["value"];
 export const BROADCAST_AUDIENCE_VALUES = BROADCAST_AUDIENCES.map((a) => a.value) as [
+  BroadcastAudienceValue,
+  ...BroadcastAudienceValue[],
+];
+
+/** The groups a patron may write to. */
+export const PATRON_BROADCAST_AUDIENCES = BROADCAST_AUDIENCES.filter((a) => a.forPatrons);
+export const PATRON_BROADCAST_AUDIENCE_VALUES = PATRON_BROADCAST_AUDIENCES.map((a) => a.value) as [
   BroadcastAudienceValue,
   ...BroadcastAudienceValue[],
 ];

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BookOpen,
   Briefcase,
+  BriefcaseBusiness,
   CalendarDays,
   CreditCard,
   FileText,
@@ -12,12 +13,14 @@ import {
   GraduationCap,
   HandCoins,
   LayoutDashboard,
+  LifeBuoy,
   Megaphone,
   MessagesSquare,
   Scale,
   Search,
   Settings,
   Users,
+  UsersRound,
   Vote,
   type LucideIcon,
 } from "lucide-react";
@@ -40,6 +43,9 @@ const ICONS: Record<PortalIconName, LucideIcon> = {
   advocacy: Scale,
   documents: FolderOpen,
   announcements: Megaphone,
+  support: LifeBuoy,
+  mentorship: UsersRound,
+  jobs: BriefcaseBusiness,
 };
 
 export function PortalNav({ items, label }: { items: PortalNavItem[]; label: string }) {

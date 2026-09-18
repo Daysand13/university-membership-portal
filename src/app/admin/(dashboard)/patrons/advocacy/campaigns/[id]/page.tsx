@@ -78,17 +78,29 @@ export default async function AdminCampaignPage({
             )}
           </div>
           {campaign.endorsements.length === 0 ? (
-            <p className="text-sm text-slate">No patron has endorsed this campaign yet.</p>
+            <p className="text-sm text-slate">Nobody has signed this campaign yet.</p>
           ) : (
             <ul className="divide-y divide-line">
               {campaign.endorsements.map((e) => (
                 <li key={e.id} className="py-3">
-                  <Link href={`/admin/patrons/${e.patron.id}`} className="font-semibold text-primary-950 hover:text-accent-600">
-                    {[e.patron.title, e.patron.fullName].filter(Boolean).join(" ")}
-                  </Link>
+                  {e.patron ? (
+                    <Link href={`/admin/patrons/${e.patronId}`} className="font-semibold text-primary-950 hover:text-accent-600">
+                      {[e.patron.title, e.patron.fullName].filter(Boolean).join(" ")}
+                    </Link>
+                  ) : e.alumni ? (
+                    <Link href={`/admin/alumni/${e.alumniId}`} className="font-semibold text-primary-950 hover:text-accent-600">
+                      {e.alumni.fullName}
+                    </Link>
+                  ) : (
+                    <span className="font-semibold text-primary-950">Former supporter</span>
+                  )}
                   <p className="text-xs text-slate">
-                    {[e.patron.jobTitle, e.patron.organization].filter(Boolean).join(", ") || e.patron.occupation} ·{" "}
-                    {dateFormat.format(e.createdAt)}
+                    {e.patron
+                      ? [e.patron.jobTitle, e.patron.organization].filter(Boolean).join(", ") || e.patron.occupation
+                      : e.alumni
+                        ? `Alumnus · Class of ${e.alumni.graduationYear}`
+                        : ""}{" "}
+                    · {dateFormat.format(e.createdAt)}
                   </p>
                   {e.comment && <p className="text-sm text-ink mt-1 italic">&ldquo;{e.comment}&rdquo;</p>}
                 </li>

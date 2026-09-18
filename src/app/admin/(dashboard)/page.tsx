@@ -8,9 +8,14 @@ import {
   BookOpen,
   Vote,
   Mail,
+  Scale,
+  Wallet,
+  LifeBuoy,
+  BriefcaseBusiness,
 } from "lucide-react";
 import { StatCard } from "@/components/admin/StatCard";
 import { getDashboardCounts, listAuditLog } from "@/lib/services/notification-service";
+import { getCurrentAcademicYear, getDuesCollectionRate } from "@/lib/services/dues-service";
 
 export const metadata = { title: "Dashboard" };
 
@@ -32,12 +37,42 @@ function describeAction(action: string): string {
 }
 
 export default async function AdminDashboardPage() {
-  const [counts, recentActivity] = await Promise.all([getDashboardCounts(), listAuditLog(10)]);
+  const academicYear = getCurrentAcademicYear();
+  const [counts, recentActivity, dues] = await Promise.all([
+    getDashboardCounts(),
+    listAuditLog(10),
+    getDuesCollectionRate(academicYear),
+  ]);
 
   return (
     <div>
       <h1 className="font-display font-bold text-2xl text-primary-950 mb-1">Dashboard</h1>
       <p className="text-sm text-slate mb-8">An overview of everything happening across the portal.</p>
+
+      {/* The three numbers an executive is actually accountable for, ahead of
+          the content counts below. */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+        <StatCard
+          icon={ClipboardList}
+          label="Pending Approvals"
+          value={counts.pendingApprovals}
+          href="/admin/membership-applications?status=PENDING"
+          accent={counts.pendingApprovals > 0}
+        />
+        <StatCard
+          icon={Wallet}
+          label={`Dues Collected (${academicYear})`}
+          value={`${dues.percent}%`}
+          href="/admin/dues"
+        />
+        <StatCard
+          icon={Scale}
+          label="Unresolved Barriers"
+          value={counts.openReports}
+          href="/admin/advocacy?status=OPEN"
+          accent={counts.openReports > 0}
+        />
+      </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <StatCard icon={Users} label="Total Members" value={counts.totalMembers} href="/admin/members" />
@@ -64,6 +99,20 @@ export default async function AdminDashboardPage() {
           value={counts.newMessages}
           href="/admin/contact-messages"
           accent={counts.newMessages > 0}
+        />
+        <StatCard
+          icon={LifeBuoy}
+          label="Support Requests"
+          value={counts.pendingSupport}
+          href="/admin/support-requests?status=OPEN"
+          accent={counts.pendingSupport > 0}
+        />
+        <StatCard
+          icon={BriefcaseBusiness}
+          label="Postings to Review"
+          value={counts.pendingOpportunities}
+          href="/admin/opportunities?status=PENDING"
+          accent={counts.pendingOpportunities > 0}
         />
       </div>
 
