@@ -25,9 +25,9 @@ const PESEWAS_PER_CEDI = 100;
 /** Fee schedule as agreed — everything is in whole cedis here for
  *  readability; converted to pesewas at the one place that needs it. */
 const FEE_SCHEDULE = {
-  fresherOrPgFirstYear: 70 * PESEWAS_PER_CEDI,
+  fresherOrPgFirstYear: 60 * PESEWAS_PER_CEDI,
   continuing: 50 * PESEWAS_PER_CEDI,
-  executive: 60 * PESEWAS_PER_CEDI,
+  executive: 70 * PESEWAS_PER_CEDI,
 } as const;
 
 /**
