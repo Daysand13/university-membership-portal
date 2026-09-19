@@ -78,7 +78,5 @@ export async function getDashboardCounts() {
     pendingSupport,
     pendingBroadcasts,
     pendingOpportunities,
-    /** Everything sitting in somebody's queue, for the one "to do" tile. */
-    pendingApprovals: pendingApplications + pendingSupport + pendingBroadcasts + pendingOpportunities,
   };
 }

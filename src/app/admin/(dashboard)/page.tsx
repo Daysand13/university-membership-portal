@@ -4,7 +4,6 @@ import {
   ClipboardList,
   Newspaper,
   CalendarDays,
-  CalendarCheck2,
   BookOpen,
   Vote,
   Mail,
@@ -12,6 +11,7 @@ import {
   Wallet,
   LifeBuoy,
   BriefcaseBusiness,
+  Radio,
 } from "lucide-react";
 import { StatCard } from "@/components/admin/StatCard";
 import { getDashboardCounts, listAuditLog } from "@/lib/services/notification-service";
@@ -36,6 +36,16 @@ function describeAction(action: string): string {
     .replace(/^\w/, (c) => c.toUpperCase());
 }
 
+/** One labelled row of the dashboard: four boxes of equal size. */
+function DashboardSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section aria-label={title} className="mb-6">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate mb-2.5">{title}</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">{children}</div>
+    </section>
+  );
+}
+
 export default async function AdminDashboardPage() {
   const academicYear = getCurrentAcademicYear();
   const [counts, recentActivity, dues] = await Promise.all([
@@ -49,74 +59,103 @@ export default async function AdminDashboardPage() {
       <h1 className="font-display font-bold text-2xl text-primary-950 mb-1">Dashboard</h1>
       <p className="text-sm text-slate mb-8">An overview of everything happening across the portal.</p>
 
-      {/* The three numbers an executive is actually accountable for, ahead of
-          the content counts below. */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+      {/* Three rows of four equal boxes, one row per kind of number. Each
+          count appears exactly once: the "waiting on you" row is the queues
+          themselves, rather than a total that repeats them. */}
+      <DashboardSection title="Waiting on you">
         <StatCard
           icon={ClipboardList}
-          label="Pending Approvals"
-          value={counts.pendingApprovals}
+          label="Pending Applications"
+          detail="Membership applications to review"
+          value={counts.pendingApplications}
           href="/admin/membership-applications?status=PENDING"
-          accent={counts.pendingApprovals > 0}
+          accent={counts.pendingApplications > 0}
+        />
+        <StatCard
+          icon={LifeBuoy}
+          label="Support Requests"
+          detail="Assistive tech, note-takers, welfare"
+          value={counts.pendingSupport}
+          href="/admin/support-requests?status=OPEN"
+          accent={counts.pendingSupport > 0}
+        />
+        <StatCard
+          icon={Radio}
+          label="Broadcasts to Approve"
+          detail="Written by patrons"
+          value={counts.pendingBroadcasts}
+          href="/admin/patrons/broadcasts?status=PENDING"
+          accent={counts.pendingBroadcasts > 0}
+        />
+        <StatCard
+          icon={BriefcaseBusiness}
+          label="Postings to Review"
+          detail="Jobs and internships from alumni"
+          value={counts.pendingOpportunities}
+          href="/admin/opportunities?status=PENDING"
+          accent={counts.pendingOpportunities > 0}
+        />
+      </DashboardSection>
+
+      <DashboardSection title="The association">
+        <StatCard
+          icon={Users}
+          label="Total Members"
+          detail="Students on the roll"
+          value={counts.totalMembers}
+          href="/admin/members"
         />
         <StatCard
           icon={Wallet}
-          label={`Dues Collected (${academicYear})`}
+          label="Dues Collected"
+          detail={`${dues.paid} of ${dues.owing} paid · ${academicYear}`}
           value={`${dues.percent}%`}
           href="/admin/dues"
         />
         <StatCard
           icon={Scale}
           label="Unresolved Barriers"
+          detail="Reported by students"
           value={counts.openReports}
           href="/admin/advocacy?status=OPEN"
           accent={counts.openReports > 0}
         />
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        <StatCard icon={Users} label="Total Members" value={counts.totalMembers} href="/admin/members" />
-        <StatCard
-          icon={ClipboardList}
-          label="Pending Applications"
-          value={counts.pendingApplications}
-          href="/admin/membership-applications?status=PENDING"
-          accent={counts.pendingApplications > 0}
-        />
-        <StatCard icon={Newspaper} label="News Articles" value={counts.newsCount} href="/admin/news" />
-        <StatCard
-          icon={CalendarDays}
-          label="Upcoming Events"
-          value={counts.upcomingEvents}
-          href="/admin/events"
-        />
-        <StatCard icon={CalendarCheck2} label="Past Events" value={counts.pastEvents} href="/admin/events" />
-        <StatCard icon={BookOpen} label="Library Documents" value={counts.libraryDocuments} href="/admin/library" />
-        <StatCard icon={Vote} label="Active Elections" value={counts.activeElections} href="/admin/elections" />
         <StatCard
           icon={Mail}
           label="New Messages"
+          detail="From the contact form"
           value={counts.newMessages}
           href="/admin/contact-messages"
           accent={counts.newMessages > 0}
         />
-        <StatCard
-          icon={LifeBuoy}
-          label="Support Requests"
-          value={counts.pendingSupport}
-          href="/admin/support-requests?status=OPEN"
-          accent={counts.pendingSupport > 0}
-        />
-        <StatCard
-          icon={BriefcaseBusiness}
-          label="Postings to Review"
-          value={counts.pendingOpportunities}
-          href="/admin/opportunities?status=PENDING"
-          accent={counts.pendingOpportunities > 0}
-        />
-      </div>
+      </DashboardSection>
 
-      <div className="mt-10 bg-white rounded-lg border border-line">
+      <DashboardSection title="The website">
+        <StatCard icon={Newspaper} label="News Articles" detail="Published and drafts" value={counts.newsCount} href="/admin/news" />
+        <StatCard
+          icon={CalendarDays}
+          label="Upcoming Events"
+          detail={`${counts.pastEvents} past event${counts.pastEvents === 1 ? "" : "s"}`}
+          value={counts.upcomingEvents}
+          href="/admin/events"
+        />
+        <StatCard
+          icon={BookOpen}
+          label="Library Documents"
+          detail="In the resource library"
+          value={counts.libraryDocuments}
+          href="/admin/library"
+        />
+        <StatCard
+          icon={Vote}
+          label="Active Elections"
+          detail="Published elections"
+          value={counts.activeElections}
+          href="/admin/elections"
+        />
+      </DashboardSection>
+
+      <div className="mt-4 bg-white rounded-lg border border-line">
         <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <h2 className="font-display font-bold text-base text-primary-950">Recent Activity</h2>
           <Link href="/admin/audit-log" className="text-xs font-semibold text-primary-800 hover:text-accent-600">
