@@ -1279,7 +1279,10 @@ export async function updateMemberAdmin(params: {
             fullName: formatFullName(updates.firstName, updates.middleName, updates.lastName),
             email: updates.email,
             phone: updates.phone,
-            programme: updates.programme,
+            // Only from the record they graduated from. A graduate back
+            // studying is linked to their current enrollment, and that
+            // programme isn't the one they graduated in — it isn't finished.
+            ...(before.graduatedAt ? { programme: updates.programme } : {}),
             // Only when the alumni profile is still showing the picture it
             // was copied with; one the graduate chose themselves is theirs.
             ...(before.alumniProfile.profileImageUrl === before.profileImageUrl ? { profileImageUrl } : {}),

@@ -137,6 +137,7 @@ export default async function AlumniRecordsPage() {
                 institution: p.institution,
                 yearCompleted: p.yearCompleted,
               }))}
+            setsGraduation={prior.setsGraduation}
             />
           </DashboardCard>
         )}

@@ -42,7 +42,14 @@ function RemoveButton({ id, programme }: { id: string; programme: string }) {
  * something on the list, so the card reads as a record first and a form
  * second.
  */
-export function PriorProgrammes({ programmes }: { programmes: PriorProgrammeItem[] }) {
+export function PriorProgrammes({
+  programmes,
+  setsGraduation = false,
+}: {
+  programmes: PriorProgrammeItem[];
+  /** The latest one is shown as the programme they graduated in, on their alumni profile. */
+  setsGraduation?: boolean;
+}) {
   const [open, setOpen] = useState(programmes.length === 0);
   const [resetKey, setResetKey] = useState(0);
   const [state, formAction, isPending] = useActionState(async (prev: ActionState, formData: FormData) => {
@@ -163,6 +170,8 @@ export function PriorProgrammes({ programmes }: { programmes: PriorProgrammeItem
 
       <p className="text-xs text-slate">
         Added by you — shown as your own account of your education, not as an association record.
+        {setsGraduation &&
+          " The most recent one is also shown as the programme you graduated in, with its year as your class, on your alumni profile."}
       </p>
     </div>
   );

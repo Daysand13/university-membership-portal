@@ -9,7 +9,11 @@ import {
 } from "@/lib/validations/outreach";
 import { adminBroadcastSchema } from "@/lib/validations/patron-portal";
 import { isPublicGivingReturn, PUBLIC_GIVING_RETURN_PATHS } from "@/lib/services/public-giving-service";
-import { qualifiesForPriorProgrammes } from "@/lib/services/alumni-prior-programme-service";
+import {
+  graduationFromPriorProgrammes,
+  qualifiesForPriorProgrammes,
+  sameProgramme,
+} from "@/lib/services/alumni-prior-programme-service";
 import { patronBroadcastEmail } from "@/lib/email/templates";
 
 const brand = { siteTitle: "Association of Students with Special Needs", logoUrl: null, universityLogoUrl: null };
@@ -220,5 +224,71 @@ describe("undergraduate programmes for postgraduate alumni", () => {
     expect(priorProgrammeSchema.safeParse({ ...valid, yearCompleted: "19" }).success).toBe(false);
     expect(priorProgrammeSchema.safeParse({ ...valid, yearCompleted: String(new Date().getFullYear() + 1) }).success).toBe(false);
     expect(priorProgrammeSchema.safeParse({ ...valid, qualification: "PhD" }).success).toBe(false);
+  });
+});
+
+describe("the programmes an alumnus lists, on their public profile", () => {
+  const mphil = { inProgress: ["MPhil Special Education"], completed: [] };
+  const bed = { programme: "B.Ed special Education", yearCompleted: 2023, createdAt: new Date("2026-09-19") };
+
+  it("replaces a postgraduate programme still in progress with the undergraduate one they graduated in", () => {
+    expect(
+      graduationFromPriorProgrammes({
+        profile: { programme: "MPhil Special Education", graduationYear: 2026 },
+        study: mphil,
+        priorProgrammes: [bed],
+      }),
+    ).toEqual({ programme: "B.Ed special Education", graduationYear: 2023 });
+  });
+
+  it("follows the most recently completed one, and keeps the class year when none is given", () => {
+    const diploma = { programme: "Diploma in Basic Education", yearCompleted: 2019, createdAt: new Date("2026-09-20") };
+    expect(
+      graduationFromPriorProgrammes({
+        profile: { programme: "B.Ed special Education", graduationYear: 2023 },
+        study: mphil,
+        priorProgrammes: [diploma, bed],
+      }),
+    ).toBeNull();
+    expect(
+      graduationFromPriorProgrammes({
+        profile: { programme: "MPhil Special Education", graduationYear: 2023 },
+        study: mphil,
+        priorProgrammes: [{ ...bed, yearCompleted: null }],
+      }),
+    ).toEqual({ programme: "B.Ed special Education", graduationYear: 2023 });
+  });
+
+  it("goes back to where it started when the list is emptied, so adding again picks it up", () => {
+    expect(
+      graduationFromPriorProgrammes({
+        profile: { programme: "B.Ed special Education", graduationYear: 2023 },
+        study: mphil,
+        priorProgrammes: [],
+        removedProgramme: "B.Ed special Education",
+      }),
+    ).toEqual({ programme: "MPhil Special Education", graduationYear: 2023 });
+  });
+
+  it("leaves alone a profile naming a programme they completed with the association", () => {
+    expect(
+      graduationFromPriorProgrammes({
+        profile: { programme: "B.Ed Special Education", graduationYear: 2020 },
+        study: { inProgress: ["MPhil Special Education"], completed: ["B.Ed Special Education"] },
+        priorProgrammes: [{ ...bed, yearCompleted: 2021 }],
+      }),
+    ).toBeNull();
+    expect(
+      graduationFromPriorProgrammes({
+        profile: { programme: "B.A. Sign Language", graduationYear: 2018 },
+        study: mphil,
+        priorProgrammes: [bed],
+      }),
+    ).toBeNull();
+  });
+
+  it("treats spelling and punctuation differences as the same programme", () => {
+    expect(sameProgramme("B.Ed special Education", "BEd Special Education")).toBe(true);
+    expect(sameProgramme("B.Ed Special Education", "B.Ed Mathematics")).toBe(false);
   });
 });

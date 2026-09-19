@@ -422,7 +422,14 @@ export async function grantDualStatus(params: {
           email: user.email,
           phone: user.phone ?? user.member?.phone ?? "",
           graduationYear: graduationYear!,
-          programme: user.member?.programme ?? user.enrollments[0]?.programme ?? "Not recorded",
+          // A programme they've completed, where one is on record. Otherwise
+          // their current one stands in until they list the undergraduate
+          // programme they actually graduated in (alumni-prior-programme-service).
+          programme:
+            user.enrollments.find((e) => e.status === "GRADUATED")?.programme ??
+            user.member?.programme ??
+            user.enrollments[0]?.programme ??
+            "Not recorded",
           mustSetPassword: true,
           directoryVisible: true,
           status: "ACTIVE",

@@ -89,6 +89,7 @@ export default async function AlumniDashboardPage({
               institution: p.institution,
               yearCompleted: p.yearCompleted,
             }))}
+          setsGraduation={prior.setsGraduation}
           />
         ) : undefined
       }
