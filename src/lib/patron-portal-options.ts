@@ -100,6 +100,13 @@ export const BROADCAST_AUDIENCES = [
     dot: "#eb6834",
     forPatrons: false,
   },
+  {
+    value: "ALLIES",
+    label: "Ally Network",
+    description: "Supporters who joined from the Allies page and confirmed their email. Email only.",
+    dot: "#1baf7a",
+    forPatrons: false,
+  },
 ] as const;
 
 export type BroadcastAudienceValue = (typeof BROADCAST_AUDIENCES)[number]["value"];

@@ -5,6 +5,7 @@ import type { AlumniProfile, DonationFund } from "@/generated/prisma/client";
 import { initializeTransaction, isPaystackConfigured } from "@/lib/services/paystack-client";
 import { ONLINE_DONATION_PREFIX } from "@/lib/services/patron-finance-service";
 import { DONATION_FUNDS } from "@/lib/patron-portal-options";
+import { isPublicGivingReturn, PUBLIC_GIVING_RETURN_PATHS } from "@/lib/services/public-giving-service";
 
 /**
  * Alumni giving. The same Donation rows, the same funds and the same
@@ -146,8 +147,17 @@ export async function getGivingImpact(): Promise<{
   };
 }
 
-/** Where to send a donor back to after Paystack — their own portal. */
-export async function getDonationPortalPath(reference: string): Promise<string> {
-  const donation = await db.donation.findUnique({ where: { reference }, select: { alumniId: true } });
-  return donation?.alumniId ? "/alumni/giving" : "/patrons/dashboard/finances";
+/**
+ * Where to send a donor back to after Paystack: a graduate or a patron to
+ * their own portal, anyone else to the public page they gave from (only ever
+ * one of a fixed list — see PUBLIC_GIVING_RETURN_PATHS).
+ */
+export async function getDonationPortalPath(reference: string, requestedReturn?: string | null): Promise<string> {
+  const donation = await db.donation.findUnique({
+    where: { reference },
+    select: { alumniId: true, patronId: true },
+  });
+  if (donation?.alumniId) return "/alumni/giving";
+  if (donation?.patronId) return "/patrons/dashboard/finances";
+  return isPublicGivingReturn(requestedReturn) ? PUBLIC_GIVING_RETURN_PATHS[requestedReturn] : "/donate";
 }

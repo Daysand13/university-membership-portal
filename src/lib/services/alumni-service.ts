@@ -421,7 +421,7 @@ export async function getAlumniStudyRecords(alumni: Pick<AlumniProfile, "id" | "
     db.membershipApplication.findMany({
       where: { submittedByAlumniId: alumni.id },
       orderBy: { submittedAt: "desc" },
-      select: { id: true, status: true, programme: true, level: true, indexNumber: true, submittedAt: true },
+      select: { id: true, status: true, programme: true, level: true, indexNumber: true, submittedAt: true, applicationTrack: true },
     }),
   ]);
 

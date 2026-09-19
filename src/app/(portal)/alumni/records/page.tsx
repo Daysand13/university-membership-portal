@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ClipboardList, FileText, GraduationCap } from "lucide-react";
 import { requireAlumni } from "@/lib/auth/alumni";
 import { getAlumniStudyRecords } from "@/lib/services/alumni-service";
+import { getPriorProgrammeState } from "@/lib/services/alumni-prior-programme-service";
+import { PriorProgrammes } from "@/components/alumni-portal/PriorProgrammes";
 import { DashboardCard } from "@/components/portal/DashboardCard";
 import { PortalPageHeader } from "@/components/portal/PortalPageHeader";
 
@@ -34,7 +36,10 @@ const TRACK_LABEL: Record<string, string> = { UNDERGRADUATE: "Undergraduate", PO
 
 export default async function AlumniRecordsPage() {
   const alumni = await requireAlumni();
-  const { records, furtherStudiesApplications } = await getAlumniStudyRecords(alumni);
+  const [{ records, furtherStudiesApplications }, prior] = await Promise.all([
+    getAlumniStudyRecords(alumni),
+    getPriorProgrammeState(alumni),
+  ]);
 
   return (
     <>
@@ -118,6 +123,23 @@ export default async function AlumniRecordsPage() {
             </ol>
           )}
         </DashboardCard>
+
+        {prior.eligible && (
+          <DashboardCard id="undergraduate-programmes" title="Undergraduate Programmes" icon={<GraduationCap size={20} />}>
+            <p className="text-sm text-slate mb-4">
+              The undergraduate study you did before your postgraduate programme, added by you.
+            </p>
+            <PriorProgrammes
+              programmes={prior.programmes.map((p) => ({
+                id: p.id,
+                qualification: p.qualification,
+                programme: p.programme,
+                institution: p.institution,
+                yearCompleted: p.yearCompleted,
+              }))}
+            />
+          </DashboardCard>
+        )}
 
         {furtherStudiesApplications.length > 0 && (
           <DashboardCard id="further-studies-applications" title="Further Studies Applications" icon={<FileText size={20} />}>

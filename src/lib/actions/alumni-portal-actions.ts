@@ -29,6 +29,12 @@ import {
   sendMentorshipMessage,
   setSessionStatus,
 } from "@/lib/services/mentorship-service";
+import { priorProgrammeSchema } from "@/lib/validations/outreach";
+import {
+  addPriorProgramme,
+  PriorProgrammeError,
+  removePriorProgramme,
+} from "@/lib/services/alumni-prior-programme-service";
 import type { ActionState } from "./types";
 
 /**
@@ -276,6 +282,44 @@ async function markMentorshipReadAsMentorActionImpl(mentorshipId: string): Promi
   await markMentorshipRead({ id: mentorshipId, side: "mentor", actorId: alumni.id });
 }
 
+// ---------------------------------------------------------------------------
+// Undergraduate programmes (postgraduate alumni)
+// ---------------------------------------------------------------------------
+
+async function addPriorProgrammeActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const alumni = await requireAlumni();
+  const parsed = priorProgrammeSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  try {
+    await addPriorProgramme({
+      alumni,
+      qualification: parsed.data.qualification,
+      programme: parsed.data.programme,
+      institution: parsed.data.institution,
+      yearCompleted: parsed.data.yearCompleted ? Number(parsed.data.yearCompleted) : null,
+    });
+  } catch (err) {
+    if (err instanceof PriorProgrammeError) return { error: err.message };
+    throw err;
+  }
+  revalidatePath("/alumni/dashboard");
+  revalidatePath("/alumni/records");
+  return { success: true };
+}
+
+async function removePriorProgrammeActionImpl(programmeId: string): Promise<void> {
+  const alumni = await requireAlumni();
+  await removePriorProgramme({ alumniId: alumni.id, id: programmeId });
+  revalidatePath("/alumni/dashboard");
+  revalidatePath("/alumni/records");
+}
+
+export const addPriorProgrammeAction = withActionErrorHandling("addPriorProgrammeAction", addPriorProgrammeActionImpl);
+export const removePriorProgrammeAction = withVoidActionErrorHandling(
+  "removePriorProgrammeAction",
+  removePriorProgrammeActionImpl,
+);
 export const startAlumniDonationAction = withActionErrorHandling(
   "startAlumniDonationAction",
   startAlumniDonationActionImpl,

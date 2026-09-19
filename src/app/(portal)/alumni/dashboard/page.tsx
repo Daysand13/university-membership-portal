@@ -11,6 +11,8 @@ import { getGivingSummary } from "@/lib/services/alumni-giving-service";
 import { countAlumniEndorsements } from "@/lib/services/advocacy-service";
 import { alumniRank } from "@/lib/portal-options";
 import { formatCedis } from "@/lib/patron-portal-options";
+import { getPriorProgrammeState } from "@/lib/services/alumni-prior-programme-service";
+import { PriorProgrammes } from "@/components/alumni-portal/PriorProgrammes";
 import { AnnouncementsCard } from "@/components/patron-portal/Display";
 
 export const metadata = { title: "Alumni Portal" };
@@ -22,7 +24,7 @@ export default async function AlumniDashboardPage({
   searchParams: Promise<{ passwordChanged?: string }>;
 }) {
   const alumni = await requireAlumni();
-  const [sp, isCurrentlyEnrolled, counts, study, events, teamRoles, announcements, mentoring, giving, endorsements] =
+  const [sp, isCurrentlyEnrolled, counts, study, events, teamRoles, announcements, mentoring, giving, endorsements, prior] =
     await Promise.all([
       searchParams,
       alumniHasMemberStanding(alumni),
@@ -34,6 +36,7 @@ export default async function AlumniDashboardPage({
       getMentorMetrics(alumni.id),
       getGivingSummary(alumni.id),
       countAlumniEndorsements(alumni.id),
+      getPriorProgrammeState(alumni),
     ]);
   const latestApplication = study.furtherStudiesApplications[0] ?? null;
 
@@ -76,6 +79,19 @@ export default async function AlumniDashboardPage({
           endorsements,
         }),
       }}
+      priorProgrammes={
+        prior.eligible ? (
+          <PriorProgrammes
+            programmes={prior.programmes.map((p) => ({
+              id: p.id,
+              qualification: p.qualification,
+              programme: p.programme,
+              institution: p.institution,
+              yearCompleted: p.yearCompleted,
+            }))}
+          />
+        ) : undefined
+      }
       announcements={
         announcements.length > 0 ? <AnnouncementsCard announcements={announcements} href="/alumni/announcements" /> : undefined
       }

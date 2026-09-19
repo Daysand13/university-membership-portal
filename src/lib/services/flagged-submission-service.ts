@@ -17,7 +17,14 @@ import type { Prisma } from "@/generated/prisma/client";
  * Best-effort: logging must never change what happens to the submission.
  */
 export async function logFlaggedSubmission(params: {
-  form: "enrollment" | "contact" | "alumni-registration" | "patron-registration";
+  form:
+    | "enrollment"
+    | "contact"
+    | "alumni-registration"
+    | "patron-registration"
+    | "ally-signup"
+    | "public-donation"
+    | "software-request";
   signal: BotSignal;
   /** True when other evidence showed a real person, so it was accepted. */
   allowedThrough: boolean;
@@ -33,8 +40,9 @@ export async function logFlaggedSubmission(params: {
     signal,
     allowedThrough,
     fillMs: pick(FILL_TIME_FIELD_NAME),
-    name: [pick("firstName"), pick("lastName")].filter(Boolean).join(" ") || pick("name") || pick("fullName"),
-    email: pick("email"),
+    name:
+      [pick("firstName"), pick("lastName")].filter(Boolean).join(" ") || pick("name") || pick("fullName") || pick("donorName"),
+    email: pick("email") ?? pick("donorEmail"),
     indexNumber: pick("indexNumber"),
     phone: pick("phone"),
   };

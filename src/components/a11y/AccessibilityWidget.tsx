@@ -21,15 +21,49 @@ function readRootAttribute(name: string): string | null {
   return typeof document === "undefined" ? null : document.documentElement.getAttribute(name);
 }
 
-// The public header renders an empty slot with this id right next to its
-// mobile hamburger button (see MobileNav) — portalling the compact buttons
-// in there keeps them correctly aligned with it no matter how tall the
-// header gets (the site title can wrap to several lines). Pages without
-// that slot (admin, auth screens) fall back to a fixed top-right position.
-const MOBILE_SLOT_ID = "a11y-mobile-slot";
+// Where the controls sit. Every header in the site renders one of these
+// empty slots, so the controls are always at the top of the page:
+//
+//  - HEADER_SLOT_ID: beside the public site's menu button on phones and
+//    tablets, and beside the account menu in the portals and admin at every
+//    width. Round icon buttons.
+//  - BAR_SLOT_ID: the dark strip across the very top of the public site, on
+//    desktop. Small labelled buttons, like the strip's other links.
+//
+// A page with neither (the sign-in screens) gets the round buttons pinned
+// to the top-right corner instead.
+const HEADER_SLOT_ID = "a11y-mobile-slot";
+const BAR_SLOT_ID = "a11y-desktop-slot";
 
-const BUTTON_CLASSES =
-  "flex items-center gap-2 rounded-full bg-primary-900 text-white shadow-lg hover:bg-primary-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500";
+/** Wide enough that the separate Dark Mode button is on screen. */
+const DESKTOP_QUERY = "(min-width: 1024px)";
+
+const ROUND_BUTTON =
+  "flex items-center justify-center w-9 h-9 rounded-full bg-primary-900 text-white shadow-sm hover:bg-primary-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500";
+
+const BAR_BUTTON =
+  "inline-flex items-center gap-1.5 rounded-full px-2.5 min-h-7 text-xs font-semibold text-primary-100 hover:text-accent-400 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-400";
+
+interface PanelPlacement {
+  top: number;
+  /** Distance from the right edge; null spans the screen (phones). */
+  right: number | null;
+  /** Carries dark mode too, where the separate button isn't shown. */
+  withDark: boolean;
+}
+
+function placementFor(button: HTMLElement): PanelPlacement {
+  const rect = button.getBoundingClientRect();
+  // clientWidth, not innerWidth: a fixed element's `right` is measured from
+  // the edge of the page, inside any scrollbar.
+  const pageWidth = document.documentElement.clientWidth;
+  const narrow = pageWidth < 640;
+  return {
+    top: Math.round(rect.bottom + 8),
+    right: narrow ? null : Math.max(16, Math.round(pageWidth - rect.right)),
+    withDark: !window.matchMedia(DESKTOP_QUERY).matches,
+  };
+}
 
 /**
  * Site-wide accessibility toolbar: a "Read Aloud" button that speaks the
@@ -38,7 +72,7 @@ const BUTTON_CLASSES =
  * panel for text size and high contrast. Written copy goes white on dark,
  * dark on light; the gold accent palette is untouched either way (see
  * globals.css). Mounted once in the root layout so every control works on
- * every page.
+ * every page, always at the top of it.
  *
  * On phones the header only has room for two round buttons, so there the
  * Display panel also carries the dark mode switch.
@@ -47,7 +81,8 @@ export function AccessibilityWidget() {
   const pathname = usePathname();
   const [isDark, setIsDark] = useState(false);
   const [isReading, setIsReading] = useState(false);
-  const [mobileSlot, setMobileSlot] = useState<HTMLElement | null>(null);
+  const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
+  const [barSlot, setBarSlot] = useState<HTMLElement | null>(null);
   const hydrated = useRef(false);
   const [textSize, setTextSize] = useState<TextSize>(() => {
     const applied = readRootAttribute("data-text-size");
@@ -55,13 +90,12 @@ export function AccessibilityWidget() {
   });
   const [highContrast, setHighContrast] = useState(() => readRootAttribute("data-contrast") === "high");
   const [displayOpen, setDisplayOpen] = useState(false);
-  // Where the phone panel opens: just under the button that opened it, since
-  // the header can grow a second row when the text size is turned up.
-  const [mobilePanelTop, setMobilePanelTop] = useState(64);
+  // Where the panel opens: just under whichever button opened it. Kept in
+  // state because the header can grow a row when the text size goes up.
+  const [placement, setPlacement] = useState<PanelPlacement>({ top: 64, right: 16, withDark: false });
   const displayPanelId = useId();
-  const mobileDisplayRef = useRef<HTMLDivElement>(null);
-  const mobilePanelRef = useRef<HTMLDivElement>(null);
-  const desktopDisplayRef = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<HTMLElement | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Restore the saved theme after mount (a plain page load starts fresh;
   // client-side navigations keep this component mounted and don't need
@@ -77,9 +111,10 @@ export function AccessibilityWidget() {
       // localStorage unavailable (private browsing, etc.) — light mode is fine.
     }
     hydrated.current = true;
-    // The slot lives in server-rendered header markup that's already in the
+    // The slots live in server-rendered header markup that's already in the
     // DOM by the time this client component mounts.
-    setMobileSlot(document.getElementById(MOBILE_SLOT_ID));
+    setHeaderSlot(document.getElementById(HEADER_SLOT_ID));
+    setBarSlot(document.getElementById(BAR_SLOT_ID));
   }, []);
 
   useEffect(() => {
@@ -101,12 +136,12 @@ export function AccessibilityWidget() {
     const root = document.documentElement;
     if (textSize === "standard") root.removeAttribute("data-text-size");
     else root.setAttribute("data-text-size", textSize);
-    // A new size can change the header's height under an open phone panel;
-    // keep the panel just below the button. Reading layout, not deriving
-    // from state, so this belongs in the effect.
-    const button = mobileDisplayRef.current;
-    if (button && button.offsetParent !== null) {
-      setMobilePanelTop(button.getBoundingClientRect().bottom + 8);
+    // A new size can change the header's height under an open panel; keep
+    // the panel just below its button. Reading layout, not deriving from
+    // state, so this belongs in the effect.
+    const button = anchorRef.current;
+    if (button && button.isConnected) {
+      setPlacement(placementFor(button));
     }
     try {
       localStorage.setItem(TEXT_SIZE_STORAGE_KEY, textSize);
@@ -129,9 +164,10 @@ export function AccessibilityWidget() {
   // The Display panel closes on a click anywhere else, or Escape.
   useEffect(() => {
     if (!displayOpen) return;
-    const zones = [mobileDisplayRef, mobilePanelRef, desktopDisplayRef];
     const onPointerDown = (event: PointerEvent) => {
-      if (!zones.some((zone) => zone.current?.contains(event.target as Node))) setDisplayOpen(false);
+      const target = event.target as Node;
+      if (panelRef.current?.contains(target) || anchorRef.current?.contains(target)) return;
+      setDisplayOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setDisplayOpen(false);
@@ -154,7 +190,8 @@ export function AccessibilityWidget() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsReading(false);
     setDisplayOpen(false);
-    setMobileSlot(document.getElementById(MOBILE_SLOT_ID));
+    setHeaderSlot(document.getElementById(HEADER_SLOT_ID));
+    setBarSlot(document.getElementById(BAR_SLOT_ID));
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
@@ -200,115 +237,103 @@ export function AccessibilityWidget() {
   const readAloudLabel = isReading ? "Stop reading page aloud" : "Read this page aloud";
   const themeLabel = isDark ? "Switch to light mode" : "Switch to dark mode";
 
-  const compactButtons = (
+  const toggleDisplay = (event: React.MouseEvent<HTMLButtonElement>) => {
+    anchorRef.current = event.currentTarget;
+    setPlacement(placementFor(event.currentTarget));
+    setDisplayOpen((open) => !open);
+  };
+
+  const displayButtonProps = {
+    type: "button" as const,
+    onClick: toggleDisplay,
+    "aria-expanded": displayOpen,
+    "aria-controls": displayPanelId,
+  };
+
+  // Round icon buttons, for the portal and admin headers, the public header
+  // on smaller screens, and the fallback corner. The separate dark mode
+  // button only appears from 1024px up; below that it's inside the panel.
+  const roundButtons = (
     <>
       <button
         type="button"
         onClick={toggleReadAloud}
         aria-pressed={isReading}
         aria-label={readAloudLabel}
-        className={`${BUTTON_CLASSES} p-2`}
+        title={readAloudLabel}
+        className={ROUND_BUTTON}
       >
         {isReading ? <VolumeX size={17} /> : <Volume2 size={17} />}
-      </button>
-      <div ref={mobileDisplayRef}>
-        <button
-          type="button"
-          onClick={(event) => {
-            setMobilePanelTop(event.currentTarget.getBoundingClientRect().bottom + 8);
-            setDisplayOpen((open) => !open);
-          }}
-          aria-expanded={displayOpen}
-          aria-controls={`${displayPanelId}-mobile`}
-          aria-label="Display settings: text size, contrast and dark mode"
-          className={`${BUTTON_CLASSES} p-2`}
-        >
-          <ALargeSmall size={17} />
-        </button>
-      </div>
-    </>
-  );
-
-  const labeledButtons = (
-    <>
-      <button
-        type="button"
-        onClick={toggleReadAloud}
-        aria-pressed={isReading}
-        aria-label={readAloudLabel}
-        className={`${BUTTON_CLASSES} pl-3.5 pr-4 py-2.5 text-sm font-semibold`}
-      >
-        {isReading ? <VolumeX size={18} /> : <Volume2 size={18} />}
-        {isReading ? "Stop Reading" : "Read Aloud"}
       </button>
       <button
         type="button"
         onClick={toggleTheme}
         aria-pressed={isDark}
         aria-label={themeLabel}
-        className={`${BUTTON_CLASSES} pl-3.5 pr-4 py-2.5 text-sm font-semibold`}
+        title={themeLabel}
+        className={`${ROUND_BUTTON} hidden lg:flex`}
       >
-        {isDark ? <Sun size={18} /> : <Moon size={18} />}
-        {isDark ? "Light Mode" : "Dark Mode"}
+        {isDark ? <Sun size={17} /> : <Moon size={17} />}
       </button>
       <button
-        type="button"
-        onClick={() => setDisplayOpen((open) => !open)}
-        aria-expanded={displayOpen}
-        aria-controls={`${displayPanelId}-desktop`}
-        className={`${BUTTON_CLASSES} pl-3.5 pr-4 py-2.5 text-sm font-semibold`}
+        {...displayButtonProps}
+        aria-label="Display settings"
+        title="Display settings: text size and contrast"
+        className={ROUND_BUTTON}
       >
-        <ALargeSmall size={18} />
+        <ALargeSmall size={17} />
+      </button>
+    </>
+  );
+
+  // Labelled buttons for the dark strip at the top of the public site.
+  const barButtons = (
+    <>
+      <button type="button" onClick={toggleReadAloud} aria-pressed={isReading} aria-label={readAloudLabel} className={BAR_BUTTON}>
+        {isReading ? <VolumeX size={14} aria-hidden="true" /> : <Volume2 size={14} aria-hidden="true" />}
+        {isReading ? "Stop Reading" : "Read Aloud"}
+      </button>
+      <button type="button" onClick={toggleTheme} aria-pressed={isDark} aria-label={themeLabel} className={BAR_BUTTON}>
+        {isDark ? <Sun size={14} aria-hidden="true" /> : <Moon size={14} aria-hidden="true" />}
+        {isDark ? "Light Mode" : "Dark Mode"}
+      </button>
+      <button {...displayButtonProps} className={BAR_BUTTON}>
+        <ALargeSmall size={14} aria-hidden="true" />
         Text &amp; Contrast
       </button>
     </>
   );
 
-  const panelProps = {
-    textSize,
-    onTextSize: setTextSize,
-    highContrast,
-    onHighContrast: setHighContrast,
-  };
-
   return (
     <>
-      {mobileSlot
-        ? createPortal(<div className="flex items-center gap-1.5 lg:hidden">{compactButtons}</div>, mobileSlot)
-        : (
-            <div className="fixed z-[9999] flex items-center gap-1.5 top-3 right-16 lg:hidden print:hidden">
-              {compactButtons}
-            </div>
-          )}
+      {headerSlot &&
+        createPortal(<div className="flex items-center gap-1.5 print:hidden">{roundButtons}</div>, headerSlot)}
+      {barSlot && createPortal(<div className="hidden lg:flex items-center gap-1 print:hidden">{barButtons}</div>, barSlot)}
+      {!headerSlot && !barSlot && (
+        <div className="fixed z-[9999] flex items-center gap-1.5 top-3 right-3 print:hidden">{roundButtons}</div>
+      )}
+
       {/* Portalled to <body> so no header styling can trap or clip it. */}
       {displayOpen &&
         createPortal(
           <div
-            ref={mobilePanelRef}
-            style={{ top: mobilePanelTop }}
-            className="lg:hidden fixed inset-x-4 z-[10000] max-h-[calc(100vh-6rem)] overflow-y-auto print:hidden"
+            ref={panelRef}
+            style={placement.right === null ? { top: placement.top } : { top: placement.top, right: placement.right }}
+            className={`fixed z-[10000] max-h-[calc(100vh-6rem)] overflow-y-auto print:hidden ${
+              placement.right === null ? "inset-x-4" : "w-72"
+            }`}
           >
             <DisplaySettingsPanel
-              id={`${displayPanelId}-mobile`}
-              {...panelProps}
-              dark={{ on: isDark, toggle: toggleTheme }}
+              id={displayPanelId}
+              textSize={textSize}
+              onTextSize={setTextSize}
+              highContrast={highContrast}
+              onHighContrast={setHighContrast}
+              dark={placement.withDark ? { on: isDark, toggle: toggleTheme } : undefined}
             />
           </div>,
           document.body,
         )}
-      <div
-        ref={desktopDisplayRef}
-        className="hidden lg:flex fixed z-[9999] flex-col items-end gap-2 right-5 bottom-5 print:hidden"
-      >
-        {displayOpen && (
-          <DisplaySettingsPanel
-            id={`${displayPanelId}-desktop`}
-            {...panelProps}
-            className="absolute bottom-full right-0 mb-2 w-72"
-          />
-        )}
-        {labeledButtons}
-      </div>
     </>
   );
 }

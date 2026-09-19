@@ -376,10 +376,15 @@ export function accountNoticeEmail(params: {
 }
 
 /**
- * A patron's broadcast, approved by an administrator and sent to a group of
- * members. `bodyHtml` must already be sanitised (see broadcast-service); it
- * is the one place in these templates where HTML is passed in rather than
- * built here, because the patron wrote rich text.
+ * A broadcast to a group: either a patron's, approved by an administrator,
+ * or an executive's own. `bodyHtml` must already be sanitised (see
+ * broadcast-service); it is the one place in these templates where HTML is
+ * passed in rather than built here, because the sender wrote rich text.
+ *
+ * `sender` decides how it's introduced and signed — an executive's
+ * message must never go out labelled as a patron's. `unsubscribeUrl` is
+ * set for allies, who joined a mailing list rather than holding an account,
+ * and so must always be able to leave it from the email itself.
  */
 export function patronBroadcastEmail(params: {
   firstName: string;
@@ -387,20 +392,23 @@ export function patronBroadcastEmail(params: {
   bodyHtml: string;
   authorName: string;
   audienceLabel: string;
+  sender?: "patron" | "executive";
   attachment?: { url: string; name: string } | null;
   portalUrl?: string | null;
+  unsubscribeUrl?: string | null;
   brand: EmailBrand;
 }) {
-  const { firstName, subject, bodyHtml, authorName, audienceLabel, attachment, portalUrl, brand } = params;
+  const { firstName, subject, bodyHtml, authorName, audienceLabel, attachment, portalUrl, unsubscribeUrl, brand } = params;
+  const executive = params.sender === "executive";
   return {
     subject,
     html: baseLayout(
       `
-      <p style="margin:0 0 4px;font-size:12px;color:#5b6b7c;text-transform:uppercase;letter-spacing:0.04em;">Message from a Patron · ${e(audienceLabel)}</p>
+      <p style="margin:0 0 4px;font-size:12px;color:#5b6b7c;text-transform:uppercase;letter-spacing:0.04em;">${executive ? "Message from the Executive Committee" : "Message from a Patron"} · ${e(audienceLabel)}</p>
       <p style="margin:0 0 18px;font-size:18px;font-weight:700;color:${BRAND_COLOR};">${e(subject)}</p>
       <p>Dear ${e(firstName)},</p>
       <div style="font-size:15px;line-height:1.65;">${bodyHtml}</div>
-      <p style="margin-top:20px;font-weight:600;">${e(authorName)}<br/><span style="font-weight:400;color:#5b6b7c;">Patron, ${e(brand.siteTitle)}</span></p>
+      <p style="margin-top:20px;font-weight:600;">${e(authorName)}<br/><span style="font-weight:400;color:#5b6b7c;">${executive ? "" : "Patron, "}${e(brand.siteTitle)}</span></p>
       ${
         attachment
           ? `<table role="presentation" style="width:100%;background:#eef0fb;border-radius:6px;margin:18px 0;"><tr><td style="padding:14px 18px;">
@@ -410,7 +418,16 @@ export function patronBroadcastEmail(params: {
           : ""
       }
       ${portalUrl ? button(portalUrl, "Open Your Portal") : ""}
-      <p style="margin-top:18px;color:#5b6b7c;font-size:13px;">This message was reviewed and approved by the ${e(brand.siteTitle)} before it was sent.</p>
+      ${
+        executive
+          ? ""
+          : `<p style="margin-top:18px;color:#5b6b7c;font-size:13px;">This message was reviewed and approved by the ${e(brand.siteTitle)} before it was sent.</p>`
+      }
+      ${
+        unsubscribeUrl
+          ? `<p style="margin-top:18px;color:#5b6b7c;font-size:13px;">You're receiving this because you joined the ${e(brand.siteTitle)} ally network. <a href="${e(unsubscribeUrl)}" style="color:#5b6b7c;">Unsubscribe</a>.</p>`
+          : ""
+      }
     `,
       brand,
     ),

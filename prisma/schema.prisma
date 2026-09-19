@@ -134,6 +134,7 @@ model AdminUser {
   reportUpdates         BarrierReportUpdate[] @relation("BarrierReportUpdateAuthor")
   reviewedSupport       SupportRequest[]      @relation("SupportRequestReviewer")
   reviewedOpportunities Opportunity[]         @relation("OpportunityReviewer")
+  handledSoftware       SoftwareRequest[]     @relation("SoftwareRequestHandler")
 
   // Link to the unified identity row. The granular AdminRole above stays
   // the source of truth for what an admin may actually do — the unified
@@ -197,6 +198,7 @@ model Member {
   mentorships         Mentorship[]
   studyGroups         StudyGroupMember[]
   createdStudyGroups  StudyGroup[]         @relation("StudyGroupCreator")
+  softwareRequests    SoftwareRequest[]
   // The public Leadership/Patron listing this account is linked to, if any
   // — the far side of TeamMember.memberId, used to charge the Executive
   // dues rate instead of the level/track rate.
@@ -727,6 +729,7 @@ model AlumniProfile {
   opportunities       Opportunity[]
   donations           Donation[]
   endorsements        CampaignEndorsement[]
+  priorProgrammes     AlumniPriorProgramme[]
 
   @@index([status])
   @@index([willingToMentor])
@@ -1176,6 +1179,7 @@ enum BroadcastAudience {
   ALUMNI
   EXECUTIVES
   PATRONS
+  ALLIES
 }
 
 enum BroadcastStatus {
@@ -1735,4 +1739,189 @@ model Opportunity {
   @@index([status])
   @@index([alumniId])
   @@map("opportunities")
+}
+
+// ---------------------------------------------------------------------------
+// Allies & Champions
+// ---------------------------------------------------------------------------
+
+enum AllyType {
+  INDIVIDUAL
+  CORPORATE
+}
+
+/// A named supporter on the public Allies & Champions page. Always added or
+/// approved by an administrator — often from a sign-up that asked to be
+/// listed, but never automatically: a name on that page is the association
+/// vouching for the connection.
+model Ally {
+  id   String   @id @default(cuid())
+  type AllyType
+  name String
+
+  /// A headshot for a person, a logo for an organisation.
+  imageUrl       String?
+  /// A person's title, e.g. "Senior Policy Advisor".
+  role           String?
+  /// Where a person works, e.g. "Accessibility Division".
+  organization   String?
+  /// An organisation's field, e.g. "Higher Education" or "Assistive Tech".
+  sector         String?
+  /// A person's "why I support" statement, or an organisation's
+  /// partnership note ("Sponsoring digital inclusion since 2024").
+  statement      String?
+  /// A longer quote for the spotlight section. Shown only when featured.
+  spotlightQuote String?
+  featured       Boolean @default(false)
+  websiteUrl     String?
+
+  order    Int     @default(0)
+  isActive Boolean @default(true)
+
+  /// The public sign-up this listing came from, where it came from one.
+  signupId String?     @unique
+  signup   AllySignup? @relation(fields: [signupId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type, isActive])
+  @@map("allies")
+}
+
+enum AllySignupStatus {
+  NEW
+  REVIEWED
+  LISTED
+}
+
+/// Someone who joined the ally network from the public page, without an
+/// account: an email address for updates and advocacy alerts and, if they
+/// asked, a request to be listed publicly.
+///
+/// Nothing is sent to an address until its owner clicks the confirmation
+/// link, so nobody can sign somebody else up; every later email carries an
+/// unsubscribe link built from the same token.
+model AllySignup {
+  id           String   @id @default(cuid())
+  fullName     String
+  email        String   @unique
+  type         AllyType
+  /// "Organisation / Role", in their own words.
+  organization String?
+  wantsListing Boolean  @default(false)
+
+  status         AllySignupStatus @default(NEW)
+  confirmedAt    DateTime?
+  unsubscribedAt DateTime?
+  /// The secret in their confirmation and unsubscribe links.
+  token          String           @unique
+
+  ally Ally?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([confirmedAt])
+  @@map("ally_signups")
+}
+
+// ---------------------------------------------------------------------------
+// Assistive software
+// ---------------------------------------------------------------------------
+
+enum SoftwareCategory {
+  VISION
+  HEARING
+  COGNITIVE
+  MOBILITY
+}
+
+/// One tool in the public assistive software directory. The software itself
+/// lives in the association's Telegram library; this is the listing that
+/// says what it is, who it's for and where to get it.
+model AssistiveSoftware {
+  id          String           @id @default(cuid())
+  name        String
+  logoUrl     String?
+  category    SoftwareCategory
+  /// WINDOWS, MACOS, ANDROID, IOS, LINUX, WEB.
+  platforms   String[]         @default([])
+  description String
+  /// Free or open source, as opposed to a paid licence bought with donations.
+  isFree      Boolean          @default(true)
+  /// A direct link to this tool's post in the Telegram library. Falls back
+  /// to the library itself when not set.
+  telegramUrl String?
+  websiteUrl  String?
+
+  order    Int     @default(0)
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category, isActive])
+  @@map("assistive_software")
+}
+
+enum SoftwareRequestStatus {
+  NEW
+  IN_PROGRESS
+  FULFILLED
+  DECLINED
+}
+
+/// A request for a tool the library doesn't have yet, from the public page.
+/// Handled by the technical team; paid tools are bought with donations.
+model SoftwareRequest {
+  id              String           @id @default(cuid())
+  fullName        String
+  email           String
+  softwareName    String
+  category        SoftwareCategory
+  operatingSystem String
+  notes           String?
+
+  /// The signed-in student who asked, when they were signed in.
+  memberId String?
+  member   Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  status      SoftwareRequestStatus @default(NEW)
+  adminNote   String?
+  handledById String?
+  handledBy   AdminUser?            @relation("SoftwareRequestHandler", fields: [handledById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("software_requests")
+}
+
+// ---------------------------------------------------------------------------
+// Alumni: earlier programmes
+// ---------------------------------------------------------------------------
+
+/// An undergraduate programme an alumnus completed before the postgraduate
+/// study the association has on record — often before the portal existed,
+/// or at another university. Added by the alumnus themselves, so it is shown
+/// as their own account of their education, not as an association record.
+model AlumniPriorProgramme {
+  id       String        @id @default(cuid())
+  alumniId String
+  alumni   AlumniProfile @relation(fields: [alumniId], references: [id], onDelete: Cascade)
+
+  /// "Bachelor's degree", "Diploma", "Higher National Diploma" or "Other".
+  qualification String
+  programme     String
+  institution   String
+  yearCompleted Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([alumniId])
+  @@map("alumni_prior_programmes")
 }

@@ -1,4 +1,4 @@
-import { BookOpen, Vote, HandHeart, Users, CalendarDays, GraduationCap, Award } from "lucide-react";
+import { BookOpen, Vote, HandHeart, Users, CalendarDays, GraduationCap, Award, Handshake, MonitorSmartphone } from "lucide-react";
 import { Hero } from "@/components/home/Hero";
 import { CTACard } from "@/components/home/CTACard";
 import { NewsCard } from "@/components/news/NewsCard";
@@ -108,7 +108,7 @@ export default async function HomePage() {
             align="center"
             onDark
           />
-          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
             <CTACard
               icon={Users}
               title="Membership Portal"
@@ -150,6 +150,20 @@ export default async function HomePage() {
               description="Lecturers, professionals and friends of the association — apply to become a patron, or sign in."
               href="/patrons"
               linkLabel="Become a patron"
+            />
+            <CTACard
+              icon={Handshake}
+              title="Allies & Champions"
+              description="The people and organisations standing with our students — and how to join them."
+              href="/allies"
+              linkLabel="Become an ally"
+            />
+            <CTACard
+              icon={MonitorSmartphone}
+              title="Assistive Software"
+              description="Screen readers, captioning and learning tools for students — free, or funded by donations."
+              href="/assistive-technology"
+              linkLabel="Explore the tools"
             />
           </div>
         </div>

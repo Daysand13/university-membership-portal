@@ -118,7 +118,13 @@ export const adminBroadcastSchema = z
   .refine((data) => data.sendEmail || data.postToPortal, {
     message: "Choose at least one way to send it",
     path: ["sendEmail"],
-  });
+  })
+  // Allies joined a mailing list; they have no portal to post to.
+  .refine((data) => data.audience !== "ALLIES" || data.sendEmail, {
+    message: "The ally network can only be reached by email",
+    path: ["sendEmail"],
+  })
+  .transform((data) => (data.audience === "ALLIES" ? { ...data, postToPortal: false } : data));
 
 export const broadcastReviewSchema = z
   .object({

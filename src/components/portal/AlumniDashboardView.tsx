@@ -48,6 +48,11 @@ export interface AlumniDashboardViewProps {
     lifetimeGivingLabel: string;
     rank: { label: string; detail: string };
   };
+  /**
+   * The "undergraduate programmes" card — only for a graduate doing (or who
+   * has done) postgraduate study, whose earlier degree may not be on record.
+   */
+  priorProgrammes?: ReactNode;
   /** The patrons' announcements card, when there are any. */
   announcements?: ReactNode;
 }
@@ -109,6 +114,7 @@ export function AlumniDashboardView({
   isCurrentlyEnrolled,
   teamRoles,
   standing,
+  priorProgrammes,
   announcements,
 }: AlumniDashboardViewProps) {
   const pendingFurtherStudies =
@@ -203,6 +209,25 @@ export function AlumniDashboardView({
             />
           </dl>
         </DashboardCard>
+
+        {priorProgrammes && (
+          <DashboardCard
+            id="undergraduate-programmes"
+            title="Your Undergraduate Programmes"
+            icon={<GraduationCap size={20} />}
+            footer={
+              <Link href="/alumni/records" className={footerLinkClasses}>
+                Full academic record <ArrowRight size={14} aria-hidden="true" />
+              </Link>
+            }
+          >
+            <p className="text-sm text-slate mb-4">
+              Our records of your studies start at your postgraduate programme. Add the undergraduate programme you
+              did first — here or at another university — so your history is complete.
+            </p>
+            {priorProgrammes}
+          </DashboardCard>
+        )}
 
         <DashboardCard
           id="further-studies"

@@ -25,9 +25,13 @@ export async function GET(request: NextRequest) {
 
   const [result, path] = await Promise.all([
     verifyAndRecordDonation(reference),
-    getDonationPortalPath(reference),
+    // Gifts from the public pages carry ?return=<page> on the callback URL;
+    // it only ever selects from a fixed list of pages.
+    getDonationPortalPath(reference, request.nextUrl.searchParams.get("return")),
   ]);
   const url = new URL(path, request.nextUrl.origin);
   url.searchParams.set("donation", result.ok ? result.status.toLowerCase() : "error");
+  // Land back on the part of the page the gift was made from.
+  if (path === "/allies" || path === "/assistive-technology") url.hash = "donate";
   return NextResponse.redirect(url);
 }

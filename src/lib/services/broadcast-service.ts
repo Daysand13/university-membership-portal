@@ -13,6 +13,7 @@ import {
 import { broadcastAudienceLabel } from "@/lib/patron-portal-options";
 import type { AdoptedUpload } from "@/lib/services/enrollment-upload-service";
 import { deleteObject } from "@/lib/storage/r2";
+import { listAllyRecipients } from "@/lib/services/ally-service";
 
 /**
  * Patrons' broadcasts: written in the Patrons' Portal, approved (or not) by
@@ -122,6 +123,8 @@ export async function getBroadcastForAdmin(id: string) {
 export interface BroadcastRecipient {
   email: string;
   firstName: string;
+  /** Set for allies, whose every email must let them leave the list. */
+  unsubscribeUrl?: string;
 }
 
 /** Members who currently count as enrolled students (not graduated). */
@@ -152,6 +155,14 @@ export async function resolveBroadcastRecipients(audience: BroadcastAudience): P
       select: { member: { select: { email: true, firstName: true } } },
     });
     executives.forEach((e) => e.member && add(e.member.email, e.member.firstName));
+  }
+  if (audience === "ALLIES") {
+    // Confirmed and still subscribed only — see ally-service.
+    const allies = await listAllyRecipients();
+    for (const ally of allies) {
+      const key = ally.email.toLowerCase();
+      if (!byEmail.has(key)) byEmail.set(key, ally);
+    }
   }
   if (audience === "PATRONS") {
     const patrons = await db.patronProfile.findMany({
@@ -186,6 +197,8 @@ interface SendableBroadcast {
   postToPortal: boolean;
   attachmentKey: string | null;
   attachmentName: string | null;
+  /** Set when an executive wrote it rather than a patron. */
+  createdByAdminId: string | null;
 }
 
 /**
@@ -216,8 +229,11 @@ async function deliverBroadcastEmails(broadcast: SendableBroadcast, recipients: 
         bodyHtml: broadcast.bodyHtml,
         authorName: broadcast.authorName,
         audienceLabel,
+        sender: broadcast.createdByAdminId ? "executive" : "patron",
         attachment: attachmentUrl && broadcast.attachmentName ? { url: attachmentUrl, name: broadcast.attachmentName } : null,
-        portalUrl: broadcast.postToPortal ? siteUrl("/login") : null,
+        // Allies have no portal to open.
+        portalUrl: broadcast.postToPortal && !r.unsubscribeUrl ? siteUrl("/login") : null,
+        unsubscribeUrl: r.unsubscribeUrl ?? null,
         brand,
       });
       return { to: r.email, subject, html };

@@ -25,6 +25,8 @@ import {
   LifeBuoy,
   BriefcaseBusiness,
   Radio,
+  Handshake,
+  MonitorSmartphone,
 } from "lucide-react";
 import { AdminRole } from "@/generated/prisma/enums";
 
@@ -98,6 +100,23 @@ export const ADMIN_NAV: AdminNavGroup[] = [
         label: "Opportunity Board",
         icon: BriefcaseBusiness,
         roles: [AdminRole.MEMBERSHIP_OFFICER],
+      },
+    ],
+  },
+  {
+    title: "Outreach",
+    items: [
+      {
+        href: "/admin/allies",
+        label: "Allies & Champions",
+        icon: Handshake,
+        roles: [AdminRole.EDITOR, AdminRole.MEMBERSHIP_OFFICER],
+      },
+      {
+        href: "/admin/assistive-tech",
+        label: "Assistive Software",
+        icon: MonitorSmartphone,
+        roles: [AdminRole.EDITOR, AdminRole.MEMBERSHIP_OFFICER],
       },
     ],
   },

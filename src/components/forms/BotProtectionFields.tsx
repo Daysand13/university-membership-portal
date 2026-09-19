@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { FILL_TIME_FIELD_NAME, HONEYPOT_FIELD_NAME } from "@/lib/bot-protection";
 
 /**
@@ -16,6 +16,9 @@ import { FILL_TIME_FIELD_NAME, HONEYPOT_FIELD_NAME } from "@/lib/bot-protection"
  */
 export function BotProtectionFields() {
   const honeypotRef = useRef<HTMLInputElement>(null);
+  // Unique per form: a page can hold several public forms at once (the
+  // Allies page has a sign-up form and donation dialogs), and ids must not repeat.
+  const fieldId = `${HONEYPOT_FIELD_NAME}-${useId()}`;
 
   useEffect(() => {
     const form = honeypotRef.current?.form;
@@ -33,11 +36,11 @@ export function BotProtectionFields() {
       aria-hidden="true"
       style={{ position: "absolute", left: "-9999px", width: "1px", height: "1px", overflow: "hidden" }}
     >
-      <label htmlFor={HONEYPOT_FIELD_NAME}>Leave this field blank</label>
+      <label htmlFor={fieldId}>Leave this field blank</label>
       <input
         ref={honeypotRef}
         type="text"
-        id={HONEYPOT_FIELD_NAME}
+        id={fieldId}
         name={HONEYPOT_FIELD_NAME}
         tabIndex={-1}
         defaultValue=""

@@ -120,7 +120,9 @@ export default async function AdminAlumniPage({
               {alumni.map((a) => (
                 <tr key={a.id} className="hover:bg-surface-muted/60">
                   <td className="px-5 py-3.5">
-                    <p className="font-medium text-primary-950">{a.fullName}</p>
+                    <Link href={`/admin/alumni/${a.id}`} className="font-medium text-primary-950 hover:text-accent-600">
+                      {a.fullName}
+                    </Link>
                     <p className="text-xs text-slate-light">{a.email}</p>
                   </td>
                   <td className="px-5 py-3.5 text-slate">{a.programme}</td>

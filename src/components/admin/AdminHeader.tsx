@@ -21,6 +21,8 @@ export async function AdminHeader({ admin }: { admin: AdminUser }) {
         <div className="hidden lg:block" />
 
         <div className="flex items-center gap-1.5">
+          {/* AccessibilityWidget's round buttons sit here, at the top. */}
+          <div id="a11y-mobile-slot" className="flex items-center mr-1" />
           <SystemHealthIndicator checks={health.checks} problems={health.problems} />
           <NotificationBell notifications={notifications} unreadCount={unreadCount} />
           <div className="w-px h-6 bg-line mx-1.5" />

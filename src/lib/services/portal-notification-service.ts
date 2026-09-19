@@ -32,7 +32,8 @@ const dateTimeFormat = new Intl.DateTimeFormat("en-GH", {
   timeZone: "Africa/Accra",
 });
 
-const CONTACT_LINE = "If you have any questions, reply to this email or contact the association.";
+// The same wording as account notices: these emails come from a no-reply address.
+const CONTACT_LINE = "If you have any questions about this, please contact the association through the Contact page on our website.";
 
 function excerpt(text: string, max = 400): string {
   const flat = text.replace(/\s+/g, " ").trim();
@@ -42,7 +43,7 @@ function excerpt(text: string, max = 400): string {
 type StudentRecipient = Pick<Member, "id" | "firstName" | "email">;
 
 /** Puts an item in the admin bell and emails the admins who handle it. */
-async function notifyAdmins(params: {
+export async function notifyAdmins(params: {
   roles: AdminRole[];
   template: string;
   entityType: string;

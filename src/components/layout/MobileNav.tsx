@@ -14,6 +14,8 @@ const PRIMARY_LINKS = [
   { href: "/elections", label: "Election" },
   { href: "/alumni", label: "Alumni" },
   { href: "/patrons", label: "Patrons" },
+  { href: "/allies", label: "Allies & Champions" },
+  { href: "/assistive-technology", label: "Assistive Software" },
   { href: "/contact", label: "Contact Us" },
 ];
 

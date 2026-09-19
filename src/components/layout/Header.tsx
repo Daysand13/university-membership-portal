@@ -28,6 +28,10 @@ export async function Header() {
             </span>
           </div>
           <div className="flex items-center gap-4">
+            {/* AccessibilityWidget puts Read Aloud, Dark Mode and Text &
+                Contrast here on desktop, so they sit at the top of every
+                public page rather than floating over its content. */}
+            <div id="a11y-desktop-slot" className="flex items-center" />
             {socialLinks.length > 0 && (
               <div className="flex items-center gap-2.5">
                 {socialLinks.map((link) => (
