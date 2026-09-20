@@ -232,7 +232,9 @@ export default async function TechTutorialsPage({
             <SendHorizontal size={28} />
           </span>
           <div className="flex-1">
-            <h2 id="telegram-heading" className="font-display font-bold text-2xl">
+            {/* Stated, not inherited: headings are given the dark ink colour
+                globally, which wins over the panel's white text. */}
+            <h2 id="telegram-heading" className="font-display font-bold text-2xl text-white">
               Join Our Central Software Repository on Telegram
             </h2>
             <p className="mt-2 text-primary-100 leading-relaxed">
