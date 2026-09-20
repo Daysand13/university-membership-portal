@@ -5,6 +5,7 @@ import {
   priorProgrammeSchema,
   publicDonationSchema,
   softwareListingSchema,
+  softwareRequestUpdateSchema,
   techRequestSchema,
   tutorialListingSchema,
 } from "@/lib/validations/outreach";
@@ -16,7 +17,13 @@ import {
   sameProgramme,
 } from "@/lib/services/alumni-prior-programme-service";
 import { patronBroadcastEmail } from "@/lib/email/templates";
-import { youTubeEmbedUrl, youTubeThumbnail, youTubeVideoId } from "@/lib/outreach-options";
+import {
+  SOFTWARE_REQUEST_STATUS_HINTS,
+  SOFTWARE_REQUEST_STATUS_LABELS,
+  youTubeEmbedUrl,
+  youTubeThumbnail,
+  youTubeVideoId,
+} from "@/lib/outreach-options";
 
 const brand = { siteTitle: "Association of Students with Special Needs", logoUrl: null, universityLogoUrl: null };
 
@@ -354,5 +361,45 @@ describe("the programmes an alumnus lists, on their public profile", () => {
   it("treats spelling and punctuation differences as the same programme", () => {
     expect(sameProgramme("B.Ed special Education", "BEd Special Education")).toBe(true);
     expect(sameProgramme("B.Ed Special Education", "B.Ed Mathematics")).toBe(false);
+  });
+});
+
+describe("moving a request along", () => {
+  const base = { status: "FULFILLED", adminNote: "", resourceLink: "", notify: true };
+
+  it("covers every state a request can be in", () => {
+    for (const status of ["NEW", "IN_PROGRESS", "FULFILLED", "UNFULFILLABLE", "DECLINED"]) {
+      expect(softwareRequestUpdateSchema.safeParse({ ...base, status, adminNote: "Done." }).success).toBe(true);
+    }
+    expect(softwareRequestUpdateSchema.safeParse({ ...base, status: "MAYBE" }).success).toBe(false);
+  });
+
+  it("won't email someone an update that tells them nothing", () => {
+    expect(softwareRequestUpdateSchema.safeParse(base).success).toBe(false);
+    // A note alone, or a link alone, is enough to be worth sending.
+    expect(softwareRequestUpdateSchema.safeParse({ ...base, adminNote: "In the library now." }).success).toBe(true);
+    expect(softwareRequestUpdateSchema.safeParse({ ...base, resourceLink: "https://t.me/assn/42" }).success).toBe(true);
+  });
+
+  it("lets a status be corrected quietly, without emailing anyone", () => {
+    expect(softwareRequestUpdateSchema.safeParse({ ...base, notify: false }).success).toBe(true);
+  });
+
+  it("checks the link is a link", () => {
+    expect(softwareRequestUpdateSchema.safeParse({ ...base, resourceLink: "t.me/assn" }).success).toBe(false);
+  });
+
+  it("names every status for the person waiting", () => {
+    expect(Object.keys(SOFTWARE_REQUEST_STATUS_LABELS)).toEqual([
+      "NEW",
+      "IN_PROGRESS",
+      "FULFILLED",
+      "UNFULFILLABLE",
+      "DECLINED",
+    ]);
+    expect(SOFTWARE_REQUEST_STATUS_LABELS.NEW).toBe("Pending");
+    for (const key of Object.keys(SOFTWARE_REQUEST_STATUS_LABELS)) {
+      expect(SOFTWARE_REQUEST_STATUS_HINTS[key]).toBeTruthy();
+    }
   });
 });

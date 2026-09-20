@@ -27,12 +27,28 @@ const STATUS_TONE: Record<string, string> = {
 
 const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "short", year: "numeric" });
 
-export default async function TechRequestsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+const KINDS = [
+  { value: "ALL", label: "Everything" },
+  { value: "SOFTWARE", label: "Software" },
+  { value: "TUTORIAL", label: "Tutorials" },
+] as const;
+
+export default async function TechRequestsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; kind?: string }>;
+}) {
   await requireCapability("outreach.software.requests");
-  const { status: raw } = await searchParams;
+  const { status: raw, kind: rawKind } = await searchParams;
   const tab = TABS.some((t) => t.value === raw) ? (raw as SoftwareRequestStatus | "ALL") : "NEW";
+  const kind = KINDS.some((k) => k.value === rawKind) ? (rawKind as "ALL" | "SOFTWARE" | "TUTORIAL") : "ALL";
+  const query = (next: { status?: string; kind?: string }) =>
+    `/admin/tech-tutorials/requests?status=${next.status ?? tab}&kind=${next.kind ?? kind}`;
   const [requests, counts] = await Promise.all([
-    listTechRequests(tab === "ALL" ? undefined : { status: tab }),
+    listTechRequests({
+      ...(tab === "ALL" ? {} : { status: tab }),
+      ...(kind === "ALL" ? {} : { kind }),
+    }),
     countSoftwareRequestsByStatus(),
   ]);
   const total = counts.NEW + counts.IN_PROGRESS + counts.FULFILLED + counts.DECLINED;
@@ -50,13 +66,29 @@ export default async function TechRequestsPage({ searchParams }: { searchParams:
         {TABS.map((t) => (
           <Link
             key={t.value}
-            href={`/admin/tech-tutorials/requests?status=${t.value}`}
+            href={query({ status: t.value })}
             aria-current={tab === t.value ? "page" : undefined}
             className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
               tab === t.value ? "bg-primary-800 text-white border-primary-800" : "border-line text-slate hover:border-primary-300"
             }`}
           >
             {t.label} ({t.value === "ALL" ? total : counts[t.value]})
+          </Link>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5 mb-5">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate mr-1">Asked for</span>
+        {KINDS.map((k) => (
+          <Link
+            key={k.value}
+            href={query({ kind: k.value })}
+            aria-current={kind === k.value ? "page" : undefined}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
+              kind === k.value ? "bg-primary-800 text-white border-primary-800" : "border-line text-slate hover:border-primary-300"
+            }`}
+          >
+            {k.label}
           </Link>
         ))}
       </div>
@@ -70,6 +102,7 @@ export default async function TechRequestsPage({ searchParams }: { searchParams:
               <tr>
                 <th scope="col" className="text-left px-5 py-3 font-semibold">Asked for</th>
                 <th scope="col" className="text-left px-5 py-3 font-semibold">From</th>
+                <th scope="col" className="text-left px-5 py-3 font-semibold">Email</th>
                 <th scope="col" className="text-left px-5 py-3 font-semibold">For</th>
                 <th scope="col" className="text-left px-5 py-3 font-semibold">Asked</th>
                 <th scope="col" className="text-left px-5 py-3 font-semibold">Status</th>
@@ -97,6 +130,11 @@ export default async function TechRequestsPage({ searchParams }: { searchParams:
                     </p>
                   </td>
                   <td className="px-5 py-3.5 text-slate">{request.fullName}</td>
+                  <td className="px-5 py-3.5 text-slate">
+                    <a href={`mailto:${request.email}`} className="hover:text-accent-600 break-all">
+                      {request.email}
+                    </a>
+                  </td>
                   <td className="px-5 py-3.5 text-slate">{softwareCategoryLabel(request.category)}</td>
                   <td className="px-5 py-3.5 text-slate whitespace-nowrap">{dateFormat.format(request.createdAt)}</td>
                   <td className="px-5 py-3.5">

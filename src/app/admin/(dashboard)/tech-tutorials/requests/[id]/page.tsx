@@ -7,7 +7,7 @@ import { getTechRequest } from "@/lib/services/assistive-software-service";
 import { SoftwareRequestUpdateForm } from "@/components/admin/forms/OutreachForms";
 import { SOFTWARE_REQUEST_STATUS_LABELS, softwareCategoryLabel } from "@/lib/outreach-options";
 
-export const metadata = { title: "Software Request" };
+export const metadata = { title: "Request" };
 export const dynamic = "force-dynamic";
 
 const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "long", year: "numeric" });
@@ -24,10 +24,11 @@ export default async function SoftwareRequestPage({ params }: { params: Promise<
         href="/admin/tech-tutorials/requests"
         className="inline-flex items-center gap-1 text-sm text-slate hover:text-primary-800 mb-4"
       >
-        <ChevronLeft size={16} aria-hidden="true" /> Software Requests
+        <ChevronLeft size={16} aria-hidden="true" /> Requests
       </Link>
       <h1 className="font-display font-bold text-2xl text-primary-950 mb-1">{request.topic}</h1>
       <p className="text-sm text-slate mb-6">
+        {request.kind === "TUTORIAL" ? "Tutorial request" : "Software request"} ·{" "}
         {SOFTWARE_REQUEST_STATUS_LABELS[request.status]} · asked {dateFormat.format(request.createdAt)}
         {request.handledBy && ` · last updated by ${request.handledBy.name}`}
       </p>
@@ -40,17 +41,19 @@ export default async function SoftwareRequestPage({ params }: { params: Promise<
             </h2>
             <dl className="grid gap-3 sm:grid-cols-2 text-sm">
               <div>
-                <dt className="text-slate">Software</dt>
+                <dt className="text-slate">{request.kind === "TUTORIAL" ? "Tutorial" : "Software"}</dt>
                 <dd className="font-semibold text-primary-950">{request.topic}</dd>
               </div>
               <div>
                 <dt className="text-slate">Helps with</dt>
                 <dd className="font-semibold text-primary-950">{softwareCategoryLabel(request.category)}</dd>
               </div>
-              <div>
-                <dt className="text-slate">Operating system</dt>
-                <dd className="font-semibold text-primary-950">{request.operatingSystem}</dd>
-              </div>
+              {request.operatingSystem && (
+                <div>
+                  <dt className="text-slate">Operating system</dt>
+                  <dd className="font-semibold text-primary-950">{request.operatingSystem}</dd>
+                </div>
+              )}
             </dl>
             {request.notes && (
               <div className="mt-4">
@@ -62,7 +65,13 @@ export default async function SoftwareRequestPage({ params }: { params: Promise<
 
           <section className="bg-white rounded-lg border border-line p-6">
             <h2 className="font-display font-bold text-base text-primary-950 mb-4">Update</h2>
-            <SoftwareRequestUpdateForm requestId={request.id} status={request.status} adminNote={request.adminNote} />
+            <SoftwareRequestUpdateForm
+              requestId={request.id}
+              kind={request.kind}
+              status={request.status}
+              adminNote={request.adminNote}
+              resourceLink={request.resourceLink}
+            />
           </section>
         </div>
 

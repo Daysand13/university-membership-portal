@@ -210,6 +210,7 @@ async function updateTechRequestActionImpl(
     admin,
     status: parsed.data.status,
     adminNote: blankToNull(parsed.data.adminNote),
+    resourceLink: blankToNull(parsed.data.resourceLink),
     notify: parsed.data.notify,
   });
   revalidatePath("/admin/tech-tutorials/requests");

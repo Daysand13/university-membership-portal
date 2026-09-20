@@ -34,6 +34,9 @@ interface NoticeContent {
 const CONTACT_LINE = "If you have any questions about this, please contact the association through the Contact page on our website.";
 
 function siteUrl(path: string): string | null {
+  // Already a full address — a Telegram post, a video — so it is used as
+  // it stands rather than being hung off our own domain.
+  if (/^https?:\/\//i.test(path)) return path;
   const base = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "");
   return base ? `${base}${path}` : null;
 }

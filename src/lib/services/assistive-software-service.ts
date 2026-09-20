@@ -172,58 +172,110 @@ export async function getTechRequest(id: string) {
 
 export async function countSoftwareRequestsByStatus(): Promise<Record<SoftwareRequestStatus, number>> {
   const groups = await db.softwareRequest.groupBy({ by: ["status"], _count: { _all: true } });
-  const counts: Record<SoftwareRequestStatus, number> = { NEW: 0, IN_PROGRESS: 0, FULFILLED: 0, DECLINED: 0 };
+  const counts: Record<SoftwareRequestStatus, number> = {
+    NEW: 0,
+    IN_PROGRESS: 0,
+    FULFILLED: 0,
+    UNFULFILLABLE: 0,
+    DECLINED: 0,
+  };
   for (const group of groups) counts[group.status] = group._count._all;
   return counts;
 }
 
-/** Moves a request along; optionally tells the person who asked. */
+/**
+ * Moves a request along, and — when asked — tells the person who made it.
+ *
+ * Each status says something different to somebody waiting, so each one
+ * gets its own subject and opening line rather than a single "your request
+ * changed" for all five. Whatever the team typed is quoted back, and where
+ * there is somewhere to go, the email carries a button straight to it.
+ */
 export async function updateTechRequest(params: {
   id: string;
   admin: Pick<AdminUser, "id">;
   status: SoftwareRequestStatus;
   adminNote: string | null;
+  resourceLink: string | null;
   notify: boolean;
 }) {
-  const { id, admin, status, adminNote, notify } = params;
+  const { id, admin, status, adminNote, resourceLink, notify } = params;
   const before = await db.softwareRequest.findUniqueOrThrow({ where: { id } });
   const request = await db.softwareRequest.update({
     where: { id },
-    data: { status, adminNote, handledById: admin.id },
+    data: { status, adminNote, resourceLink, handledById: admin.id },
   });
 
   await db.auditLog.create({
     data: {
       adminId: admin.id,
-      action: "UPDATE_SOFTWARE_REQUEST",
+      action: "UPDATE_TECH_REQUEST",
       entityType: "SoftwareRequest",
       entityId: id,
       previousValue: { status: before.status },
-      newValue: { status },
+      newValue: { status, resourceLink },
       note: adminNote,
     },
   });
 
   if (notify) {
+    const isTutorial = request.kind === "TUTORIAL";
+    const thing = isTutorial ? "tutorial" : "software";
+    const message = REQUEST_UPDATE_MESSAGES[status](request.topic, thing);
+
     await deliver({
       to: { email: request.email, firstName: firstNameOf(request.fullName) },
-      template: `software-request-${status.toLowerCase()}`,
+      template: `tech-request-${status.toLowerCase()}`,
       entityType: "SoftwareRequest",
       entityId: id,
       build: () => ({
-        subject: `Your request for ${request.topic}: ${SOFTWARE_REQUEST_STATUS_LABELS[status].toLowerCase()}`,
-        paragraphs: [
-          request.kind === "TUTORIAL"
-            ? "There's an update on the tutorial you asked the association's technical team for."
-            : "There's an update on the software you asked the association's technical team for.",
-        ],
+        subject: message.subject,
+        paragraphs: message.paragraphs,
         details: [
-          { label: request.kind === "TUTORIAL" ? "Tutorial" : "Software", value: request.topic },
+          { label: isTutorial ? "Tutorial" : "Software", value: request.topic },
           { label: "Status", value: SOFTWARE_REQUEST_STATUS_LABELS[status] },
           ...(adminNote ? [{ label: "From the team", value: adminNote }] : []),
         ],
+        // Somewhere to go beats a link to paste: the resource itself where
+        // there is one, otherwise the page the rest of it lives on.
+        cta: resourceLink
+          ? { path: resourceLink, label: isTutorial ? "Watch the tutorial" : "Get the software" }
+          : { path: "/tech-tutorials", label: "Open Tech & Tutorials" },
       }),
     });
   }
   return request;
 }
+
+/** One opening per status, in the words somebody waiting would want to read. */
+const REQUEST_UPDATE_MESSAGES: Record<
+  SoftwareRequestStatus,
+  (topic: string, thing: string) => { subject: string; paragraphs: string[] }
+> = {
+  FULFILLED: (topic, thing) => ({
+    subject: `Ready for you: ${topic}`,
+    paragraphs: [
+      `Good news — the ${thing} you asked the association's technical team for is available now.`,
+      "Everything the team added is below. If anything doesn't work the way you expected, reply to the team on Telegram and they'll help you set it up.",
+    ],
+  }),
+  UNFULFILLABLE: (topic, thing) => ({
+    subject: `About your request for ${topic}`,
+    paragraphs: [
+      `The team couldn't provide that ${thing} exactly as you asked — often because it needs a paid licence the association can't cover yet, or it isn't available for your device.`,
+      "What they can offer instead is below.",
+    ],
+  }),
+  IN_PROGRESS: (topic) => ({
+    subject: `Update on your request for ${topic}`,
+    paragraphs: ["Someone on the technical team has picked up your request and is working on it.", "Here's where it stands."],
+  }),
+  DECLINED: (topic) => ({
+    subject: `Update on your request for ${topic}`,
+    paragraphs: ["Your request has been closed.", "The team's reason is below. If circumstances change, you're welcome to ask again."],
+  }),
+  NEW: (topic) => ({
+    subject: `Update on your request for ${topic}`,
+    paragraphs: ["There's an update on what you asked the association's technical team for."],
+  }),
+};

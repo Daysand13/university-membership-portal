@@ -55,11 +55,24 @@ export function softwarePlatformLabel(value: string): string {
 /** What a requester can say they use — broader than the directory's platforms. */
 export const REQUEST_OPERATING_SYSTEMS = ["Windows", "macOS", "Android", "iOS", "Linux", "Other / not sure"] as const;
 
+/** In the order a request moves through them, which is the order they are offered in. */
 export const SOFTWARE_REQUEST_STATUS_LABELS: Record<string, string> = {
-  NEW: "New",
+  NEW: "Pending",
   IN_PROGRESS: "Being sourced",
   FULFILLED: "Provided",
-  DECLINED: "Not possible",
+  UNFULFILLABLE: "Alternative offered",
+  DECLINED: "Closed",
+};
+
+export const SOFTWARE_REQUEST_STATUS_VALUES = Object.keys(SOFTWARE_REQUEST_STATUS_LABELS) as [string, ...string[]];
+
+/** What each status means for the person waiting, shown under the picker. */
+export const SOFTWARE_REQUEST_STATUS_HINTS: Record<string, string> = {
+  NEW: "Nobody has picked it up yet.",
+  IN_PROGRESS: "Someone is looking for it.",
+  FULFILLED: "It is available — add the link so they can go straight to it.",
+  UNFULFILLABLE: "Not possible as asked. Say what you can offer instead.",
+  DECLINED: "Closed without anything to offer.",
 };
 
 /**

@@ -1922,6 +1922,9 @@ enum SoftwareRequestStatus {
   NEW
   IN_PROGRESS
   FULFILLED
+  /// Not possible as asked, but the team offered an alternative or a note
+  /// explaining why — distinct from a request simply turned down.
+  UNFULFILLABLE
   DECLINED
 }
 
@@ -1986,6 +1989,9 @@ model SoftwareRequest {
 
   status      SoftwareRequestStatus @default(NEW)
   adminNote   String?
+  /// Where the thing they asked for now lives: a Telegram post, a tutorial
+  /// on the site, a download page. Sent to them with the update.
+  resourceLink String?
   handledById String?
   handledBy   AdminUser?            @relation("SoftwareRequestHandler", fields: [handledById], references: [id], onDelete: SetNull)
 

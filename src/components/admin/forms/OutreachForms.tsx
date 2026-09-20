@@ -18,6 +18,7 @@ import {
   SOFTWARE_CATEGORIES,
   TUTORIAL_SOURCES,
   SOFTWARE_PLATFORMS,
+  SOFTWARE_REQUEST_STATUS_HINTS,
   SOFTWARE_REQUEST_STATUS_LABELS,
   type AlliesPageSettings,
   type AssistiveTechSettings,
@@ -685,18 +686,25 @@ export function AssistiveSettingsForm({ settings }: { settings: AssistiveTechSet
 
 export function SoftwareRequestUpdateForm({
   requestId,
+  kind,
   status,
   adminNote,
+  resourceLink,
 }: {
   requestId: string;
+  kind: string;
   status: string;
   adminNote: string | null;
+  resourceLink: string | null;
 }) {
+  const [chosen, setChosen] = useState(status);
   const [state, formAction, isPending] = useActionState(
     updateTechRequestAction.bind(null, requestId),
     initialActionState,
   );
   const fe = state.fieldErrors ?? {};
+  const isTutorial = kind === "TUTORIAL";
+
   return (
     <form action={formAction} className="space-y-4">
       <FormAlert message={state.error} />
@@ -704,17 +712,42 @@ export function SoftwareRequestUpdateForm({
         <Label htmlFor="request-status" required>
           Status
         </Label>
-        <select id="request-status" name="status" defaultValue={status} className={inputClasses}>
+        <select
+          id="request-status"
+          name="status"
+          value={chosen}
+          onChange={(e) => setChosen(e.target.value)}
+          className={inputClasses}
+        >
           {Object.entries(SOFTWARE_REQUEST_STATUS_LABELS).map(([value, label]) => (
             <option key={value} value={value}>
               {label}
             </option>
           ))}
         </select>
+        <p className="text-xs text-slate mt-1">{SOFTWARE_REQUEST_STATUS_HINTS[chosen]}</p>
         <FieldError messages={fe.status} />
       </div>
       <div>
-        <Label htmlFor="request-note">Note</Label>
+        <Label htmlFor="request-link">
+          {isTutorial ? "Link to the tutorial" : "Link to the software"}
+        </Label>
+        <input
+          id="request-link"
+          name="resourceLink"
+          type="url"
+          maxLength={500}
+          defaultValue={resourceLink ?? ""}
+          className={inputClasses}
+          placeholder={isTutorial ? "https://www.youtube.com/watch?v=…" : "https://t.me/…"}
+        />
+        <p className="text-xs text-slate mt-1">
+          Where it lives now — a Telegram post, a tutorial, a download page. It becomes the button in their email.
+        </p>
+        <FieldError messages={fe.resourceLink} />
+      </div>
+      <div>
+        <Label htmlFor="request-note">Note to the requester</Label>
         <textarea
           id="request-note"
           name="adminNote"
@@ -722,13 +755,18 @@ export function SoftwareRequestUpdateForm({
           maxLength={2000}
           defaultValue={adminNote ?? ""}
           className={inputClasses}
-          placeholder="e.g. Added to the Telegram library — look for the post dated 12 October."
+          placeholder={
+            isTutorial
+              ? "e.g. Recorded this week — it covers reading PDFs and tables."
+              : "e.g. Added to the Telegram library — look for the post dated 12 October."
+          }
         />
+        <p className="text-xs text-slate mt-1">Quoted back to them word for word.</p>
         <FieldError messages={fe.adminNote} />
       </div>
       <label className="flex items-start gap-3 cursor-pointer">
         <input type="checkbox" name="notify" defaultChecked className="mt-1 h-4 w-4 rounded border-line text-primary-800" />
-        <span className="text-sm text-primary-950">Email the requester this status and note</span>
+        <span className="text-sm text-primary-950">Email the requester this update</span>
       </label>
       <SubmitRow isPending={isPending} label="Save" saved={<SavedNotice state={state} isPending={isPending} />} />
     </form>

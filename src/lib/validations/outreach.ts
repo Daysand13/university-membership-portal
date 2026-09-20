@@ -141,14 +141,25 @@ export const assistiveSettingsSchema = z.object({
 
 export const softwareRequestUpdateSchema = z
   .object({
-    status: z.enum(["NEW", "IN_PROGRESS", "FULFILLED", "DECLINED"], { message: "Choose a status" }),
+    status: z.enum(["NEW", "IN_PROGRESS", "FULFILLED", "UNFULFILLABLE", "DECLINED"], { message: "Choose a status" }),
     adminNote: optionalText(2000),
+    /** Where what they asked for now lives, sent with the update. */
+    resourceLink: optionalUrl,
     notify: z.boolean(),
   })
-  .refine((data) => !data.notify || data.status === "NEW" || (data.adminNote ?? "").trim().length > 0, {
-    message: "Write a note for the requester, since they'll be emailed",
-    path: ["adminNote"],
-  });
+  // An email saying only "provided" leaves the person exactly where they
+  // were, so an update they're told about carries a note, a link, or both.
+  .refine(
+    (data) =>
+      !data.notify ||
+      data.status === "NEW" ||
+      (data.adminNote ?? "").trim().length > 0 ||
+      (data.resourceLink ?? "").trim().length > 0,
+    {
+      message: "Write a note or add a link, since the requester will be emailed",
+      path: ["adminNote"],
+    },
+  );
 
 // --- Alumni's earlier programmes ----------------------------------------------
 
