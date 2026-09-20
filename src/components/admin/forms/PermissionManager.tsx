@@ -8,15 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { FormAlert, Label, SavedNotice, inputClasses } from "@/components/ui/Common";
 import { CAPABILITY_MODULES, ROLE_DEFAULTS } from "@/lib/auth/capabilities";
 import { AdminRole } from "@/generated/prisma/enums";
-
-const ROLE_LABELS: Record<string, string> = {
-  SUPER_ADMIN: "Super Administrator",
-  ADMIN: "Administrator",
-  EDITOR: "Editor",
-  MEMBERSHIP_OFFICER: "Membership Officer",
-  LIBRARIAN: "Librarian",
-  ELECTION_OFFICER: "Election Officer",
-};
+import { ROLE_LABELS, roleLabel } from "@/lib/auth/role-labels";
 
 export interface PermissionTarget {
   id: string;
@@ -75,7 +67,7 @@ export function PermissionManager({ target }: { target: PermissionTarget }) {
           >
             {Object.keys(ROLE_LABELS).map((value) => (
               <option key={value} value={value}>
-                {ROLE_LABELS[value]}
+                {roleLabel(value)}
               </option>
             ))}
           </select>
@@ -96,7 +88,7 @@ export function PermissionManager({ target }: { target: PermissionTarget }) {
             onClick={() => applyRole(role)}
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-800 hover:text-accent-600"
           >
-            <RotateCcw size={14} aria-hidden="true" /> Reset to the defaults for {ROLE_LABELS[role]}
+            <RotateCcw size={14} aria-hidden="true" /> Reset to the defaults for {roleLabel(role)}
           </button>
         )}
       </div>

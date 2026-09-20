@@ -5,18 +5,11 @@ import { listAdminAccounts } from "@/lib/services/admin-permission-service";
 import { PermissionManager } from "@/components/admin/forms/PermissionManager";
 import { EmptyState } from "@/components/ui/Common";
 import { CAPABILITY_MODULES } from "@/lib/auth/capabilities";
+import { roleLabel } from "@/lib/auth/role-labels";
+import { AddAdminForm, AdminAccountActions } from "@/components/admin/forms/AdminAccountForms";
 
 export const metadata = { title: "Executive Permissions" };
 export const dynamic = "force-dynamic";
-
-const ROLE_LABELS: Record<string, string> = {
-  SUPER_ADMIN: "Super Administrator",
-  ADMIN: "Administrator",
-  EDITOR: "Editor",
-  MEMBERSHIP_OFFICER: "Membership Officer",
-  LIBRARIAN: "Librarian",
-  ELECTION_OFFICER: "Election Officer",
-};
 
 const TOTAL_CAPABILITIES = CAPABILITY_MODULES.reduce((sum, group) => sum + group.capabilities.length, 0);
 
@@ -63,7 +56,7 @@ export default async function AdminPermissionsPage({
                       </span>
                       <span className="block text-xs text-slate truncate">{admin.email}</span>
                       <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate">
-                        <span className="font-medium text-ink">{ROLE_LABELS[admin.role] ?? admin.role}</span>
+                        <span className="font-medium text-ink">{roleLabel(admin.role)}</span>
                         {admin.role === "SUPER_ADMIN" ? (
                           <span className="inline-flex items-center gap-1 text-primary-800">
                             <ShieldCheck size={12} aria-hidden="true" /> Everything
@@ -78,13 +71,18 @@ export default async function AdminPermissionsPage({
                             {Object.keys(admin.overrides).length} changed
                           </span>
                         )}
-                        {!admin.isActive && <span className="text-danger">Deactivated</span>}
+                        {!admin.isActive ? (
+                          <span className="text-danger">Deactivated</span>
+                        ) : (
+                          !admin.lastLoginAt && <span className="text-accent-700">Invitation pending</span>
+                        )}
                       </span>
                     </Link>
                   </li>
                 );
               })}
             </ul>
+            <AddAdminForm />
           </nav>
 
           <div>
@@ -104,9 +102,24 @@ export default async function AdminPermissionsPage({
               </div>
             ) : (
               <>
-                <div className="mb-5">
-                  <h2 className="font-display font-bold text-lg text-primary-950">{selected.name}</h2>
-                  <p className="text-sm text-slate">{selected.email}</p>
+                <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="font-display font-bold text-lg text-primary-950">{selected.name}</h2>
+                    <p className="text-sm text-slate">
+                      {selected.email}
+                      {!selected.isActive && <span className="text-danger"> · Deactivated, can&apos;t sign in</span>}
+                      {selected.isActive && !selected.lastLoginAt && (
+                        <span className="text-accent-700"> · Hasn&apos;t set a password yet</span>
+                      )}
+                    </p>
+                  </div>
+                  <AdminAccountActions
+                    adminId={selected.id}
+                    name={selected.name}
+                    email={selected.email}
+                    isActive={selected.isActive}
+                    hasSignedIn={Boolean(selected.lastLoginAt)}
+                  />
                 </div>
                 <PermissionManager
                   key={selected.id}

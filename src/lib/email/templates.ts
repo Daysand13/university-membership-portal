@@ -433,3 +433,25 @@ export function patronBroadcastEmail(params: {
     ),
   };
 }
+
+/**
+ * The invitation that is the only way into a newly created administrator
+ * account: it has no password until the person chooses one here.
+ */
+export function adminInviteEmail(params: { name: string; roleLabel: string; setPasswordUrl: string; brand: EmailBrand }) {
+  const { name, roleLabel, setPasswordUrl, brand } = params;
+  return {
+    subject: `Set up your ${brand.siteTitle} administrator account`,
+    html: baseLayout(
+      `
+      <p>Dear ${e(name)},</p>
+      <p>An administrator account has been created for you on the ${e(brand.siteTitle)} portal, as <strong>${e(roleLabel)}</strong>.</p>
+      <p>Choose your password to finish setting it up. Nobody else knows it, and nobody else can sign in as you until you do. This link works for 14 days.</p>
+      ${button(setPasswordUrl, "Choose Your Password")}
+      <p style="margin-top:18px;color:#5b6b7c;font-size:13px;">If the link has expired, ask a super administrator to send you a new one. If you weren&rsquo;t expecting this, you can ignore this email — the account cannot be used until a password is set.</p>
+      ${closing(brand)}
+    `,
+      brand,
+    ),
+  };
+}

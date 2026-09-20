@@ -28,7 +28,12 @@ async function hasValidSession(request: NextRequest, cookieName: string, expecte
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
+  // Signing in, and choosing a password from an invitation link, are the
+  // two admin pages someone reaches WITHOUT a session — an invited
+  // administrator has no account to sign in with until they finish here.
+  const ADMIN_PUBLIC_PATHS = ["/admin/login", "/admin/set-password"];
+
+  if (pathname.startsWith("/admin") && !ADMIN_PUBLIC_PATHS.includes(pathname)) {
     const ok = await hasValidSession(request, "admin_session", "admin");
     if (!ok) {
       const loginUrl = new URL("/admin/login", request.url);

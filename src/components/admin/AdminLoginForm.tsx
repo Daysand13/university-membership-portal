@@ -41,6 +41,12 @@ export function AdminLoginForm({ siteTitle }: { siteTitle: string }) {
         <p className="text-center text-xs text-primary-400 mt-6">
           This area is restricted to authorized administrators.
         </p>
+        {/* There is no self-service reset here on purpose: an administrator
+            account is handed out by a person, and a lost password is
+            replaced the same way. */}
+        <p className="text-center text-xs text-primary-400 mt-2">
+          Forgotten your password? Ask a super administrator to send you a new link.
+        </p>
       </div>
     </div>
   );

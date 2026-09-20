@@ -135,6 +135,7 @@ model AdminUser {
   auditLogs            AuditLog[]
   uploadedMedia        Media[]
   imageDescriptions    ImageDescription[]
+  passwordResetTokens  AdminPasswordResetToken[]
 
   sentBroadcasts        Broadcast[]           @relation("BroadcastAuthor")
   assignedReports       BarrierReport[]       @relation("BarrierReportAssignee")
@@ -278,6 +279,26 @@ model MembershipApplication {
   @@index([status])
   @@index([submittedAt])
   @@map("membership_applications")
+}
+
+/// A one-time link for an administrator to set their own password —
+/// either the first one, on an account just created for them, or a
+/// replacement if the first link expired.
+///
+/// The account is created with no usable password at all, so an invitation
+/// is the only way in. That means nobody ever has to send a colleague a
+/// password, and no temporary one sits in an inbox waiting to be found.
+model AdminPasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  adminId   String
+  admin     AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([adminId])
+  @@map("admin_password_reset_tokens")
 }
 
 model PasswordResetToken {

@@ -11,6 +11,7 @@ import {
   ROLE_DEFAULTS,
 } from "@/lib/auth/capabilities";
 import { overridesFrom } from "@/lib/services/admin-permission-service";
+import { adminAccountSchema, adminSetPasswordSchema } from "@/lib/validations/admin-account";
 
 describe("points typed into a plain box", () => {
   it("reads dashes, bullets and numbers as lists", () => {
@@ -145,5 +146,40 @@ describe("what an administrator may do", () => {
     const granted = [...effectiveCapabilities(AdminRole.EDITOR, { "content.news.publish": false })];
     const mask = overridesFrom(AdminRole.EDITOR, granted);
     expect([...effectiveCapabilities(AdminRole.EDITOR, mask)].sort()).toEqual([...granted].sort());
+  });
+});
+
+describe("creating an administrator account", () => {
+  const valid = { name: "Ama Boateng", email: "Ama@Assnuew.com", role: "EDITOR" };
+
+  it("needs a name, a real address and a known role", () => {
+    const parsed = adminAccountSchema.safeParse(valid);
+    expect(parsed.success).toBe(true);
+    // The address is what the invitation is sent to, so it is normalised.
+    expect(parsed.success && parsed.data.email).toBe("ama@assnuew.com");
+    expect(adminAccountSchema.safeParse({ ...valid, email: "not-an-address" }).success).toBe(false);
+    expect(adminAccountSchema.safeParse({ ...valid, name: "A" }).success).toBe(false);
+    expect(adminAccountSchema.safeParse({ ...valid, role: "PRESIDENT" }).success).toBe(false);
+  });
+
+  it("never takes a password: there is no field for one", () => {
+    const parsed = adminAccountSchema.safeParse({ ...valid, password: "Whatever123!" });
+    expect(parsed.success && "password" in parsed.data).toBe(false);
+  });
+
+  it("makes the invited person confirm the password they choose", () => {
+    const token = "a".repeat(64);
+    expect(
+      adminSetPasswordSchema.safeParse({ token, newPassword: "Str0ng-Passw0rd!", confirmNewPassword: "Str0ng-Passw0rd!" })
+        .success,
+    ).toBe(true);
+    expect(
+      adminSetPasswordSchema.safeParse({ token, newPassword: "Str0ng-Passw0rd!", confirmNewPassword: "different" }).success,
+    ).toBe(false);
+    expect(adminSetPasswordSchema.safeParse({ token, newPassword: "short", confirmNewPassword: "short" }).success).toBe(false);
+    expect(
+      adminSetPasswordSchema.safeParse({ token: "", newPassword: "Str0ng-Passw0rd!", confirmNewPassword: "Str0ng-Passw0rd!" })
+        .success,
+    ).toBe(false);
   });
 });
