@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { AboutContentForm } from "@/components/admin/forms/AboutContentForm";
 import { getAboutContent } from "@/lib/services/content-service";
 
@@ -5,6 +6,7 @@ export const metadata = { title: "About Us" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminAboutPage() {
+  await requireCapability("content.about");
   const about = await getAboutContent();
   return (
     <div className="max-w-2xl">

@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { HeroSlideForm } from "@/components/admin/forms/HeroSlideForm";
@@ -5,7 +6,8 @@ import { HeroSlideForm } from "@/components/admin/forms/HeroSlideForm";
 export const metadata = { title: "New Hero Slide" };
 export const dynamic = "force-dynamic";
 
-export default function NewHeroSlidePage() {
+export default async function NewHeroSlidePage() {
+  await requireCapability("content.hero");
   return (
     <div className="max-w-3xl">
       <Link href="/admin/hero-slides" className="inline-flex items-center gap-1 text-sm text-slate hover:text-primary-800 mb-4">

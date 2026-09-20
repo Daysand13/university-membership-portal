@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Inbox } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole, type SoftwareRequestStatus } from "@/generated/prisma/client";
 import { countSoftwareRequestsByStatus, listSoftwareRequests } from "@/lib/services/assistive-software-service";
 import { AssistiveTechSectionNav } from "@/components/admin/OutreachSectionNav";
@@ -28,7 +28,7 @@ const STATUS_TONE: Record<string, string> = {
 const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "short", year: "numeric" });
 
 export default async function SoftwareRequestsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
-  await requireAdminRole(AdminRole.EDITOR, AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("outreach.software.requests");
   const { status: raw } = await searchParams;
   const tab = TABS.some((t) => t.value === raw) ? (raw as SoftwareRequestStatus | "ALL") : "NEW";
   const [requests, counts] = await Promise.all([

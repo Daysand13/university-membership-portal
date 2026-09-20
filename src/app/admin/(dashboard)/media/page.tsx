@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { Image as ImageIcon } from "lucide-react";
 import { EmptyState } from "@/components/ui/Common";
 import { MediaLibraryUploader } from "@/components/admin/MediaLibraryUploader";
@@ -8,6 +9,7 @@ export const metadata = { title: "Media Library" };
 export const dynamic = "force-dynamic";
 
 export default async function MediaLibraryPage() {
+  await requireCapability("content.media");
   const items = await listMedia();
 
   return (

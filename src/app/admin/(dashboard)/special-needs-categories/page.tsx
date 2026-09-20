@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { OptionListEditor } from "@/components/admin/OptionListEditor";
 import {
   addSpecialNeedsCategoryAction,
@@ -9,6 +10,7 @@ export const metadata = { title: "Special Needs Categories" };
 export const dynamic = "force-dynamic";
 
 export default async function SpecialNeedsCategoriesPage() {
+  await requireCapability("members.academic");
   const categories = await getSpecialNeedsCategories();
 
   return (

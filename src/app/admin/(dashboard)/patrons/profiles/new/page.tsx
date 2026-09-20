@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { TeamMemberForm } from "@/components/admin/forms/TeamMemberForm";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { listActiveMembersForLinking } from "@/lib/services/membership-service";
 import { getPatronById } from "@/lib/services/patron-service";
@@ -14,7 +14,7 @@ export default async function NewPatronProfilePage({
 }: {
   searchParams: Promise<{ from?: string }>;
 }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER, AdminRole.EDITOR);
+  await requireCapability("members.patrons");
   const { from } = await searchParams;
 
   // Opened from an approved patron's page: start from what they told us.

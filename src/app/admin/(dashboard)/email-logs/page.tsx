@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { Mail } from "lucide-react";
 import { EmptyState } from "@/components/ui/Common";
 import { listEmailLogs } from "@/lib/services/notification-service";
@@ -34,6 +35,7 @@ function StatusBadge({ status }: { status: "SENT" | "FAILED" | "SKIPPED_NO_PROVI
 }
 
 export default async function AdminEmailLogsPage() {
+  await requireCapability("site.emails");
   const logs = await listEmailLogs(200);
   const failedCount = logs.filter((l) => l.status === "FAILED").length;
 

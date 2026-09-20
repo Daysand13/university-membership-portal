@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { getSiteSettings } from "@/lib/services/content-service";
 import { AccessibilityWidget } from "@/components/a11y/AccessibilityWidget";
+import { Toaster } from "@/components/ui/Toast";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col font-sans bg-white text-ink">
         {children}
         <AccessibilityWidget />
+        <Toaster />
       </body>
     </html>
   );

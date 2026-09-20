@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { getAllySignup } from "@/lib/services/ally-service";
 import { AllyForm } from "@/components/admin/forms/OutreachForms";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  * (?fromSignup=…), with their name and organisation already filled in.
  */
 export default async function NewAllyPage({ searchParams }: { searchParams: Promise<{ fromSignup?: string }> }) {
-  await requireAdminRole(AdminRole.EDITOR, AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("outreach.allies");
   const { fromSignup } = await searchParams;
   const signup = fromSignup ? await getAllySignup(fromSignup) : null;
 

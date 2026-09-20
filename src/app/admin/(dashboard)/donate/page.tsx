@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { DonateContentForm } from "@/components/admin/forms/DonateContentForm";
 import { getDonateContent } from "@/lib/services/content-service";
 
@@ -5,6 +6,7 @@ export const metadata = { title: "Donate" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminDonatePage() {
+  await requireCapability("content.donate");
   const donate = await getDonateContent();
   return (
     <div className="max-w-2xl">

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { openThreadForAdmin } from "@/lib/services/patron-message-service";
 import { adminReplyToThreadAction, setThreadStatusAction } from "@/lib/actions/patron-admin-actions";
@@ -14,7 +14,7 @@ export const metadata = { title: "Patron Conversation" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminPatronThreadPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("members.patrons");
   const { id } = await params;
   const thread = await openThreadForAdmin(id);
   if (!thread) notFound();

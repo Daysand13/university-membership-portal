@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { Share2, Trash2 } from "lucide-react";
 import { SocialIcon } from "@/components/layout/SocialIcon";
 import { SocialLinkForm } from "@/components/admin/forms/SocialLinkForm";
@@ -10,6 +11,7 @@ export const metadata = { title: "Social Links" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminSocialLinksPage() {
+  await requireCapability("content.social");
   const links = await listSocialLinksForAdmin();
 
   return (

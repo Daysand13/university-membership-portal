@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FileText, HandHeart, Receipt, Scale, Wallet } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { isPaystackConfigured } from "@/lib/services/paystack-client";
 import { getExpenseAllocation, getFinanceTotals, getMonthlyFinances } from "@/lib/services/patron-finance-service";
@@ -14,7 +14,7 @@ export const metadata = { title: "Finance" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminFinancePage() {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("finance.ledger");
   const [totals, months, allocation] = await Promise.all([getFinanceTotals(), getMonthlyFinances(12), getExpenseAllocation()]);
 
   return (

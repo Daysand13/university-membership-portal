@@ -13,7 +13,10 @@ export function Logo({
     <Link href="/" className="flex items-center gap-2.5 min-w-0">
       {logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={logoUrl} alt={siteTitle} className="w-9 h-9 object-contain shrink-0" />
+        // Says what it IS, not just the name beside it: heard on its own,
+        // "Association logo" is a picture of the badge, where the bare name
+        // sounds like the title being read a second time.
+        <img src={logoUrl} alt={`${siteTitle} logo`} className="w-9 h-9 object-contain shrink-0" />
       ) : (
         <svg width="34" height="34" viewBox="0 0 40 40" fill="none" aria-hidden="true" className="shrink-0">
           <path

@@ -7,12 +7,15 @@ export function PersonCard({
   photoUrl,
   bio,
   size = "md",
+  imageAlt,
 }: {
   name: string;
   position: string;
   photoUrl: string | null;
   bio: string | null;
   size?: "md" | "lg";
+  /** What the photo shows, where someone has described it; otherwise the person's name. */
+  imageAlt?: string;
 }) {
   const large = size === "lg";
   return (
@@ -24,7 +27,7 @@ export function PersonCard({
       >
         {photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={photoUrl} alt={name} className="w-full h-full object-cover" />
+          <img src={photoUrl} alt={imageAlt ?? name} className="w-full h-full object-cover" />
         ) : (
           <UserRound size={large ? 40 : 28} aria-hidden="true" />
         )}

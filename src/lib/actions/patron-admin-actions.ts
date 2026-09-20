@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import {
   broadcastReviewSchema,
@@ -40,7 +40,6 @@ import type { ActionState } from "./types";
  * site is run by the membership team, so everything here needs
  * MEMBERSHIP_OFFICER (super admins pass every check).
  */
-const requireTeam = () => requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
 
 const blankToNull = (value: string | undefined) => (value && value.trim() ? value.trim() : null);
 
@@ -57,7 +56,7 @@ async function reviewBroadcastActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireTeam();
+  const admin = await requireCapability("messages.broadcasts.send");
   const parsed = broadcastReviewSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
@@ -83,7 +82,7 @@ async function reviewBroadcastActionImpl(
 // ---------------------------------------------------------------------------
 
 async function adminReplyToThreadActionImpl(threadId: string, _prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireTeam();
+  const admin = await requireCapability("members.patrons");
   const parsed = threadReplySchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   try {
@@ -99,7 +98,7 @@ async function adminReplyToThreadActionImpl(threadId: string, _prevState: Action
 }
 
 async function setThreadStatusActionImpl(threadId: string, status: "OPEN" | "CLOSED"): Promise<void> {
-  const admin = await requireTeam();
+  const admin = await requireCapability("members.patrons");
   await setThreadStatus({ adminId: admin.id, threadId, status });
   revalidatePath("/admin/patrons/messages");
   revalidatePath(`/admin/patrons/messages/${threadId}`);
@@ -111,7 +110,7 @@ async function setThreadStatusActionImpl(threadId: string, status: "OPEN" | "CLO
 // ---------------------------------------------------------------------------
 
 async function saveCampaignActionImpl(campaignId: string | null, _prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireTeam();
+  const admin = await requireCapability("members.patrons");
   const parsed = campaignSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   const fields = {
@@ -136,7 +135,7 @@ async function saveCampaignActionImpl(campaignId: string | null, _prevState: Act
 }
 
 async function deleteCampaignActionImpl(campaignId: string): Promise<void> {
-  const admin = await requireTeam();
+  const admin = await requireCapability("members.patrons");
   await deleteCampaign(campaignId, admin.id);
   revalidatePath("/admin/patrons/advocacy");
   revalidatePatronViews("/patrons/dashboard/advocacy");
@@ -144,7 +143,7 @@ async function deleteCampaignActionImpl(campaignId: string): Promise<void> {
 }
 
 async function saveIssueActionImpl(issueId: string | null, _prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireTeam();
+  const admin = await requireCapability("members.patrons");
   const parsed = issueSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   const fields = {
@@ -170,7 +169,7 @@ async function saveIssueActionImpl(issueId: string | null, _prevState: ActionSta
 }
 
 async function deleteIssueActionImpl(issueId: string): Promise<void> {
-  const admin = await requireTeam();
+  const admin = await requireCapability("members.patrons");
   await deleteIssue(issueId, admin.id);
   revalidatePath("/admin/patrons/advocacy");
   revalidatePatronViews("/patrons/dashboard/advocacy");
@@ -189,7 +188,7 @@ function revalidateFinance() {
 }
 
 async function saveExpenseActionImpl(expenseId: string | null, _prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireTeam();
+  const admin = await requireCapability("finance.ledger.record");
   const parsed = expenseSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   const fields = {
@@ -206,13 +205,13 @@ async function saveExpenseActionImpl(expenseId: string | null, _prevState: Actio
 }
 
 async function deleteExpenseActionImpl(expenseId: string): Promise<void> {
-  const admin = await requireTeam();
+  const admin = await requireCapability("finance.ledger.record");
   await deleteExpense({ id: expenseId, adminId: admin.id });
   revalidateFinance();
 }
 
 async function recordDonationActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireTeam();
+  const admin = await requireCapability("finance.ledger.record");
   const parsed = recordedDonationSchema.safeParse({
     ...Object.fromEntries(formData),
     anonymous: formData.get("anonymous") === "on",
@@ -233,7 +232,7 @@ async function recordDonationActionImpl(_prevState: ActionState, formData: FormD
 }
 
 async function deleteRecordedDonationActionImpl(donationId: string): Promise<void> {
-  const admin = await requireTeam();
+  const admin = await requireCapability("finance.ledger.record");
   try {
     await deleteRecordedDonation({ id: donationId, adminId: admin.id });
   } catch (err) {

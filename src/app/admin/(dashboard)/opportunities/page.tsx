@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BriefcaseBusiness } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole, type OpportunityStatus } from "@/generated/prisma/client";
 import { listOpportunitiesForAdmin } from "@/lib/services/opportunity-service";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -25,7 +25,7 @@ const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "sh
  * people do target — so somebody reads each one first.
  */
 export default async function AdminOpportunitiesPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("support.opportunities");
   const { status: raw } = await searchParams;
   const tab = TABS.some((t) => t.value === raw) ? (raw as OpportunityStatus | "ALL") : "PENDING";
   const postings = await listOpportunitiesForAdmin(tab === "ALL" ? undefined : tab);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { useActionToast } from "@/components/ui/SavedNotice";
 import { Pencil, X, Loader2, Save } from "lucide-react";
 import { updateMemberAdminAction } from "@/lib/actions/membership-actions";
 import { initialActionState } from "@/lib/actions/types";
@@ -142,6 +143,9 @@ export function EditMemberForm({
   const [isEditing, setIsEditing] = useState(false);
   const [state, formAction, isPending] = useActionState(updateMemberAdminAction, initialActionState);
   const fe = state.fieldErrors ?? {};
+  // The panel closes itself on success, taking its SavedNotice with it, so
+  // the confirmation is raised from here, which stays put.
+  useActionToast(state, isPending, "Member details saved.");
 
   // Closing back to the read-only view on a successful save happens during
   // render (not a useEffect) so it can't flash the form open for an extra

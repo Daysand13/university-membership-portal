@@ -4,7 +4,7 @@ import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-err
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdminRole, requireAdminUser } from "@/lib/auth/admin";
+import { requireAdminRole, requireAdminUser, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { electionSchema, adminChangeEmailSchema, adminUpdateNameSchema } from "@/lib/validations/content";
 import { changePasswordSchema } from "@/lib/validations/membership";
@@ -33,9 +33,10 @@ function parseElectionForm(formData: FormData) {
 }
 
 async function createElectionActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireAdminRole(AdminRole.ELECTION_OFFICER);
+  const admin = await requireCapability("elections.manage");
   const parsed = parseElectionForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  if (parsed.data.status !== "DRAFT") await requireCapability("elections.publish");
 
   const election = await createElection(parsed.data, admin.id);
   revalidatePath("/elections");
@@ -44,9 +45,10 @@ async function createElectionActionImpl(_prevState: ActionState, formData: FormD
 }
 
 async function updateElectionActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  await requireAdminRole(AdminRole.ELECTION_OFFICER);
+  await requireCapability("elections.manage");
   const parsed = parseElectionForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  if (parsed.data.status !== "DRAFT") await requireCapability("elections.publish");
   const id = parsed.data.id;
   if (!id) return { error: "Missing election id." };
 
@@ -57,7 +59,7 @@ async function updateElectionActionImpl(_prevState: ActionState, formData: FormD
 }
 
 async function deleteElectionActionImpl(id: string): Promise<void> {
-  await requireAdminRole(AdminRole.ELECTION_OFFICER);
+  await requireCapability("elections.manage");
   await deleteElection(id);
   revalidatePath("/elections");
   revalidatePath("/admin/elections");

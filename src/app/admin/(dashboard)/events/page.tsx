@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import Link from "next/link";
 import { Plus, CalendarDays } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -14,6 +15,7 @@ function formatDate(date: Date): string {
 }
 
 export default async function AdminEventsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  await requireCapability("content.events");
   const { q } = await searchParams;
   const events = await listEventsForAdmin({ search: q });
 

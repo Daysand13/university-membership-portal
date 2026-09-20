@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, User } from "lucide-react";
@@ -16,6 +17,7 @@ export const metadata = { title: "Member Details" };
 export const dynamic = "force-dynamic";
 
 export default async function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireCapability("members.records");
   const { id } = await params;
   const [member, academicOptions, specialNeedsCategories, settings] = await Promise.all([
     db.member.findUnique({ where: { id }, include: { alumniProfile: true } }),

@@ -5,6 +5,7 @@ import { EventCard } from "@/components/events/EventCard";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { EmptyState, Pagination } from "@/components/ui/Common";
 import { listPublishedEvents } from "@/lib/services/event-service";
+import { altTextFor, describeImages } from "@/lib/services/image-description-service";
 
 export const metadata: Metadata = { title: "Events" };
 export const dynamic = "force-dynamic";
@@ -19,6 +20,7 @@ export default async function EventsPage({
   const page = Math.max(1, Number(params.page) || 1);
 
   const { items, totalPages } = await listPublishedEvents({ when, page });
+  const imageDescriptions = await describeImages(items.map((e) => e.imageUrl));
 
   return (
     <div className="bg-white">
@@ -51,7 +53,12 @@ export default async function EventsPage({
         {items.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {items.map((event) => (
-              <EventCard key={event.id} event={event} isPast={when === "past"} />
+              <EventCard
+                key={event.id}
+                event={event}
+                isPast={when === "past"}
+                imageAlt={altTextFor(imageDescriptions, event.imageUrl, event.title)}
+              />
             ))}
           </div>
         ) : (

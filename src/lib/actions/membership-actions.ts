@@ -27,7 +27,7 @@ import {
   InvalidOrExpiredTokenError,
   InvalidProfilePictureError,
 } from "@/lib/services/membership-service";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { requireMember } from "@/lib/auth/member";
 import { detectBot } from "@/lib/bot-protection";
 import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
@@ -170,7 +170,7 @@ async function reviewApplicationActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.applications.decide");
   const parsed = applicationReviewSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "That request was malformed — please try again." };
   const { applicationId, action, adminNote } = parsed.data;
@@ -343,7 +343,7 @@ async function updateMemberProfileActionImpl(
 // ---------------------------------------------------------------------------
 
 async function setMemberStatusActionImpl(memberId: string, status: "ACTIVE" | "SUSPENDED" | "INACTIVE") {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.records");
   const { setMemberStatus } = await import("@/lib/services/membership-service");
   await setMemberStatus({ memberId, adminId: admin.id, status });
   revalidatePath("/admin/members");
@@ -354,7 +354,7 @@ async function updateMemberAdminActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.records");
 
   const memberId = String(formData.get("memberId") ?? "");
   if (!memberId) return { error: "Missing member." };
@@ -404,7 +404,7 @@ async function deleteMemberActionImpl(memberId: string): Promise<void> {
 }
 
 async function deleteApplicationActionImpl(applicationId: string): Promise<void> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.applications.decide");
   await deleteApplication({ applicationId, adminId: admin.id });
   revalidatePath("/admin/membership-applications");
   redirect("/admin/membership-applications");

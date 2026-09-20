@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
 import { TeamRowActions } from "@/components/admin/TeamRowActions";
 import { PatronsSectionNav } from "@/components/admin/PatronsSectionNav";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { listTeamMembersForAdmin } from "@/lib/services/content-service";
 import { formatFullName } from "@/lib/format";
@@ -13,7 +13,7 @@ export const metadata = { title: "Patron Profiles" };
 export const dynamic = "force-dynamic";
 
 export default async function PatronProfilesPage() {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER, AdminRole.EDITOR);
+  const admin = await requireCapability("members.patrons");
   const profiles = await listTeamMembersForAdmin("PATRON");
 
   return (

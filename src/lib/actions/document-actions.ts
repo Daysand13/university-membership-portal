@@ -4,7 +4,7 @@ import { withActionErrorHandling, withVoidActionErrorHandling, withTypedActionEr
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole, ContentStatus } from "@/generated/prisma/client";
 import { documentSchema } from "@/lib/validations/content";
 import {
@@ -41,7 +41,7 @@ function revalidateLibraries() {
 }
 
 async function createDocumentActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireAdminRole(AdminRole.LIBRARIAN);
+  const admin = await requireCapability("library.documents");
   const parsed = parseDocumentForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
@@ -69,7 +69,7 @@ async function createDocumentActionImpl(_prevState: ActionState, formData: FormD
 }
 
 async function updateDocumentActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  await requireAdminRole(AdminRole.LIBRARIAN);
+  await requireCapability("library.documents");
   const parsed = parseDocumentForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   const id = parsed.data.id;
@@ -81,7 +81,7 @@ async function updateDocumentActionImpl(_prevState: ActionState, formData: FormD
 }
 
 async function deleteDocumentActionImpl(id: string): Promise<void> {
-  await requireAdminRole(AdminRole.LIBRARIAN);
+  await requireCapability("library.documents");
   await deleteDocument(id);
   revalidateLibraries();
 }

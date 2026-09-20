@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Radio } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole, type BroadcastAudience } from "@/generated/prisma/client";
 import { countBroadcastRecipients, listAdminBroadcasts } from "@/lib/services/broadcast-service";
 import { AdminBroadcastComposer } from "@/components/admin/forms/ExecutiveForms";
@@ -25,7 +25,7 @@ export default async function AdminBroadcastComposerPage({
 }: {
   searchParams: Promise<{ sent?: string; to?: string; emails?: string }>;
 }) {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("messages.broadcasts");
   const [{ sent, to, emails }, previous, ...counts] = await Promise.all([
     searchParams,
     listAdminBroadcasts(),

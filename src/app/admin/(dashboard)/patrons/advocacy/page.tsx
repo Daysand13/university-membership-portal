@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { listCampaigns, listIssues } from "@/lib/services/advocacy-service";
 import { PatronsSectionNav } from "@/components/admin/PatronsSectionNav";
@@ -16,7 +16,7 @@ const addButton =
   "inline-flex items-center gap-1.5 rounded-md bg-primary-800 px-3.5 py-2 text-sm font-semibold text-white hover:bg-primary-900";
 
 export default async function AdminAdvocacyPage() {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("members.patrons");
   const [campaigns, issues] = await Promise.all([listCampaigns(), listIssues()]);
 
   return (

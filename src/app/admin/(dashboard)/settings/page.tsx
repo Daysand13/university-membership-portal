@@ -3,12 +3,13 @@ import { AdminChangePasswordForm } from "@/components/admin/forms/AdminChangePas
 import { AdminNameForm } from "@/components/admin/forms/AdminNameForm";
 import { AdminEmailForm } from "@/components/admin/forms/AdminEmailForm";
 import { getSiteSettings } from "@/lib/services/content-service";
-import { requireAdminUser } from "@/lib/auth/admin";
+import { requireAdminUser, requireCapability } from "@/lib/auth/admin";
 
 export const metadata = { title: "Settings" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
+  await requireCapability("site.settings");
   const [settings, admin] = await Promise.all([getSiteSettings(), requireAdminUser()]);
   return (
     <div className="max-w-3xl">

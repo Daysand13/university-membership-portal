@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { HandHeart, Plus } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { listDonationsForAdmin } from "@/lib/services/patron-finance-service";
 import { FinanceSectionNav } from "@/components/admin/FinanceSectionNav";
@@ -19,7 +19,7 @@ export default async function AdminDonationsPage({
 }: {
   searchParams: Promise<{ recorded?: string; all?: string }>;
 }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("finance.ledger");
   const { recorded, all } = await searchParams;
   const includePending = all === "1";
   const donations = await listDonationsForAdmin({ includePending });

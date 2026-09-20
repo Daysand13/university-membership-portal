@@ -1,3 +1,4 @@
+import { WelcomeGreeting } from "@/components/ui/WelcomeGreeting";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import {
@@ -143,6 +144,7 @@ export function MemberDashboardView({
 }: MemberDashboardViewProps) {
   return (
     <div className="space-y-6">
+      <WelcomeGreeting firstName={member.firstName} />
       {notices.passwordChanged && <PortalNotice tone="success">Your password has been changed.</PortalNotice>}
       {notices.dues === "success" && (
         <PortalNotice tone="success">

@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { notFound } from "next/navigation";
 import { NewsForm } from "@/components/admin/forms/NewsForm";
 import { getNewsForAdmin, listNewsCategories } from "@/lib/services/news-service";
@@ -12,6 +13,7 @@ export default async function EditNewsPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ created?: string }>;
 }) {
+  await requireCapability("content.news");
   const { id } = await params;
   const { created } = await searchParams;
   const [article, categories] = await Promise.all([getNewsForAdmin(id), listNewsCategories()]);

@@ -7,7 +7,7 @@ import { getSystemHealth } from "@/lib/services/system-health-service";
 import { listRecentNotifications, getUnreadNotificationCount } from "@/lib/services/notification-service";
 import type { AdminUser } from "@/generated/prisma/client";
 
-export async function AdminHeader({ admin }: { admin: AdminUser }) {
+export async function AdminHeader({ admin, capabilities }: { admin: AdminUser; capabilities: string[] }) {
   const [notifications, unreadCount, health] = await Promise.all([
     listRecentNotifications(8),
     getUnreadNotificationCount(),
@@ -17,7 +17,7 @@ export async function AdminHeader({ admin }: { admin: AdminUser }) {
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-line">
       <div className="flex items-center justify-between px-4 sm:px-6 h-16">
-        <AdminMobileNav role={admin.role} />
+        <AdminMobileNav capabilities={capabilities} />
         <div className="hidden lg:block" />
 
         <div className="flex items-center gap-1.5">

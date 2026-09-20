@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { withActionErrorHandling } from "./with-error-handling";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { APPLICATION_TRACKS } from "@/lib/validations/membership";
 import { addAcademicOption, removeAcademicOption } from "@/lib/services/academic-options-service";
@@ -28,7 +28,7 @@ function revalidateAcademicOptionViews() {
 }
 
 async function addAcademicOptionActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.academic");
   const parsed = optionSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: INCOMPLETE };
 
@@ -40,7 +40,7 @@ async function addAcademicOptionActionImpl(_prevState: ActionState, formData: Fo
 }
 
 async function removeAcademicOptionActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.academic");
   const parsed = optionSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: INCOMPLETE };
 

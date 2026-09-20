@@ -4,7 +4,7 @@ import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-err
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole, ContentStatus } from "@/generated/prisma/client";
 import { newsSchema } from "@/lib/validations/content";
 import { createNews, updateNews, deleteNews, setNewsStatus } from "@/lib/services/news-service";
@@ -32,9 +32,10 @@ function parseNewsForm(formData: FormData) {
 }
 
 async function createNewsActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireAdminRole(AdminRole.EDITOR);
+  const admin = await requireCapability("content.news");
   const parsed = parseNewsForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  if (parsed.data.status !== ContentStatus.DRAFT) await requireCapability("content.news.publish");
 
   const coverImageUrl = formData.get("coverImageUrl");
   const article = await createNews(
@@ -50,9 +51,10 @@ async function createNewsActionImpl(_prevState: ActionState, formData: FormData)
 }
 
 async function updateNewsActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  await requireAdminRole(AdminRole.EDITOR);
+  await requireCapability("content.news");
   const parsed = parseNewsForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  if (parsed.data.status !== ContentStatus.DRAFT) await requireCapability("content.news.publish");
   const id = parsed.data.id;
   if (!id) return { error: "Missing article id." };
 
@@ -69,7 +71,7 @@ async function updateNewsActionImpl(_prevState: ActionState, formData: FormData)
 }
 
 async function deleteNewsActionImpl(id: string): Promise<void> {
-  await requireAdminRole(AdminRole.EDITOR);
+  await requireCapability("content.news.publish");
   const article = await deleteNews(id);
   const key = extractObjectKeyFromPublicUrl(article.coverImageUrl);
   if (key) {
@@ -85,7 +87,7 @@ async function deleteNewsActionImpl(id: string): Promise<void> {
 }
 
 async function setNewsStatusActionImpl(id: string, status: ContentStatus): Promise<void> {
-  await requireAdminRole(AdminRole.EDITOR);
+  await requireCapability("content.news.publish");
   await setNewsStatus(id, status);
   revalidatePath("/news");
   revalidatePath("/");

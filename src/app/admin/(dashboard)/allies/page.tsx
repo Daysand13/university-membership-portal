@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Handshake, Plus, Settings2 } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { getAlliesPageSettings, listAlliesForAdmin } from "@/lib/services/ally-service";
 import { AlliesSectionNav } from "@/components/admin/OutreachSectionNav";
@@ -13,7 +13,7 @@ export const metadata = { title: "Allies & Champions" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminAlliesPage() {
-  await requireAdminRole(AdminRole.EDITOR, AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("outreach.allies");
   const [allies, settings] = await Promise.all([listAlliesForAdmin(), getAlliesPageSettings()]);
 
   return (

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { getExpense } from "@/lib/services/patron-finance-service";
 import { ExpenseForm } from "@/components/admin/forms/FinanceForms";
@@ -10,7 +10,7 @@ export const metadata = { title: "Edit Expense" };
 export const dynamic = "force-dynamic";
 
 export default async function EditExpensePage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("finance.ledger");
   const { id } = await params;
   const expense = await getExpense(id);
   if (!expense) notFound();

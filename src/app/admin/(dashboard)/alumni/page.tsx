@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/ui/Common";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { listAlumniForAdmin, ALUMNI_SORT_FIELDS, describeAlumniSource, type AlumniSortField } from "@/lib/services/alumni-service";
 import { setAlumniStatusAction, deleteAlumniAction } from "@/lib/actions/alumni-actions";
-import { getCurrentAdmin } from "@/lib/auth/admin";
+import { getCurrentAdmin, requireCapability } from "@/lib/auth/admin";
 
 export const metadata = { title: "Alumni" };
 export const dynamic = "force-dynamic";
@@ -38,6 +38,7 @@ export default async function AdminAlumniPage({
 }: {
   searchParams: Promise<{ q?: string; sort?: string }>;
 }) {
+  await requireCapability("members.alumni");
   const { q, sort: rawSort } = await searchParams;
   const sort: AlumniSortField | undefined = (ALUMNI_SORT_FIELDS as readonly string[]).includes(rawSort ?? "")
     ? (rawSort as AlumniSortField)

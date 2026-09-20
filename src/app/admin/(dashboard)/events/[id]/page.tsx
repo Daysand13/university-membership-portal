@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { notFound } from "next/navigation";
 import { EventForm } from "@/components/admin/forms/EventForm";
 import { getEventForAdmin, listEventCategories } from "@/lib/services/event-service";
@@ -12,6 +13,7 @@ export default async function EditEventPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ created?: string }>;
 }) {
+  await requireCapability("content.events");
   const { id } = await params;
   const { created } = await searchParams;
   const [event, categories] = await Promise.all([getEventForAdmin(id), listEventCategories()]);

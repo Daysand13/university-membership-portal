@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import Link from "next/link";
 import { GalleryHorizontal, Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -10,6 +11,7 @@ export const metadata = { title: "Hero Slides" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminHeroSlidesPage({ searchParams }: { searchParams: Promise<{ created?: string }> }) {
+  await requireCapability("content.hero");
   const [slides, { created }] = await Promise.all([listHeroSlidesForAdmin(), searchParams]);
 
   return (

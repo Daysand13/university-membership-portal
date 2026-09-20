@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { DocumentForm } from "@/components/admin/forms/DocumentForm";
 import { listDocumentCategories } from "@/lib/services/document-service";
 
@@ -5,6 +6,7 @@ export const metadata = { title: "Upload Document" };
 export const dynamic = "force-dynamic";
 
 export default async function NewDocumentPage() {
+  await requireCapability("library.documents");
   const categories = await listDocumentCategories();
   return (
     <div className="max-w-2xl">

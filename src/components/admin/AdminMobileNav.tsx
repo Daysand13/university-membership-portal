@@ -4,10 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
-import { AdminRole } from "@/generated/prisma/enums";
 import { ADMIN_NAV } from "./nav-data";
 
-export function AdminMobileNav({ role }: { role: AdminRole }) {
+export function AdminMobileNav({ capabilities }: { capabilities: string[] }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -40,9 +39,7 @@ export function AdminMobileNav({ role }: { role: AdminRole }) {
             </div>
             <div className="p-3">
               {ADMIN_NAV.map((group) => {
-                const items = group.items.filter(
-                  (item) => !item.roles || role === AdminRole.SUPER_ADMIN || item.roles.includes(role),
-                );
+                const items = group.items.filter((item) => !item.capability || capabilities.includes(item.capability));
                 if (items.length === 0) return null;
                 return (
                   <div key={group.title || "root"} className="mb-4">

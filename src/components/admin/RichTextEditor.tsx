@@ -106,7 +106,15 @@ export function RichTextEditor({
       window.alert(outcome.error);
       return;
     }
-    editor?.chain().focus().setImage({ src: outcome.publicUrl }).run();
+    // Asked for at the moment of inserting, because this is the only point
+    // at which anyone knows what the picture shows. A screen reader reads
+    // this in place of the picture; leaving it empty marks the picture as
+    // decoration, which is the honest answer for a divider or a flourish.
+    const description =
+      window.prompt(
+        "Describe this picture for people using a screen reader — for example, “The association’s secretary in a meeting with the board”.\n\nLeave it blank if the picture is only decoration.",
+      ) ?? "";
+    editor?.chain().focus().setImage({ src: outcome.publicUrl, alt: description.trim() }).run();
   }
 
   return (

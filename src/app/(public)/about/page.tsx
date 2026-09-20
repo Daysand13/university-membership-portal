@@ -6,6 +6,8 @@ import { LocationMap } from "@/components/ui/LocationMap";
 import { getAboutContent, getActiveTeamMembers, getSiteSettings } from "@/lib/services/content-service";
 import { getMapLocation } from "@/lib/services/map-service";
 import { PersonCard } from "@/components/people/PersonCard";
+import { ProseText } from "@/components/ui/ProseText";
+import { altTextFor, describeImages } from "@/lib/services/image-description-service";
 
 export const metadata: Metadata = { title: "About Us" };
 export const dynamic = "force-dynamic";
@@ -15,7 +17,7 @@ function Section({ title, content }: { title: string; content: string | null }) 
   return (
     <div className="py-8 border-b border-line last:border-0">
       <h2 className="font-display font-bold text-xl text-primary-950 mb-3">{title}</h2>
-      <div className="prose-content whitespace-pre-line">{content}</div>
+      <ProseText text={content} />
     </div>
   );
 }
@@ -39,6 +41,7 @@ export default async function AboutPage() {
     about.partnersStakeholders,
   ].some(Boolean);
 
+  const imageDescriptions = await describeImages([about.imageUrl, ...leadership.map((l) => l.photoUrl)]);
   const mapLocation = await getMapLocation(settings.mapEmbedUrl);
   const hasContactInfo = !!(settings.physicalAddress || settings.phonePrimary || settings.generalEmail);
 
@@ -56,7 +59,7 @@ export default async function AboutPage() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={about.imageUrl}
-              alt="Acme University Students' Association"
+              alt={altTextFor(imageDescriptions, about.imageUrl, settings.siteTitle)}
               className="w-full max-h-[420px] object-contain"
             />
           </div>
@@ -83,11 +86,18 @@ export default async function AboutPage() {
           <div className="py-8 border-b border-line">
             <h2 className="font-display font-bold text-xl text-primary-950 mb-3">Executive Leadership and Team</h2>
             {about.leadershipMessage && (
-              <p className="prose-content whitespace-pre-line mb-5">{about.leadershipMessage}</p>
+              <ProseText text={about.leadershipMessage} className="prose-content mb-5" />
             )}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               {leadership.map((l) => (
-                <PersonCard key={l.id} name={l.name} position={l.position} photoUrl={l.photoUrl} bio={l.bio} />
+                <PersonCard
+                  key={l.id}
+                  name={l.name}
+                  position={l.position}
+                  photoUrl={l.photoUrl}
+                  bio={l.bio}
+                  imageAlt={altTextFor(imageDescriptions, l.photoUrl, `${l.name}, ${l.position}`)}
+                />
               ))}
             </div>
           </div>

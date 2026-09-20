@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { createPatronSession, destroyPatronSession, requirePatron } from "@/lib/auth/patron";
 import { AdminRole } from "@/generated/prisma/client";
 import { detectBot } from "@/lib/bot-protection";
@@ -127,7 +127,7 @@ async function changePatronPasswordActionImpl(_prevState: ActionState, formData:
 }
 
 async function reviewPatronActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.patrons");
   const parsed = patronReviewSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "That request was incomplete. Please reload the page and try again." };
 
@@ -177,7 +177,7 @@ async function patronResetPasswordActionImpl(_prevState: ActionState, formData: 
 }
 
 async function deletePatronActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.patrons");
   const patronId = String(formData.get("patronId") ?? "");
   if (!patronId) return { error: "That request was incomplete. Please reload the page and try again." };
 

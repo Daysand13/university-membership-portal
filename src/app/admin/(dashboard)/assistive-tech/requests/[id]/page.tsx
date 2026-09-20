@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Inbox, UserRound } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { getSoftwareRequest } from "@/lib/services/assistive-software-service";
 import { SoftwareRequestUpdateForm } from "@/components/admin/forms/OutreachForms";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "long", year: "numeric" });
 
 export default async function SoftwareRequestPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminRole(AdminRole.EDITOR, AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("outreach.software.requests");
   const { id } = await params;
   const request = await getSoftwareRequest(id);
   if (!request) notFound();

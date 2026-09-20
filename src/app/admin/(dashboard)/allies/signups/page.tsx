@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Check, UserPlus } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { countAllySignups, listAllySignups } from "@/lib/services/ally-service";
 import { markAllySignupReviewedAction } from "@/lib/actions/outreach-admin-actions";
@@ -23,7 +23,7 @@ function emailState(signup: { confirmedAt: Date | null; unsubscribedAt: Date | n
  * receive broadcasts; only an administrator can put someone on the page.
  */
 export default async function AllySignupsPage({ searchParams }: { searchParams: Promise<{ show?: string }> }) {
-  await requireAdminRole(AdminRole.EDITOR, AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("outreach.allies");
   const { show } = await searchParams;
   const filter = show === "listing" ? "listing" : "all";
   const [signups, counts] = await Promise.all([listAllySignups(filter), countAllySignups()]);

@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Trash2 } from "lucide-react";
@@ -10,6 +11,7 @@ export const metadata = { title: "Edit Hero Slide" };
 export const dynamic = "force-dynamic";
 
 export default async function EditHeroSlidePage({ params }: { params: Promise<{ id: string }> }) {
+  await requireCapability("content.hero");
   const { id } = await params;
   const slide = await getHeroSlideForAdmin(id);
   if (!slide) notFound();

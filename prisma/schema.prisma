@@ -110,6 +110,12 @@ model AdminUser {
   passwordHash String
   role         AdminRole @default(ADMIN)
   isActive     Boolean   @default(true)
+
+  /// Per-account overrides on top of what the base role allows, as
+  /// { "module.capability": true | false }. Absent keys follow the role,
+  /// so an account with no overrides behaves exactly as it always has.
+  /// See lib/auth/capabilities.ts for the catalogue of keys.
+  permissionMask Json?
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -128,6 +134,7 @@ model AdminUser {
   accessibilityIssues  AccessibilityIssue[]    @relation("IssueCreator")
   auditLogs            AuditLog[]
   uploadedMedia        Media[]
+  imageDescriptions    ImageDescription[]
 
   sentBroadcasts        Broadcast[]           @relation("BroadcastAuthor")
   assignedReports       BarrierReport[]       @relation("BarrierReportAssignee")
@@ -571,6 +578,24 @@ model ContactMessage {
 
   @@index([status])
   @@map("contact_messages")
+}
+
+/// What a picture shows, in words, for anyone who cannot see it.
+///
+/// Keyed by the picture’s own public URL rather than held on each model, so
+/// one description covers wherever that picture is used — a news cover, an
+/// event banner, a hero slide — and pictures already uploaded can be
+/// described later without touching the records that point at them.
+model ImageDescription {
+  id          String     @id @default(cuid())
+  url         String     @unique
+  description String
+  updatedById String?
+  updatedBy   AdminUser? @relation(fields: [updatedById], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("image_descriptions")
 }
 
 model Media {

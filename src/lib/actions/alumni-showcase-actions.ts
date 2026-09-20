@@ -8,7 +8,7 @@ import {
   removeAlumniSpotlight,
   setAlumniPublicProfile,
 } from "@/lib/services/alumni-spotlight-admin-service";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import type { ActionState } from "./types";
 
@@ -59,7 +59,7 @@ async function saveAlumniSpotlightActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.alumni");
 
   // Unchecked checkboxes are simply absent from FormData; coerce.boolean()
   // would read that as undefined rather than false, so they're normalised
@@ -79,13 +79,13 @@ async function saveAlumniSpotlightActionImpl(
 }
 
 async function removeAlumniSpotlightActionImpl(alumniId: string): Promise<void> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.alumni");
   await removeAlumniSpotlight({ alumniId, adminId: admin.id });
   revalidateShowcase(alumniId);
 }
 
 async function setAlumniPublicProfileActionImpl(alumniId: string, isPublic: boolean): Promise<void> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.alumni");
   await setAlumniPublicProfile({ alumniId, adminId: admin.id, isPublic });
   revalidateShowcase(alumniId);
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, ClipboardList, GraduationCap, HandHeart, Star, UserRound, UsersRound } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { getAlumniStudyRecords } from "@/lib/services/alumni-service";
@@ -30,7 +30,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
  * what they've put back in.
  */
 export default async function AdminAlumniRecordPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("members.alumni");
   const { id } = await params;
   const alumni = await db.alumniProfile.findUnique({ where: { id } });
   if (!alumni) notFound();

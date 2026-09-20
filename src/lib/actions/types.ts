@@ -2,6 +2,12 @@ export interface ActionState {
   error?: string;
   fieldErrors?: Record<string, string[] | undefined>;
   success?: boolean;
+  /**
+   * What exactly happened, in the action own words — including anything
+   * that happened in the background, such as an email being sent and to
+   * whom. Shown instead of the form generic "Saved." when present.
+   */
+  message?: string;
 }
 
 export const initialActionState: ActionState = {};

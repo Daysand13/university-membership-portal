@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/ui/Common";
 import { listUsersForMatrix } from "@/lib/services/user-admin-service";
 import { UserSuperpowerControls } from "@/components/admin/UserSuperpowerControls";
 import { formatFullName } from "@/lib/format";
-import { getCurrentAdmin } from "@/lib/auth/admin";
+import { getCurrentAdmin, requireCapability } from "@/lib/auth/admin";
 import { getAcademicOptions } from "@/lib/services/academic-options-service";
 import { getSpecialNeedsCategories } from "@/lib/services/special-needs-category-service";
 import type { UserRoleName } from "@/generated/prisma/enums";
@@ -38,6 +38,7 @@ export default async function UserMatrixPage({
 }: {
   searchParams: Promise<{ q?: string; role?: string }>;
 }) {
+  await requireCapability("members.accounts");
   const sp = await searchParams;
   const role = (["MEMBER", "ALUMNI", "ADMIN"] as const).includes(sp.role as never)
     ? (sp.role as UserRoleName)

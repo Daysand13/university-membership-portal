@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import Link from "next/link";
 import { Plus, Users } from "lucide-react";
 import { EmptyState } from "@/components/ui/Common";
@@ -91,6 +92,7 @@ async function TeamSection({ type, title, blurb }: { type: "LEADERSHIP" | "PATRO
 }
 
 export default async function AdminTeamPage() {
+  await requireCapability("content.team");
   return (
     <div>
       <div className="mb-6">

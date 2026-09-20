@@ -81,7 +81,7 @@ export function SoftwareDirectory({
                     <span className="w-14 h-14 rounded-lg border border-line bg-[#ffffff] flex items-center justify-center shrink-0 overflow-hidden">
                       {tool.logoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={tool.logoUrl} alt="" className="max-w-full max-h-full object-contain" />
+                        <img src={tool.logoUrl} alt={`${tool.name} logo`} className="max-w-full max-h-full object-contain" />
                       ) : (
                         <MonitorSmartphone size={24} aria-hidden="true" className="text-primary-800" />
                       )}

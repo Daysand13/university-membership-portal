@@ -1,5 +1,5 @@
 import { Wallet, CheckCircle2, XCircle, Banknote, CreditCard, Undo2, FileDown } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { getCurrentAcademicYear, listMemberDuesStatus, formatPesewasAsCedis } from "@/lib/services/dues-service";
 import { recordCashDuesPaymentAction, removeCashDuesPaymentAction } from "@/lib/actions/admin-dues-actions";
@@ -18,7 +18,7 @@ interface DuesSearchParams {
 }
 
 export default async function AdminDuesPage({ searchParams }: { searchParams: Promise<DuesSearchParams> }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("finance.dues");
   const sp = await searchParams;
   const academicYear = getCurrentAcademicYear();
   const allRows = await listMemberDuesStatus(academicYear);

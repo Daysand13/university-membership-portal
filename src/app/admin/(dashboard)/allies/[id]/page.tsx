@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Trash2 } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { getAllyForAdmin } from "@/lib/services/ally-service";
 import { deleteAllyAction } from "@/lib/actions/outreach-admin-actions";
@@ -18,7 +18,7 @@ export default async function EditAllyPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ created?: string }>;
 }) {
-  await requireAdminRole(AdminRole.EDITOR, AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("outreach.allies");
   const [{ id }, { created }] = await Promise.all([params, searchParams]);
   const ally = await getAllyForAdmin(id);
   if (!ally) notFound();

@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { notFound } from "next/navigation";
 import { ElectionForm } from "@/components/admin/forms/ElectionForm";
 import { getElectionForAdmin } from "@/lib/services/election-service";
@@ -6,6 +7,7 @@ export const metadata = { title: "Edit Election" };
 export const dynamic = "force-dynamic";
 
 export default async function EditElectionPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireCapability("elections.manage");
   const { id } = await params;
   const election = await getElectionForAdmin(id);
   if (!election) notFound();

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Paperclip } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { countBroadcastRecipients, getBroadcastForAdmin } from "@/lib/services/broadcast-service";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -32,7 +32,7 @@ export default async function AdminBroadcastPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ reviewed?: string }>;
 }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("messages.broadcasts");
   const { id } = await params;
   const { reviewed } = await searchParams;
   const broadcast = await getBroadcastForAdmin(id);

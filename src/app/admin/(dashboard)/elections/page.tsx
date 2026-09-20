@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import Link from "next/link";
 import { Plus, Vote } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -12,6 +13,7 @@ export const metadata = { title: "Elections" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminElectionsPage() {
+  await requireCapability("elections.manage");
   const elections = await listElectionsForAdmin();
 
   return (

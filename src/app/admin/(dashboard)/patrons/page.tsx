@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Award } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/Common";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole, type PatronStatus } from "@/generated/prisma/client";
 import { countPatronsByStatus, listPatrons } from "@/lib/services/patron-service";
 import { PatronsSectionNav } from "@/components/admin/PatronsSectionNav";
@@ -29,7 +29,7 @@ export default async function AdminPatronsPage({
 }: {
   searchParams: Promise<{ status?: string; q?: string; deleted?: string }>;
 }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("members.patrons");
   const { status: rawStatus, q, deleted } = await searchParams;
   // Pending first: that's the queue waiting on someone.
   const tab = rawStatus === "ALL" || (rawStatus && STATUSES.has(rawStatus)) ? rawStatus : "PENDING";

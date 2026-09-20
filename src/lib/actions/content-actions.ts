@@ -4,7 +4,7 @@ import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-err
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdminRole, requireAdminUser } from "@/lib/auth/admin";
+import { requireAdminRole, requireAdminUser, requireCapability } from "@/lib/auth/admin";
 import { AdminRole, type TeamMemberType } from "@/generated/prisma/client";
 import { aboutContentSchema, teamMemberSchema, donateContentSchema, siteSettingsSchema, socialLinkSchema } from "@/lib/validations/content";
 import {
@@ -25,7 +25,7 @@ import { resolveMapLocation, MapLinkUnreachableError } from "@/lib/services/map-
 import type { ActionState } from "./types";
 
 async function updateAboutActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  await requireAdminRole(AdminRole.EDITOR);
+  await requireCapability("content.about");
   const parsed = aboutContentSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
@@ -41,7 +41,7 @@ async function updateAboutActionImpl(_prevState: ActionState, formData: FormData
 }
 
 async function updateDonateActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  await requireAdminRole(AdminRole.EDITOR, AdminRole.SUPER_ADMIN);
+  await requireCapability("content.donate");
   const parsed = donateContentSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
@@ -80,7 +80,7 @@ function revalidateHeroSlides() {
 }
 
 async function createHeroSlideActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  await requireAdminRole(AdminRole.EDITOR);
+  await requireCapability("content.hero");
   const fields = heroSlideFields(formData);
   if (!fields.title) return { fieldErrors: { title: ["Give the slide a title"] } };
 
@@ -97,7 +97,7 @@ async function createHeroSlideActionImpl(_prevState: ActionState, formData: Form
 }
 
 async function updateHeroSlideActionImpl(id: string, _prevState: ActionState, formData: FormData): Promise<ActionState> {
-  await requireAdminRole(AdminRole.EDITOR);
+  await requireCapability("content.hero");
   const fields = heroSlideFields(formData);
   if (!fields.title) return { fieldErrors: { title: ["Give the slide a title"] } };
 
@@ -109,13 +109,13 @@ async function updateHeroSlideActionImpl(id: string, _prevState: ActionState, fo
 
 /** The show/hide switch on the slides list. */
 async function setHeroSlideActiveActionImpl(id: string, isActive: boolean): Promise<void> {
-  await requireAdminRole(AdminRole.EDITOR);
+  await requireCapability("content.hero");
   await updateHeroSlide(id, { isActive });
   revalidateHeroSlides();
 }
 
 async function deleteHeroSlideActionImpl(id: string): Promise<void> {
-  await requireAdminRole(AdminRole.EDITOR);
+  await requireCapability("content.hero");
   await deleteHeroSlide(id);
   // Deleting from the slide's own page would otherwise leave the person on
   // a page that no longer exists.
@@ -126,7 +126,7 @@ async function deleteHeroSlideActionImpl(id: string): Promise<void> {
 }
 
 async function updateSiteSettingsActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  await requireAdminRole(AdminRole.SUPER_ADMIN);
+  await requireCapability("site.settings");
   const logoUrl = formData.get("logoUrl");
   const faviconUrl = formData.get("faviconUrl");
   const parsed = siteSettingsSchema.safeParse({
@@ -197,9 +197,7 @@ async function deleteSocialLinkActionImpl(id: string): Promise<void> {
  * keep access to them too.
  */
 async function requireTeamEditor(type: TeamMemberType) {
-  return type === "PATRON"
-    ? requireAdminRole(AdminRole.EDITOR, AdminRole.MEMBERSHIP_OFFICER)
-    : requireAdminRole(AdminRole.EDITOR);
+  return requireCapability(type === "PATRON" ? "members.patrons" : "content.team");
 }
 
 async function listingType(id: string): Promise<TeamMemberType> {

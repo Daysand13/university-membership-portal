@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { Mail } from "lucide-react";
 import { EmptyState } from "@/components/ui/Common";
 import { listContactMessages } from "@/lib/services/contact-service";
@@ -7,6 +8,7 @@ export const metadata = { title: "Contact Messages" };
 export const dynamic = "force-dynamic";
 
 export default async function ContactMessagesPage() {
+  await requireCapability("messages.contact");
   const messages = await listContactMessages();
 
   return (

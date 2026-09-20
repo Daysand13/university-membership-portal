@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Building2, CalendarClock, ChevronLeft, ExternalLink, Mail, MapPin } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { getOpportunityForAdmin } from "@/lib/services/opportunity-service";
 import { OpportunityReviewForm } from "@/components/admin/forms/ExecutiveForms";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "long", year: "numeric" });
 
 export default async function AdminOpportunityPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("support.opportunities");
   const { id } = await params;
   const posting = await getOpportunityForAdmin(id);
   if (!posting) notFound();

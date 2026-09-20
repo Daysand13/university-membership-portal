@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Radio } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole, type BroadcastStatus } from "@/generated/prisma/client";
 import { countBroadcastsByStatus, listBroadcastsForAdmin } from "@/lib/services/broadcast-service";
 import { PatronsSectionNav } from "@/components/admin/PatronsSectionNav";
@@ -21,7 +21,7 @@ const TABS: { value: BroadcastStatus | "ALL"; label: string }[] = [
 const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "short", year: "numeric" });
 
 export default async function AdminBroadcastsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("messages.broadcasts");
   const { status: raw } = await searchParams;
   const tab = TABS.some((t) => t.value === raw) ? (raw as BroadcastStatus | "ALL") : "PENDING";
   const [broadcasts, counts] = await Promise.all([

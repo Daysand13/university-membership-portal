@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/ui/Common";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { listMembers, getMemberFilterOptions, MEMBER_SORT_OPTIONS, type MemberSort } from "@/lib/services/membership-service";
 import { deleteMemberAction } from "@/lib/actions/membership-actions";
-import { getCurrentAdmin } from "@/lib/auth/admin";
+import { getCurrentAdmin, requireCapability } from "@/lib/auth/admin";
 import { MEMBERSHIP_TYPE_LABELS } from "@/lib/validations/membership";
 import { formatFullName } from "@/lib/format";
 
@@ -37,6 +37,7 @@ function formatDate(date: Date): string {
 }
 
 export default async function AdminMembersPage({ searchParams }: { searchParams: Promise<MembersSearchParams> }) {
+  await requireCapability("members.records");
   const sp = await searchParams;
   const sort: MemberSort = (MEMBER_SORT_OPTIONS as readonly string[]).includes(sp.sort ?? "")
     ? (sp.sort as MemberSort)

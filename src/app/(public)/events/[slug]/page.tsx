@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, MapPin, Clock, User, Phone, ExternalLink, ImageIcon } from "lucide-react";
 import { getPublishedEventBySlug } from "@/lib/services/event-service";
+import { altTextFor, describeImages } from "@/lib/services/image-description-service";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
   // purity rule guards against.
   // eslint-disable-next-line react-hooks/purity
   const isPast = event.endDate.getTime() < Date.now();
+  const imageDescriptions = await describeImages([event.imageUrl, ...event.galleryImages]);
 
   return (
     <article className="bg-white">
@@ -65,7 +67,11 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
           <div className="aspect-[16/9] bg-primary-50 rounded-lg overflow-hidden mb-8 border border-line">
             {event.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={event.imageUrl} alt={event.title} className="w-full h-full object-cover" />
+              <img
+                src={event.imageUrl}
+                alt={altTextFor(imageDescriptions, event.imageUrl, event.title)}
+                className="w-full h-full object-cover"
+              />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-primary-200">
                 <ImageIcon size={40} />
@@ -80,7 +86,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {event.galleryImages.map((url) => (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img key={url} src={url} alt="" className="w-full aspect-square object-cover rounded-md border border-line" />
+                  <img
+                    key={url}
+                    src={url}
+                    alt={altTextFor(imageDescriptions, url, `Photo from ${event.title}`)}
+                    className="w-full aspect-square object-cover rounded-md border border-line"
+                  />
                 ))}
               </div>
             </div>

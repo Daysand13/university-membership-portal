@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Banknote, ChevronLeft, LifeBuoy, UserRound } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { getSupportRequestForAdmin } from "@/lib/services/support-request-service";
 import { SupportPayoutForm, SupportReviewForm } from "@/components/admin/forms/ExecutiveForms";
@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "long", year: "numeric" });
 
 export default async function AdminSupportRequestPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("support.requests");
   const { id } = await params;
   const request = await getSupportRequestForAdmin(id);
   if (!request) notFound();

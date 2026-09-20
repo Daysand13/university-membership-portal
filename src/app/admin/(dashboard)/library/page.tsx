@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import Link from "next/link";
 import { Plus, BookOpen } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -19,6 +20,7 @@ export default async function AdminLibraryPage({
 }: {
   searchParams: Promise<{ q?: string; source?: string }>;
 }) {
+  await requireCapability("library.documents");
   const { q, source } = await searchParams;
   const fromPatrons = source === "patrons";
   const documents = await listDocumentsForAdmin({ search: q, fromPatrons });

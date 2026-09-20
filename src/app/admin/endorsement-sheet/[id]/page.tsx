@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { getCampaign, splitEndorsements, type SignatureLine } from "@/lib/services/advocacy-service";
 import { getEmailBrand } from "@/lib/services/content-service";
@@ -55,7 +55,7 @@ function SignatureTable({
  * the admin frame so it prints as a clean page.
  */
 export default async function EndorsementSheetPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("members.alumni");
   const { id } = await params;
   const [campaign, brand] = await Promise.all([getCampaign(id), getEmailBrand()]);
   if (!campaign) notFound();

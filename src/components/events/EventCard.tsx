@@ -17,7 +17,7 @@ function DateBlock({ date }: { date: Date }) {
   );
 }
 
-export function EventCard({ event, isPast = false }: { event: EventCardData; isPast?: boolean }) {
+export function EventCard({ event, isPast = false, imageAlt }: { event: EventCardData; isPast?: boolean; imageAlt?: string }) {
   return (
     <article className="group flex flex-col bg-white rounded-lg border border-line overflow-hidden hover:shadow-[var(--shadow-card-hover)] transition-shadow">
       <Link href={`/events/${event.slug}`} className="block aspect-[16/10] bg-primary-50 relative overflow-hidden">
@@ -25,7 +25,7 @@ export function EventCard({ event, isPast = false }: { event: EventCardData; isP
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={event.imageUrl}
-            alt={event.title}
+            alt={imageAlt ?? event.title}
             className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
           />
         ) : (

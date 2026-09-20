@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { TeamMemberForm } from "@/components/admin/forms/TeamMemberForm";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { getTeamMemberById } from "@/lib/services/content-service";
 import { listActiveMembersForLinking } from "@/lib/services/membership-service";
@@ -13,7 +13,7 @@ export const metadata = { title: "Edit Patron Profile" };
 export const dynamic = "force-dynamic";
 
 export default async function EditPatronProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER, AdminRole.EDITOR);
+  await requireCapability("members.patrons");
   const { id } = await params;
   const profile = await getTeamMemberById(id);
   if (!profile) notFound();

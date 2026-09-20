@@ -1,3 +1,4 @@
+import { WelcomeGreeting } from "@/components/ui/WelcomeGreeting";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -48,6 +49,7 @@ export default async function PatronDashboardPage() {
 
   return (
     <div className="space-y-6">
+      <WelcomeGreeting firstName={patronSalutation(patron)} />
       <section aria-labelledby="welcome-heading" className="rounded-xl bg-primary-900 text-white p-6 sm:p-8 shadow-card">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
           <span className="w-14 h-14 rounded-full border-2 border-white/30 bg-primary-800 flex items-center justify-center shrink-0">

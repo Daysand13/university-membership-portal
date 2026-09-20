@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import Link from "next/link";
 import { ClipboardList, Trash2 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -35,6 +36,7 @@ export default async function MembershipApplicationsPage({
 }: {
   searchParams: Promise<{ status?: string; q?: string }>;
 }) {
+  await requireCapability("members.applications");
   const { status, q } = await searchParams;
   const applications = await listApplications({
     status: status ? (status as ApplicationStatus) : undefined,

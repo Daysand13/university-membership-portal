@@ -1,15 +1,12 @@
 import Link from "next/link";
-import { AdminRole } from "@/generated/prisma/client";
 import { Logo } from "@/components/layout/Logo";
 import { ADMIN_NAV } from "./nav-data";
 
-function canSee(item: { roles?: AdminRole[] }, role: AdminRole): boolean {
-  if (!item.roles) return true;
-  if (role === AdminRole.SUPER_ADMIN) return true;
-  return item.roles.includes(role);
+function canSee(item: { capability?: string }, capabilities: Set<string>): boolean {
+  return !item.capability || capabilities.has(item.capability);
 }
 
-export function AdminSidebar({ role }: { role: AdminRole }) {
+export function AdminSidebar({ capabilities }: { capabilities: Set<string> }) {
   return (
     // self-start + h-screen is what makes "sticky" actually stick: as a
     // stretched flex item the sidebar was as tall as the whole page, so it
@@ -22,7 +19,7 @@ export function AdminSidebar({ role }: { role: AdminRole }) {
       </div>
       <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain py-4 px-3">
         {ADMIN_NAV.map((group) => {
-          const visibleItems = group.items.filter((item) => canSee(item, role));
+          const visibleItems = group.items.filter((item) => canSee(item, capabilities));
           if (visibleItems.length === 0) return null;
           return (
             <div key={group.title || "root"} className="mb-5">

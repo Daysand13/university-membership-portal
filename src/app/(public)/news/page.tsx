@@ -4,6 +4,7 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { EmptyState } from "@/components/ui/Common";
 import { Pagination } from "@/components/ui/Common";
 import { listPublishedNews, listNewsCategories } from "@/lib/services/news-service";
+import { altTextFor, describeImages } from "@/lib/services/image-description-service";
 import { Newspaper } from "lucide-react";
 import Link from "next/link";
 
@@ -22,6 +23,8 @@ export default async function NewsPage({
     listPublishedNews({ page, categorySlug: params.category, search: params.q }),
     listNewsCategories(),
   ]);
+
+  const imageDescriptions = await describeImages(items.map((a) => a.coverImageUrl));
 
   const queryPrefix = [
     params.category ? `category=${params.category}` : "",
@@ -68,7 +71,11 @@ export default async function NewsPage({
         {items.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {items.map((article) => (
-              <NewsCard key={article.id} article={article} />
+              <NewsCard
+                key={article.id}
+                article={article}
+                imageAlt={altTextFor(imageDescriptions, article.coverImageUrl, article.title)}
+              />
             ))}
           </div>
         ) : (

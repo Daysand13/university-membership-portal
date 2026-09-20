@@ -288,7 +288,8 @@ export function isCashDuesReference(reference: string): boolean {
   return reference.startsWith(CASH_REFERENCE_PREFIX);
 }
 
-export type CashDuesResult = { ok: true } | { ok: false; error: string };
+/** The summary says what was recorded and who was emailed, for the confirmation the admin sees. */
+export type CashDuesResult = { ok: true; summary: string } | { ok: false; error: string };
 
 export async function recordCashDuesPayment(params: { memberId: string; adminId: string }): Promise<CashDuesResult> {
   const { memberId, adminId } = params;
@@ -296,7 +297,16 @@ export async function recordCashDuesPayment(params: { memberId: string; adminId:
 
   const member = await db.member.findUnique({
     where: { id: memberId },
-    select: { id: true, applicationTrack: true, level: true, status: true, alumniProfile: { select: { id: true } } },
+    select: {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      applicationTrack: true,
+      level: true,
+      status: true,
+      alumniProfile: { select: { id: true } },
+    },
   });
   if (!member) return { ok: false, error: "That member no longer exists." };
   if (member.status !== "ACTIVE" || member.alumniProfile) {
@@ -340,7 +350,10 @@ export async function recordCashDuesPayment(params: { memberId: string; adminId:
     paidAt,
     method: "cash",
   });
-  return { ok: true };
+  return {
+    ok: true,
+    summary: `${formatPesewasAsCedis(fee.amountPesewas)} recorded for ${member.firstName} ${member.lastName} (${academicYear}). A receipt has been emailed to ${member.email}.`,
+  };
 }
 
 /**
@@ -382,7 +395,10 @@ export async function removeCashDuesPayment(params: { paymentId: string; adminId
     amountLabel: formatPesewasAsCedis(payment.amountPesewas),
     reference: payment.reference,
   });
-  return { ok: true };
+  return {
+    ok: true,
+    summary: `The ${formatPesewasAsCedis(payment.amountPesewas)} cash payment for ${payment.academicYear} has been removed, and the member has been emailed about the correction.`,
+  };
 }
 
 export interface MemberDuesRow {

@@ -15,7 +15,7 @@ import {
   deleteUserAccount,
   UserAdminError,
 } from "@/lib/services/user-admin-service";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import type { ActionState } from "./types";
 
@@ -40,7 +40,7 @@ async function pushToAlumniArchiveActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.accounts");
   const parsed = pushToAlumniArchiveSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
@@ -65,7 +65,7 @@ async function grantDualStatusActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.accounts");
   const parsed = grantDualStatusSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
@@ -91,7 +91,7 @@ async function approveNewEnrollmentCycleActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.accounts");
   const parsed = newEnrollmentCycleSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 

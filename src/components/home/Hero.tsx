@@ -33,7 +33,16 @@ function isLightColor(hex: string): boolean {
 // no matter how much (or little) text a given slide has.
 const HERO_HEIGHT_CLASS = "h-[440px] sm:h-[480px] lg:h-[560px]";
 
-export function Hero({ slides, siteTitle }: { slides: HeroSlide[]; siteTitle?: string }) {
+export function Hero({
+  slides,
+  siteTitle,
+  imageDescriptions = {},
+}: {
+  slides: HeroSlide[];
+  siteTitle?: string;
+  /** What each slide picture shows, by picture address. A slide with none stays decorative: its words are already on the page. */
+  imageDescriptions?: Record<string, string>;
+}) {
   const activeSlides = slides.length > 0 ? slides : [FALLBACK_SLIDE];
   const [index, setIndex] = useState(0);
 
@@ -60,7 +69,7 @@ export function Hero({ slides, siteTitle }: { slides: HeroSlide[]; siteTitle?: s
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={slide.imageUrl}
-            alt=""
+            alt={imageDescriptions[slide.imageUrl] ?? ""}
             className="absolute inset-0 w-full h-full object-cover object-center"
           />
           <div

@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import Link from "next/link";
 import { Plus, Newspaper } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -18,6 +19,7 @@ export default async function AdminNewsPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
+  await requireCapability("content.news");
   const { q } = await searchParams;
   const articles = await listNewsForAdmin({ search: q });
 

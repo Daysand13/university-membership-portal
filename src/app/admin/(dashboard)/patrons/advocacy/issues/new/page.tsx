@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { IssueForm } from "@/components/admin/forms/AdvocacyForms";
 
@@ -8,7 +8,7 @@ export const metadata = { title: "Escalate an Issue" };
 export const dynamic = "force-dynamic";
 
 export default async function NewIssuePage() {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("members.patrons");
   const today = new Date().toISOString().slice(0, 10);
   return (
     <div className="max-w-3xl">

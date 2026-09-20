@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Printer, Trash2 } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { getCampaign } from "@/lib/services/advocacy-service";
 import { deleteCampaignAction } from "@/lib/actions/patron-admin-actions";
@@ -20,7 +20,7 @@ export default async function AdminCampaignPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ created?: string }>;
 }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("members.patrons");
   const { id } = await params;
   const { created } = await searchParams;
   const campaign = await getCampaign(id);

@@ -11,6 +11,8 @@ import { getFeaturedNews } from "@/lib/services/news-service";
 import { getUpcomingEventsForHome } from "@/lib/services/event-service";
 import { listHomepageAlumni } from "@/lib/services/alumni-showcase-service";
 import { AlumniCard } from "@/components/alumni/AlumniCard";
+import { WelcomeGreeting } from "@/components/ui/WelcomeGreeting";
+import { altTextFor, describeImages } from "@/lib/services/image-description-service";
 
 export const dynamic = "force-dynamic";
 
@@ -23,9 +25,22 @@ export default async function HomePage() {
     listHomepageAlumni(4),
   ]);
 
+  const imageDescriptions = await describeImages([
+    ...slides.map((s) => s.imageUrl),
+    ...news.map((a) => a.coverImageUrl),
+    ...events.map((e) => e.imageUrl),
+  ]);
+
   return (
     <>
-      <Hero slides={slides} siteTitle={siteSettings.siteTitle} />
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-4">
+        <WelcomeGreeting />
+      </div>
+      <Hero
+        slides={slides}
+        siteTitle={siteSettings.siteTitle}
+        imageDescriptions={Object.fromEntries(imageDescriptions)}
+      />
 
       {/* Latest news */}
       <section className="bg-surface-muted">
@@ -39,7 +54,11 @@ export default async function HomePage() {
           {news.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {news.map((article) => (
-                <NewsCard key={article.id} article={article} />
+                <NewsCard
+                  key={article.id}
+                  article={article}
+                  imageAlt={altTextFor(imageDescriptions, article.coverImageUrl, article.title)}
+                />
               ))}
             </div>
           ) : (
@@ -64,7 +83,11 @@ export default async function HomePage() {
           {events.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {events.map((event) => (
-                <EventCard key={event.id} event={{ ...event, category: null }} />
+                <EventCard
+                  key={event.id}
+                  event={{ ...event, category: null }}
+                  imageAlt={altTextFor(imageDescriptions, event.imageUrl, event.title)}
+                />
               ))}
             </div>
           ) : (

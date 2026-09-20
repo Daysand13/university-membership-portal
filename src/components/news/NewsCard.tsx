@@ -9,7 +9,7 @@ function formatDate(date: Date | null): string {
   return new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "short", year: "numeric" }).format(date);
 }
 
-export function NewsCard({ article }: { article: NewsCardData }) {
+export function NewsCard({ article, imageAlt }: { article: NewsCardData; imageAlt?: string }) {
   return (
     <article className="group flex flex-col bg-white rounded-lg border border-line overflow-hidden hover:shadow-[var(--shadow-card-hover)] transition-shadow">
       <Link href={`/news/${article.slug}`} className="block aspect-[16/10] bg-primary-50 relative overflow-hidden">
@@ -17,7 +17,7 @@ export function NewsCard({ article }: { article: NewsCardData }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={article.coverImageUrl}
-            alt={article.title}
+            alt={imageAlt ?? article.title}
             className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
           />
         ) : (

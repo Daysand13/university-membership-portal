@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { LifeBuoy } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole, type SupportRequestStatus } from "@/generated/prisma/client";
 import {
   countSupportRequestsByStatus,
@@ -35,7 +35,7 @@ export default async function AdminSupportRequestsPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("support.requests");
   const { status: raw } = await searchParams;
   const tab = TABS.some((t) => t.value === raw) ? (raw as SupportRequestStatus | "OPEN" | "ALL") : "OPEN";
 

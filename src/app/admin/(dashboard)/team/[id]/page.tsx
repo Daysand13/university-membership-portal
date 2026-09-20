@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
@@ -11,6 +12,7 @@ export const metadata = { title: "Edit Leadership / Patron" };
 export const dynamic = "force-dynamic";
 
 export default async function EditTeamMemberPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireCapability("content.team");
   const { id } = await params;
   const teamMember = await getTeamMemberById(id);
   if (!teamMember) notFound();

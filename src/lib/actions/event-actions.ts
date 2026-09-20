@@ -4,7 +4,7 @@ import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-err
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole, ContentStatus } from "@/generated/prisma/client";
 import { eventSchema } from "@/lib/validations/content";
 import { createEvent, updateEvent, deleteEvent, setEventStatus } from "@/lib/services/event-service";
@@ -35,9 +35,10 @@ function parseEventForm(formData: FormData) {
 }
 
 async function createEventActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireAdminRole(AdminRole.EDITOR);
+  const admin = await requireCapability("content.events");
   const parsed = parseEventForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  if (parsed.data.status !== ContentStatus.DRAFT) await requireCapability("content.events.publish");
 
   const imageUrl = formData.get("imageUrl");
   const event = await createEvent(
@@ -55,9 +56,10 @@ async function createEventActionImpl(_prevState: ActionState, formData: FormData
 }
 
 async function updateEventActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  await requireAdminRole(AdminRole.EDITOR);
+  await requireCapability("content.events");
   const parsed = parseEventForm(formData);
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  if (parsed.data.status !== ContentStatus.DRAFT) await requireCapability("content.events.publish");
   const id = parsed.data.id;
   if (!id) return { error: "Missing event id." };
 
@@ -75,7 +77,7 @@ async function updateEventActionImpl(_prevState: ActionState, formData: FormData
 }
 
 async function deleteEventActionImpl(id: string): Promise<void> {
-  await requireAdminRole(AdminRole.EDITOR);
+  await requireCapability("content.events.publish");
   const event = await deleteEvent(id);
   const key = extractObjectKeyFromPublicUrl(event.imageUrl);
   if (key) {
@@ -91,7 +93,7 @@ async function deleteEventActionImpl(id: string): Promise<void> {
 }
 
 async function setEventStatusActionImpl(id: string, status: ContentStatus): Promise<void> {
-  await requireAdminRole(AdminRole.EDITOR);
+  await requireCapability("content.events.publish");
   await setEventStatus(id, status);
   revalidatePath("/events");
   revalidatePath("/");

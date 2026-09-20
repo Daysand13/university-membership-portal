@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { AcademicOptionList } from "@/components/admin/AcademicOptionList";
 import { getAcademicOptions } from "@/lib/services/academic-options-service";
 
@@ -10,6 +11,7 @@ const TRACKS = [
 ] as const;
 
 export default async function AcademicOptionsPage() {
+  await requireCapability("members.academic");
   const options = await getAcademicOptions();
 
   return (

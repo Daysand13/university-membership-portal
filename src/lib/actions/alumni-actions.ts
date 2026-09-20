@@ -32,7 +32,7 @@ import {
 } from "@/lib/services/membership-service";
 import { adoptEnrollmentUpload, EnrollmentUploadError } from "@/lib/services/enrollment-upload-service";
 import { requireAlumni } from "@/lib/auth/alumni";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { AdminRole, AlumniStatus } from "@/generated/prisma/client";
 import type { ActionState } from "./types";
@@ -252,7 +252,7 @@ async function promoteMemberToAlumniActionImpl(
   memberId: string,
   graduationYear: number,
 ): Promise<{ error?: string }> {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("members.alumni");
   const inviteBaseUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/alumni/reset-password`;
 
   try {
@@ -270,7 +270,7 @@ async function promoteMemberToAlumniActionImpl(
 }
 
 async function setAlumniStatusActionImpl(alumniId: string, status: "ACTIVE" | "SUSPENDED"): Promise<void> {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("members.alumni");
   await setAlumniStatus({ alumniId, status: status as AlumniStatus });
   revalidatePath("/admin/alumni");
 }

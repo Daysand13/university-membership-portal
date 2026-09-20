@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { SoftwareForm } from "@/components/admin/forms/OutreachForms";
 
@@ -8,7 +8,7 @@ export const metadata = { title: "Add Software" };
 export const dynamic = "force-dynamic";
 
 export default async function NewSoftwarePage() {
-  await requireAdminRole(AdminRole.EDITOR, AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("outreach.software");
 
   return (
     <div className="max-w-3xl">

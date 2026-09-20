@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { withActionErrorHandling } from "./with-error-handling";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { addSpecialNeedsCategory, removeSpecialNeedsCategory } from "@/lib/services/special-needs-category-service";
 import type { ActionState } from "./types";
@@ -23,7 +23,7 @@ function revalidateCategoryViews() {
 }
 
 async function addSpecialNeedsCategoryActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.academic");
   const parsed = categorySchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: INCOMPLETE };
 
@@ -35,7 +35,7 @@ async function addSpecialNeedsCategoryActionImpl(_prevState: ActionState, formDa
 }
 
 async function removeSpecialNeedsCategoryActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.academic");
   const parsed = categorySchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: INCOMPLETE };
 

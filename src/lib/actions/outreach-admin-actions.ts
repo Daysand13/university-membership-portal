@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import {
   allyListingSchema,
@@ -33,7 +33,6 @@ import type { ActionState } from "./types";
  * much as they are membership work, so editors and the membership team can
  * both manage them (super admins pass every check as usual).
  */
-const requireOutreach = () => requireAdminRole(AdminRole.EDITOR, AdminRole.MEMBERSHIP_OFFICER);
 
 const blankToNull = (value: string | undefined) => (value && value.trim() ? value.trim() : null);
 
@@ -51,7 +50,7 @@ async function saveAllyActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireOutreach();
+  const admin = await requireCapability("outreach.allies");
   const parsed = allyListingSchema.safeParse({
     type: text(formData, "type"),
     name: text(formData, "name"),
@@ -95,7 +94,7 @@ async function saveAllyActionImpl(
 }
 
 async function deleteAllyActionImpl(allyId: string): Promise<void> {
-  const admin = await requireOutreach();
+  const admin = await requireCapability("outreach.allies");
   await deleteAlly({ id: allyId, admin });
   revalidatePath("/allies");
   revalidatePath("/admin/allies");
@@ -103,13 +102,13 @@ async function deleteAllyActionImpl(allyId: string): Promise<void> {
 }
 
 async function markAllySignupReviewedActionImpl(signupId: string): Promise<void> {
-  await requireOutreach();
+  await requireCapability("outreach.allies");
   await markAllySignupReviewed(signupId);
   revalidatePath("/admin/allies/signups");
 }
 
 async function saveAlliesSettingsActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireOutreach();
+  const admin = await requireCapability("outreach.allies");
   const parsed = alliesSettingsSchema.safeParse({ partnershipEmail: text(formData, "partnershipEmail") });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   await updateAlliesPageSettings(parsed.data, admin.id);
@@ -126,7 +125,7 @@ async function saveSoftwareActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireOutreach();
+  const admin = await requireCapability("outreach.software");
   const parsed = softwareListingSchema.safeParse({
     name: text(formData, "name"),
     logoUrl: text(formData, "logoUrl"),
@@ -166,7 +165,7 @@ async function saveSoftwareActionImpl(
 }
 
 async function deleteSoftwareActionImpl(softwareId: string): Promise<void> {
-  const admin = await requireOutreach();
+  const admin = await requireCapability("outreach.software");
   await deleteSoftware(softwareId, admin);
   revalidatePath("/assistive-technology");
   revalidatePath("/admin/assistive-tech");
@@ -174,7 +173,7 @@ async function deleteSoftwareActionImpl(softwareId: string): Promise<void> {
 }
 
 async function saveAssistiveSettingsActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireOutreach();
+  const admin = await requireCapability("outreach.software");
   const parsed = assistiveSettingsSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   await updateAssistiveTechSettings(
@@ -195,7 +194,7 @@ async function updateSoftwareRequestActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireOutreach();
+  const admin = await requireCapability("outreach.software.requests");
   const parsed = softwareRequestUpdateSchema.safeParse({
     status: text(formData, "status"),
     adminNote: text(formData, "adminNote"),

@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { ScrollText } from "lucide-react";
 import { EmptyState } from "@/components/ui/Common";
 import { listAuditLog } from "@/lib/services/notification-service";
@@ -20,6 +21,7 @@ function describeAction(action: string): string {
 }
 
 export default async function AuditLogPage() {
+  await requireCapability("site.audit");
   const logs = await listAuditLog(200);
 
   return (

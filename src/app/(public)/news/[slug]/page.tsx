@@ -5,6 +5,7 @@ import { CalendarDays, User, ChevronLeft } from "lucide-react";
 import { RichText } from "@/components/ui/RichText";
 import { NewsCard } from "@/components/news/NewsCard";
 import { getPublishedNewsBySlug, getRelatedNews } from "@/lib/services/news-service";
+import { altTextFor, describeImages } from "@/lib/services/image-description-service";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ slu
   if (!article) notFound();
 
   const related = await getRelatedNews(article.id, article.categoryId);
+  const imageDescriptions = await describeImages([article.coverImageUrl, ...related.map((r) => r.coverImageUrl)]);
 
   return (
     <article className="bg-white">
@@ -69,7 +71,7 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ slu
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={article.coverImageUrl}
-            alt={article.title}
+            alt={altTextFor(imageDescriptions, article.coverImageUrl, article.title)}
             className="w-full aspect-[16/9] object-cover rounded-lg shadow-md border border-line"
           />
         </div>
@@ -95,7 +97,11 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ slu
             <h2 className="font-display font-bold text-xl text-primary-950 mb-6">More News</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {related.map((item) => (
-                <NewsCard key={item.id} article={item} />
+                <NewsCard
+                  key={item.id}
+                  article={item}
+                  imageAlt={altTextFor(imageDescriptions, item.coverImageUrl, item.title)}
+                />
               ))}
             </div>
           </div>

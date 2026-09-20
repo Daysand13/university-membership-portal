@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Briefcase, ChevronLeft, HandHeart, Phone, UserPlus } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PatronReviewPanel } from "@/components/admin/PatronReviewPanel";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { ALLOWED_PATRON_DECISIONS, canDeletePatron, getPatronById } from "@/lib/services/patron-service";
 import { PatronDeleteButton } from "@/components/admin/PatronDeleteButton";
@@ -44,7 +44,7 @@ const STATUS_HELP: Record<string, string> = {
 };
 
 export default async function AdminPatronPage({ params }: { params: Promise<{ id: string }> }) {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  const admin = await requireCapability("members.patrons");
   const { id } = await params;
   const patron = await getPatronById(id);
   if (!patron) notFound();

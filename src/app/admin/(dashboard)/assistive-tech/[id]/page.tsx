@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Trash2 } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { getSoftware } from "@/lib/services/assistive-software-service";
 import { deleteSoftwareAction } from "@/lib/actions/outreach-admin-actions";
@@ -18,7 +18,7 @@ export default async function EditSoftwarePage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ created?: string }>;
 }) {
-  await requireAdminRole(AdminRole.EDITOR, AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("outreach.software");
   const [{ id }, { created }] = await Promise.all([params, searchParams]);
   const software = await getSoftware(id);
   if (!software) notFound();

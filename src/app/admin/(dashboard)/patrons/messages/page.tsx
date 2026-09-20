@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { MessagesSquare } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { listThreadsForAdmin } from "@/lib/services/patron-message-service";
 import { PatronsSectionNav } from "@/components/admin/PatronsSectionNav";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "short", year: "numeric" });
 
 export default async function AdminPatronMessagesPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("members.patrons");
   const { status: raw } = await searchParams;
   const status = raw === "CLOSED" ? "CLOSED" : raw === "ALL" ? undefined : "OPEN";
   const threads = await listThreadsForAdmin(status);

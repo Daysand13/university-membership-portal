@@ -2,6 +2,7 @@
 
 import { useTransition, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { showToast } from "@/components/ui/Toast";
 
 export function ConfirmButton({
   action,
@@ -9,7 +10,8 @@ export function ConfirmButton({
   children,
   className,
 }: {
-  action: () => Promise<void>;
+  /** Anything it returns is shown as a confirmation — what was done, and who was emailed about it. */
+  action: () => Promise<void | string>;
   confirmMessage: string;
   children: React.ReactNode;
   className?: string;
@@ -28,7 +30,8 @@ export function ConfirmButton({
           setError(null);
           startTransition(async () => {
             try {
-              await action();
+              const outcome = await action();
+              if (typeof outcome === "string" && outcome) showToast({ text: outcome });
             } catch (err) {
               // Next.js's redirect() throws internally as part of how it
               // works — that's a signal to navigate, not a real failure,
@@ -37,7 +40,9 @@ export function ConfirmButton({
               if (err && typeof err === "object" && "digest" in err && String(err.digest).startsWith("NEXT_REDIRECT")) {
                 throw err;
               }
-              setError("That didn't work — please try again.");
+              const message = err instanceof Error && err.message ? err.message : "That didn't work — please try again.";
+              setError(message);
+              showToast({ text: message, variant: "error" });
             }
           });
         }}

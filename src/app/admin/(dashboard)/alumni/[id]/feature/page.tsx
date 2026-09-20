@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Globe, EyeOff } from "lucide-react";
@@ -10,6 +11,7 @@ export const metadata = { title: "Feature Alumnus" };
 export const dynamic = "force-dynamic";
 
 export default async function FeatureAlumnusPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireCapability("members.alumni");
   const { id } = await params;
   const alumni = await getAlumniForSpotlightEditor(id);
   if (!alumni) notFound();

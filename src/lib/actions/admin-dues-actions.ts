@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { recordCashDuesPayment, removeCashDuesPayment } from "@/lib/services/dues-service";
-import { withVoidActionErrorHandling } from "./with-error-handling";
+import { withTypedActionErrorHandling } from "./with-error-handling";
 
 /**
  * Admin > Dues: record a member's dues as paid in cash, or take back a cash
@@ -20,25 +20,27 @@ function revalidateDues(memberId?: string) {
   if (memberId) revalidatePath(`/admin/members/${memberId}`);
 }
 
-async function recordCashDuesPaymentActionImpl(memberId: string): Promise<void> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+async function recordCashDuesPaymentActionImpl(memberId: string): Promise<string> {
+  const admin = await requireCapability("finance.dues.record");
   const result = await recordCashDuesPayment({ memberId, adminId: admin.id });
   revalidateDues(memberId);
   if (!result.ok) throw new Error(result.error);
+  return result.summary;
 }
 
-async function removeCashDuesPaymentActionImpl(paymentId: string): Promise<void> {
-  const admin = await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+async function removeCashDuesPaymentActionImpl(paymentId: string): Promise<string> {
+  const admin = await requireCapability("finance.dues.record");
   const result = await removeCashDuesPayment({ paymentId, adminId: admin.id });
   revalidateDues();
   if (!result.ok) throw new Error(result.error);
+  return result.summary;
 }
 
-export const recordCashDuesPaymentAction = withVoidActionErrorHandling(
+export const recordCashDuesPaymentAction = withTypedActionErrorHandling(
   "recordCashDuesPaymentAction",
   recordCashDuesPaymentActionImpl,
 );
-export const removeCashDuesPaymentAction = withVoidActionErrorHandling(
+export const removeCashDuesPaymentAction = withTypedActionErrorHandling(
   "removeCashDuesPaymentAction",
   removeCashDuesPaymentActionImpl,
 );

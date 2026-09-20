@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, User, Mail, GraduationCap, MapPin, ShieldAlert } from "lucide-react";
@@ -25,6 +26,7 @@ function Field({ label, value }: { label: string; value: string | number | null 
 }
 
 export default async function ReviewApplicationPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireCapability("members.applications");
   const { id } = await params;
   const application = await getApplicationById(id);
   if (!application) notFound();

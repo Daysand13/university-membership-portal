@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { withActionErrorHandling } from "./with-error-handling";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { adminBroadcastSchema } from "@/lib/validations/patron-portal";
 import { opportunityReviewSchema } from "@/lib/validations/alumni-portal";
@@ -37,7 +37,6 @@ import type { ActionState } from "./types";
  * with the membership team — MEMBERSHIP_OFFICER, with super admins passing
  * every check as usual.
  */
-const requireExec = () => requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
 
 const blankToNull = (value: string | undefined) => (value && value.trim() ? value.trim() : null);
 
@@ -55,7 +54,7 @@ async function updateBarrierReportActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireExec();
+  const admin = await requireCapability("support.barriers");
   const parsed = barrierTriageSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
@@ -75,7 +74,10 @@ async function updateBarrierReportActionImpl(
   revalidatePath("/admin/advocacy");
   revalidatePath(`/admin/advocacy/${reportId}`);
   revalidatePath("/membership/dashboard/rights");
-  return { success: true };
+  return {
+    success: true,
+    message: "Update saved. The student has been emailed, and can follow it on their Know Your Rights page.",
+  };
 }
 
 async function escalateReportActionImpl(
@@ -83,7 +85,7 @@ async function escalateReportActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireExec();
+  const admin = await requireCapability("support.barriers");
   const parsed = escalateReportSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
@@ -121,7 +123,7 @@ async function reviewSupportRequestActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireExec();
+  const admin = await requireCapability("support.requests.decide");
   const parsed = supportReviewSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
@@ -142,7 +144,10 @@ async function reviewSupportRequestActionImpl(
   revalidatePath("/admin/support-requests");
   revalidatePath(`/admin/support-requests/${requestId}`);
   revalidatePath("/membership/dashboard/support");
-  return { success: true };
+  return {
+    success: true,
+    message: `Request ${parsed.data.decision === "APPROVE" ? "approved" : "declined"}. The student has been emailed the decision.`,
+  };
 }
 
 async function recordSupportPayoutActionImpl(
@@ -150,7 +155,7 @@ async function recordSupportPayoutActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireExec();
+  const admin = await requireCapability("support.requests.decide");
   const parsed = supportPayoutSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
@@ -184,7 +189,7 @@ async function reviewOpportunityActionImpl(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireExec();
+  const admin = await requireCapability("support.opportunities.decide");
   const parsed = opportunityReviewSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
@@ -203,7 +208,13 @@ async function reviewOpportunityActionImpl(
   revalidatePath("/admin/opportunities");
   revalidatePath("/alumni/opportunities");
   revalidatePath("/membership/dashboard/opportunities");
-  return { success: true };
+  return {
+    success: true,
+    message:
+      parsed.data.decision === "APPROVE"
+        ? "Posting approved — members can see it now, and the alumnus who posted it has been emailed."
+        : "Posting declined, and the alumnus who posted it has been emailed.",
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -211,7 +222,7 @@ async function reviewOpportunityActionImpl(
 // ---------------------------------------------------------------------------
 
 async function sendBroadcastActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireExec();
+  const admin = await requireCapability("messages.broadcasts.send");
   const parsed = adminBroadcastSchema.safeParse({
     audience: text(formData, "audience"),
     authorName: text(formData, "authorName"),

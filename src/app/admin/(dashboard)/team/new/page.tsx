@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -12,6 +13,7 @@ export default async function NewTeamMemberPage({
 }: {
   searchParams: Promise<{ type?: string }>;
 }) {
+  await requireCapability("content.team");
   const { type } = await searchParams;
   // Patron profiles now live in the Patrons section.
   if (type === "PATRON") redirect("/admin/patrons/profiles/new");

@@ -27,14 +27,20 @@ import {
   Radio,
   Handshake,
   MonitorSmartphone,
+  ShieldCheck,
 } from "lucide-react";
-import { AdminRole } from "@/generated/prisma/enums";
 
 export interface AdminNavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number }>;
-  roles?: AdminRole[];
+  /**
+   * The capability the page behind this link needs. Omitted means every
+   * administrator can open it. This only decides what is SHOWN — the page
+   * itself checks the same capability, so a hidden link is never what keeps
+   * anybody out.
+   */
+  capability?: string;
 }
 
 export interface AdminNavGroup {
@@ -47,13 +53,13 @@ export const ADMIN_NAV: AdminNavGroup[] = [
   {
     title: "Content",
     items: [
-      { href: "/admin/hero-slides", label: "Hero Slides", icon: GalleryHorizontal, roles: [AdminRole.EDITOR] },
-      { href: "/admin/team", label: "Leadership", icon: Users, roles: [AdminRole.EDITOR] },
-      { href: "/admin/news", label: "News", icon: Newspaper, roles: [AdminRole.EDITOR] },
-      { href: "/admin/events", label: "Events", icon: CalendarDays, roles: [AdminRole.EDITOR] },
-      { href: "/admin/about", label: "About Us", icon: Info, roles: [AdminRole.EDITOR] },
-      { href: "/admin/elections", label: "Elections", icon: Vote, roles: [AdminRole.ELECTION_OFFICER] },
-      { href: "/admin/donate", label: "Donate", icon: HandHeart, roles: [AdminRole.EDITOR] },
+      { href: "/admin/hero-slides", label: "Hero Slides", icon: GalleryHorizontal, capability: "content.hero" },
+      { href: "/admin/team", label: "Leadership", icon: Users, capability: "content.team" },
+      { href: "/admin/news", label: "News", icon: Newspaper, capability: "content.news" },
+      { href: "/admin/events", label: "Events", icon: CalendarDays, capability: "content.events" },
+      { href: "/admin/about", label: "About Us", icon: Info, capability: "content.about" },
+      { href: "/admin/elections", label: "Elections", icon: Vote, capability: "elections.manage" },
+      { href: "/admin/donate", label: "Donate", icon: HandHeart, capability: "content.donate" },
     ],
   },
   {
@@ -63,43 +69,43 @@ export const ADMIN_NAV: AdminNavGroup[] = [
         href: "/admin/membership-applications",
         label: "Applications",
         icon: ClipboardList,
-        roles: [AdminRole.MEMBERSHIP_OFFICER],
+        capability: "members.applications",
       },
-      { href: "/admin/members", label: "Members", icon: Users, roles: [AdminRole.MEMBERSHIP_OFFICER] },
+      { href: "/admin/members", label: "Members", icon: Users, capability: "members.records" },
       {
         href: "/admin/academic-options",
         label: "Departments & Programmes",
         icon: School,
-        roles: [AdminRole.MEMBERSHIP_OFFICER],
+        capability: "members.academic",
       },
       {
         href: "/admin/special-needs-categories",
         label: "Special Needs Categories",
         icon: Accessibility,
-        roles: [AdminRole.MEMBERSHIP_OFFICER],
+        capability: "members.academic",
       },
-      { href: "/admin/dues", label: "Dues", icon: Wallet, roles: [AdminRole.MEMBERSHIP_OFFICER] },
-      { href: "/admin/finance", label: "Finance", icon: Landmark, roles: [AdminRole.MEMBERSHIP_OFFICER] },
-      { href: "/admin/alumni", label: "Alumni", icon: GraduationCap, roles: [AdminRole.MEMBERSHIP_OFFICER] },
-      { href: "/admin/patrons", label: "Patrons", icon: Award, roles: [AdminRole.MEMBERSHIP_OFFICER] },
-      { href: "/admin/users", label: "User Status Matrix", icon: UserCog, roles: [AdminRole.MEMBERSHIP_OFFICER] },
+      { href: "/admin/dues", label: "Dues", icon: Wallet, capability: "finance.dues" },
+      { href: "/admin/finance", label: "Finance", icon: Landmark, capability: "finance.ledger" },
+      { href: "/admin/alumni", label: "Alumni", icon: GraduationCap, capability: "members.alumni" },
+      { href: "/admin/patrons", label: "Patrons", icon: Award, capability: "members.patrons" },
+      { href: "/admin/users", label: "User Status Matrix", icon: UserCog, capability: "members.accounts" },
     ],
   },
   {
     title: "Student Support",
     items: [
-      { href: "/admin/advocacy", label: "Escalation Desk", icon: Scale, roles: [AdminRole.MEMBERSHIP_OFFICER] },
+      { href: "/admin/advocacy", label: "Escalation Desk", icon: Scale, capability: "support.barriers" },
       {
         href: "/admin/support-requests",
         label: "Support Requests",
         icon: LifeBuoy,
-        roles: [AdminRole.MEMBERSHIP_OFFICER],
+        capability: "support.requests",
       },
       {
         href: "/admin/opportunities",
         label: "Opportunity Board",
         icon: BriefcaseBusiness,
-        roles: [AdminRole.MEMBERSHIP_OFFICER],
+        capability: "support.opportunities",
       },
     ],
   },
@@ -110,35 +116,36 @@ export const ADMIN_NAV: AdminNavGroup[] = [
         href: "/admin/allies",
         label: "Allies & Champions",
         icon: Handshake,
-        roles: [AdminRole.EDITOR, AdminRole.MEMBERSHIP_OFFICER],
+        capability: "outreach.allies",
       },
       {
         href: "/admin/assistive-tech",
         label: "Assistive Software",
         icon: MonitorSmartphone,
-        roles: [AdminRole.EDITOR, AdminRole.MEMBERSHIP_OFFICER],
+        capability: "outreach.software",
       },
     ],
   },
   {
     title: "Library",
-    items: [{ href: "/admin/library", label: "Documents", icon: BookOpen, roles: [AdminRole.LIBRARIAN] }],
+    items: [{ href: "/admin/library", label: "Documents", icon: BookOpen, capability: "library.documents" }],
   },
   {
     title: "Messages",
     items: [
-      { href: "/admin/broadcasts", label: "Broadcasts", icon: Radio, roles: [AdminRole.MEMBERSHIP_OFFICER] },
-      { href: "/admin/contact-messages", label: "Contact Messages", icon: Mail },
+      { href: "/admin/broadcasts", label: "Broadcasts", icon: Radio, capability: "messages.broadcasts" },
+      { href: "/admin/contact-messages", label: "Contact Messages", icon: Mail, capability: "messages.contact" },
     ],
   },
   {
     title: "Media & Site",
     items: [
-      { href: "/admin/media", label: "Media Library", icon: ImageIcon },
-      { href: "/admin/social-links", label: "Social Links", icon: Share2 },
-      { href: "/admin/settings", label: "Settings", icon: Settings, roles: [AdminRole.SUPER_ADMIN] },
-      { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText, roles: [AdminRole.SUPER_ADMIN] },
-      { href: "/admin/email-logs", label: "Email Logs", icon: Mail, roles: [AdminRole.SUPER_ADMIN] },
+      { href: "/admin/media", label: "Media Library", icon: ImageIcon, capability: "content.media" },
+      { href: "/admin/social-links", label: "Social Links", icon: Share2, capability: "content.social" },
+      { href: "/admin/permissions", label: "Executive Permissions", icon: ShieldCheck, capability: "site.permissions" },
+      { href: "/admin/settings", label: "Settings", icon: Settings, capability: "site.settings" },
+      { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText, capability: "site.audit" },
+      { href: "/admin/email-logs", label: "Email Logs", icon: Mail, capability: "site.emails" },
     ],
   },
 ];

@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { NewsForm } from "@/components/admin/forms/NewsForm";
 import { listNewsCategories } from "@/lib/services/news-service";
 
@@ -5,6 +6,7 @@ export const metadata = { title: "New Article" };
 export const dynamic = "force-dynamic";
 
 export default async function NewNewsPage() {
+  await requireCapability("content.news");
   const categories = await listNewsCategories();
   return (
     <div className="max-w-3xl">

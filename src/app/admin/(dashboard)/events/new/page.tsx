@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import { EventForm } from "@/components/admin/forms/EventForm";
 import { listEventCategories } from "@/lib/services/event-service";
 
@@ -5,6 +6,7 @@ export const metadata = { title: "New Event" };
 export const dynamic = "force-dynamic";
 
 export default async function NewEventPage() {
+  await requireCapability("content.events");
   const categories = await listEventCategories();
   return (
     <div className="max-w-3xl">

@@ -1,3 +1,4 @@
+import { WelcomeGreeting } from "@/components/ui/WelcomeGreeting";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight, Briefcase, GraduationCap, Network, User, UserRound } from "lucide-react";
@@ -123,6 +124,7 @@ export function AlumniDashboardView({
 
   return (
     <div className="space-y-6">
+      <WelcomeGreeting firstName={alumni.firstName} />
       {notices.passwordChanged && <PortalNotice tone="success">Your password has been changed.</PortalNotice>}
 
       <section aria-labelledby="welcome-heading" className="rounded-xl bg-primary-900 text-white p-6 sm:p-8 shadow-card">

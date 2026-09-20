@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Scale } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole, type BarrierReportStatus } from "@/generated/prisma/client";
 import { countBarrierReportsByStatus, listBarrierReports } from "@/lib/services/barrier-report-service";
 import { EmptyState } from "@/components/ui/Common";
@@ -36,7 +36,7 @@ function statusTone(status: string): string {
  * change here demands a note.
  */
 export default async function AdminAdvocacyDeskPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("support.barriers");
   const { status: raw } = await searchParams;
   const tab = TABS.some((t) => t.value === raw) ? (raw as BarrierReportStatus | "OPEN" | "ALL") : "OPEN";
 

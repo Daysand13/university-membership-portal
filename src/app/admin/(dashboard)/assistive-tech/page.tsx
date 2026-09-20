@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { MonitorSmartphone, Plus, Settings2 } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { getAssistiveTechSettings, listSoftwareForAdmin } from "@/lib/services/assistive-software-service";
 import { AssistiveTechSectionNav } from "@/components/admin/OutreachSectionNav";
@@ -14,7 +14,7 @@ export const metadata = { title: "Assistive Software" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminAssistiveTechPage() {
-  await requireAdminRole(AdminRole.EDITOR, AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("outreach.software");
   const [software, settings] = await Promise.all([listSoftwareForAdmin(), getAssistiveTechSettings()]);
 
   return (

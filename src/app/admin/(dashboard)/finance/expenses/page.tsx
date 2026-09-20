@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Plus, Receipt } from "lucide-react";
-import { requireAdminRole } from "@/lib/auth/admin";
+import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { listExpenses } from "@/lib/services/patron-finance-service";
 import { FinanceSectionNav } from "@/components/admin/FinanceSectionNav";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
 export default async function AdminExpensesPage({ searchParams }: { searchParams: Promise<{ saved?: string }> }) {
-  await requireAdminRole(AdminRole.MEMBERSHIP_OFFICER);
+  await requireCapability("finance.ledger");
   const { saved } = await searchParams;
   const expenses = await listExpenses();
   const total = expenses.reduce((sum, e) => sum + e.amountPesewas, 0);

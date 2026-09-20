@@ -1,3 +1,4 @@
+import { requireCapability } from "@/lib/auth/admin";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DocumentForm } from "@/components/admin/forms/DocumentForm";
@@ -7,6 +8,7 @@ export const metadata = { title: "Edit Document" };
 export const dynamic = "force-dynamic";
 
 export default async function EditDocumentPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireCapability("library.documents");
   const { id } = await params;
   const [document, categories] = await Promise.all([getDocumentForAdmin(id), listDocumentCategories()]);
   if (!document) notFound();
