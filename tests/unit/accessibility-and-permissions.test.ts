@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseProse } from "@/lib/prose";
+import { asPoints } from "@/components/ui/ProseText";
 import { buildGreeting, segmentForHour } from "@/components/ui/WelcomeGreeting";
 import { AdminRole } from "@/generated/prisma/enums";
 import {
@@ -35,6 +36,37 @@ describe("points typed into a plain box", () => {
   it("doesn't turn a stray hyphen inside a sentence into a bullet", () => {
     expect(parseProse("Students with special needs-including deaf students-are represented.")).toEqual([
       { kind: "paragraph", lines: ["Students with special needs-including deaf students-are represented."] },
+    ]);
+  });
+});
+
+describe("sections that are lists of points", () => {
+  // How the association actually writes its core values: one point per
+  // paragraph, a label, a colon, and no dash in sight.
+  const coreValues = [
+    "Inclusivity: Ensuring every member feels welcomed.",
+    "",
+    "Advocacy: Speaking up for the rights of students with special needs.",
+    "",
+    "Empowerment: Building confidence and independence.",
+  ].join("\n");
+
+  it("bullets each point, however it was typed", () => {
+    expect(asPoints(parseProse(coreValues))).toEqual([
+      {
+        kind: "bullets",
+        items: [
+          "Inclusivity: Ensuring every member feels welcomed.",
+          "Advocacy: Speaking up for the rights of students with special needs.",
+          "Empowerment: Building confidence and independence.",
+        ],
+      },
+    ]);
+  });
+
+  it("leaves a list the writer marked up exactly as they marked it", () => {
+    expect(asPoints(parseProse("1. Access\n2. Dignity"))).toEqual([
+      { kind: "numbers", items: ["Access", "Dignity"] },
     ]);
   });
 });

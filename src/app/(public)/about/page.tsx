@@ -12,12 +12,21 @@ import { altTextFor, describeImages } from "@/lib/services/image-description-ser
 export const metadata: Metadata = { title: "About Us" };
 export const dynamic = "force-dynamic";
 
-function Section({ title, content }: { title: string; content: string | null }) {
+function Section({
+  title,
+  content,
+  points = false,
+}: {
+  title: string;
+  content: string | null;
+  /** Sections that are a list of points, however the writer typed them. */
+  points?: boolean;
+}) {
   if (!content) return null;
   return (
     <div className="py-8 border-b border-line last:border-0">
       <h2 className="font-display font-bold text-xl text-primary-950 mb-3">{title}</h2>
-      <ProseText text={content} />
+      <ProseText text={content} points={points} />
     </div>
   );
 }
@@ -72,7 +81,7 @@ export default async function AboutPage() {
             <Section title="Mission Statement" content={about.mission} />
             <Section title="Vision Statement" content={about.vision} />
             <Section title="Our History and Background" content={about.history} />
-            <Section title="Core Values" content={about.coreValues} />
+            <Section title="Core Values" content={about.coreValues} points />
           </>
         ) : (
           <p className="text-slate text-center py-12">
@@ -103,9 +112,9 @@ export default async function AboutPage() {
           </div>
         )}
 
-        <Section title="Objectives and Goals" content={about.objectives} />
-        <Section title="Membership Eligibility and Categories" content={about.membershipEligibility} />
-        <Section title="Partners and Stakeholders" content={about.partnersStakeholders} />
+        <Section title="Objectives and Goals" content={about.objectives} points />
+        <Section title="Membership Eligibility and Categories" content={about.membershipEligibility} points />
+        <Section title="Partners and Stakeholders" content={about.partnersStakeholders} points />
 
         {(hasContactInfo || mapLocation) && (
           <div className="py-8">
