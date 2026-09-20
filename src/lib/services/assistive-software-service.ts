@@ -1,8 +1,8 @@
 import "server-only";
 import { db } from "@/lib/db";
-import type { AdminUser, SoftwareCategory, SoftwareRequestStatus } from "@/generated/prisma/client";
+import type { AdminUser, SoftwareCategory, SoftwareRequestStatus, TechRequestKind } from "@/generated/prisma/client";
 import { deliver, firstNameOf } from "@/lib/services/account-notification-service";
-import { notifyAdminsOfSoftwareRequest } from "@/lib/services/outreach-notification-service";
+import { notifyAdminsOfTechRequest } from "@/lib/services/outreach-notification-service";
 import {
   DEFAULT_ASSISTIVE_TECH_SETTINGS,
   SOFTWARE_REQUEST_STATUS_LABELS,
@@ -115,17 +115,18 @@ export async function deleteSoftware(id: string, admin: Pick<AdminUser, "id">) {
 // Requests
 // ---------------------------------------------------------------------------
 
-export async function createSoftwareRequest(input: {
+export async function createTechRequest(input: {
+  kind: TechRequestKind;
   fullName: string;
   email: string;
-  softwareName: string;
+  topic: string;
   category: SoftwareCategory;
-  operatingSystem: string;
+  operatingSystem: string | null;
   notes: string | null;
   memberId: string | null;
 }) {
   const request = await db.softwareRequest.create({ data: input });
-  await notifyAdminsOfSoftwareRequest(request);
+  await notifyAdminsOfTechRequest(request);
   // A receipt, so the person knows it arrived and what happens next.
   await deliver({
     to: { email: request.email, firstName: firstNameOf(request.fullName) },
@@ -133,31 +134,33 @@ export async function createSoftwareRequest(input: {
     entityType: "SoftwareRequest",
     entityId: request.id,
     build: () => ({
-      subject: `We've received your request for ${request.softwareName}`,
+      subject: `We've received your request for ${request.topic}`,
       paragraphs: [
         "Thank you — your request is with the association's technical team.",
-        "If the software is free, we'll add it to the Telegram library. If it needs a paid licence, the team will see whether donated funds can cover it. Either way, we'll email you with what we can do.",
+        request.kind === "TUTORIAL"
+          ? "The team records walk-throughs as they can, and publishes them on the Tech & Tutorials page. We'll email you when yours is up, or if we can point you to one that already covers it."
+          : "If the software is free, we'll add it to the Telegram library. If it needs a paid licence, the team will see whether donated funds can cover it. Either way, we'll email you with what we can do.",
       ],
       details: [
-        { label: "Software", value: request.softwareName },
+        { label: request.kind === "TUTORIAL" ? "Tutorial" : "Software", value: request.topic },
         { label: "For", value: softwareCategoryLabel(request.category) },
-        { label: "On", value: request.operatingSystem },
+        ...(request.operatingSystem ? [{ label: "On", value: request.operatingSystem }] : []),
       ],
     }),
   });
   return request;
 }
 
-export async function listSoftwareRequests(status?: SoftwareRequestStatus) {
+export async function listTechRequests(filter?: { status?: SoftwareRequestStatus; kind?: TechRequestKind }) {
   return db.softwareRequest.findMany({
-    where: status ? { status } : {},
+    where: { ...(filter?.status ? { status: filter.status } : {}), ...(filter?.kind ? { kind: filter.kind } : {}) },
     orderBy: { createdAt: "desc" },
     include: { handledBy: { select: { name: true } } },
     take: 300,
   });
 }
 
-export async function getSoftwareRequest(id: string) {
+export async function getTechRequest(id: string) {
   return db.softwareRequest.findUnique({
     where: { id },
     include: {
@@ -175,7 +178,7 @@ export async function countSoftwareRequestsByStatus(): Promise<Record<SoftwareRe
 }
 
 /** Moves a request along; optionally tells the person who asked. */
-export async function updateSoftwareRequest(params: {
+export async function updateTechRequest(params: {
   id: string;
   admin: Pick<AdminUser, "id">;
   status: SoftwareRequestStatus;
@@ -208,10 +211,14 @@ export async function updateSoftwareRequest(params: {
       entityType: "SoftwareRequest",
       entityId: id,
       build: () => ({
-        subject: `Your request for ${request.softwareName}: ${SOFTWARE_REQUEST_STATUS_LABELS[status].toLowerCase()}`,
-        paragraphs: ["There's an update on the software you asked the association's technical team for."],
+        subject: `Your request for ${request.topic}: ${SOFTWARE_REQUEST_STATUS_LABELS[status].toLowerCase()}`,
+        paragraphs: [
+          request.kind === "TUTORIAL"
+            ? "There's an update on the tutorial you asked the association's technical team for."
+            : "There's an update on the software you asked the association's technical team for.",
+        ],
         details: [
-          { label: "Software", value: request.softwareName },
+          { label: request.kind === "TUTORIAL" ? "Tutorial" : "Software", value: request.topic },
           { label: "Status", value: SOFTWARE_REQUEST_STATUS_LABELS[status] },
           ...(adminNote ? [{ label: "From the team", value: adminNote }] : []),
         ],

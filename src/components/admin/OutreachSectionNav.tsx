@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Inbox, LayoutGrid, MonitorSmartphone, UserPlus } from "lucide-react";
+import { Inbox, LayoutGrid, MonitorSmartphone, PlaySquare, UserPlus } from "lucide-react";
 import { countAllySignups } from "@/lib/services/ally-service";
 import { countSoftwareRequestsByStatus } from "@/lib/services/assistive-software-service";
 
@@ -21,15 +21,16 @@ export async function AlliesSectionNav({ current }: { current: "listings" | "sig
   );
 }
 
-export async function AssistiveTechSectionNav({ current }: { current: "directory" | "requests" }) {
+export async function TechTutorialsSectionNav({ current }: { current: "software" | "tutorials" | "requests" }) {
   const counts = await countSoftwareRequestsByStatus();
   return (
     <SectionTabs
-      label="Assistive software sections"
+      label="Tech and tutorials sections"
       current={current}
       tabs={[
-        { key: "directory", href: "/admin/assistive-tech", label: "Directory & Settings", icon: MonitorSmartphone },
-        { key: "requests", href: "/admin/assistive-tech/requests", label: "Requests", icon: Inbox, badge: counts.NEW },
+        { key: "software", href: "/admin/tech-tutorials", label: "Software & Settings", icon: MonitorSmartphone },
+        { key: "tutorials", href: "/admin/tech-tutorials/tutorials", label: "Tutorials", icon: PlaySquare },
+        { key: "requests", href: "/admin/tech-tutorials/requests", label: "Requests", icon: Inbox, badge: counts.NEW },
       ]}
     />
   );

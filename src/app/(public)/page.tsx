@@ -183,9 +183,9 @@ export default async function HomePage() {
             />
             <CTACard
               icon={MonitorSmartphone}
-              title="Assistive Software"
+              title="Tech & Tutorials"
               description="Screen readers, captioning and learning tools for students — free, or funded by donations."
-              href="/assistive-technology"
+              href="/tech-tutorials"
               linkLabel="Explore the tools"
             />
           </div>

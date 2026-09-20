@@ -44,7 +44,7 @@ export async function Footer() {
               ["/library", "Library"],
               ["/elections", "Elections"],
               ["/allies", "Allies & Champions"],
-              ["/assistive-technology", "Assistive Software"],
+              ["/tech-tutorials", "Tech & Tutorials"],
             ].map(([href, label]) => (
               <li key={href}>
                 <Link href={href} className="text-primary-200 hover:text-white transition-colors">

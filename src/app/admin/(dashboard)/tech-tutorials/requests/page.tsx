@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Inbox } from "lucide-react";
 import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole, type SoftwareRequestStatus } from "@/generated/prisma/client";
-import { countSoftwareRequestsByStatus, listSoftwareRequests } from "@/lib/services/assistive-software-service";
-import { AssistiveTechSectionNav } from "@/components/admin/OutreachSectionNav";
+import { countSoftwareRequestsByStatus, listTechRequests } from "@/lib/services/assistive-software-service";
+import { TechTutorialsSectionNav } from "@/components/admin/OutreachSectionNav";
 import { EmptyState } from "@/components/ui/Common";
 import { SOFTWARE_REQUEST_STATUS_LABELS, softwareCategoryLabel } from "@/lib/outreach-options";
 
@@ -27,30 +27,30 @@ const STATUS_TONE: Record<string, string> = {
 
 const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "short", year: "numeric" });
 
-export default async function SoftwareRequestsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+export default async function TechRequestsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   await requireCapability("outreach.software.requests");
   const { status: raw } = await searchParams;
   const tab = TABS.some((t) => t.value === raw) ? (raw as SoftwareRequestStatus | "ALL") : "NEW";
   const [requests, counts] = await Promise.all([
-    listSoftwareRequests(tab === "ALL" ? undefined : tab),
+    listTechRequests(tab === "ALL" ? undefined : { status: tab }),
     countSoftwareRequestsByStatus(),
   ]);
   const total = counts.NEW + counts.IN_PROGRESS + counts.FULFILLED + counts.DECLINED;
 
   return (
     <div>
-      <h1 className="font-display font-bold text-2xl text-primary-950 mb-4">Assistive Software</h1>
-      <AssistiveTechSectionNav current="requests" />
+      <h1 className="font-display font-bold text-2xl text-primary-950 mb-4">Tech &amp; Tutorials</h1>
+      <TechTutorialsSectionNav current="requests" />
       <p className="text-sm text-slate mb-5 max-w-3xl">
-        Tools people asked for that aren&apos;t in the Telegram library yet. Paid ones can be bought from the Assistive
-        Technology fund — record the purchase under Finance.
+        What people have asked for: software that isn&apos;t in the Telegram library yet, and walk-throughs nobody has
+        recorded. Paid software can be bought from the Assistive Technology fund — record the purchase under Finance.
       </p>
 
       <div className="flex flex-wrap gap-1.5 mb-5">
         {TABS.map((t) => (
           <Link
             key={t.value}
-            href={`/admin/assistive-tech/requests?status=${t.value}`}
+            href={`/admin/tech-tutorials/requests?status=${t.value}`}
             aria-current={tab === t.value ? "page" : undefined}
             className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
               tab === t.value ? "bg-primary-800 text-white border-primary-800" : "border-line text-slate hover:border-primary-300"
@@ -62,13 +62,13 @@ export default async function SoftwareRequestsPage({ searchParams }: { searchPar
       </div>
 
       {requests.length === 0 ? (
-        <EmptyState icon={<Inbox size={28} />} title="Nothing here" description="Requests from the Assistive Software page appear here." />
+        <EmptyState icon={<Inbox size={28} />} title="Nothing here" description="Requests from the Tech & Tutorials page appear here." />
       ) : (
         <div className="bg-white rounded-lg border border-line overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
               <tr>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Software</th>
+                <th scope="col" className="text-left px-5 py-3 font-semibold">Asked for</th>
                 <th scope="col" className="text-left px-5 py-3 font-semibold">From</th>
                 <th scope="col" className="text-left px-5 py-3 font-semibold">For</th>
                 <th scope="col" className="text-left px-5 py-3 font-semibold">Asked</th>
@@ -80,12 +80,21 @@ export default async function SoftwareRequestsPage({ searchParams }: { searchPar
                 <tr key={request.id} className="hover:bg-surface-muted/60">
                   <td className="px-5 py-3.5">
                     <Link
-                      href={`/admin/assistive-tech/requests/${request.id}`}
+                      href={`/admin/tech-tutorials/requests/${request.id}`}
                       className="font-medium text-primary-950 hover:text-accent-600"
                     >
-                      {request.softwareName}
+                      {request.topic}
                     </Link>
-                    <p className="text-xs text-slate">{request.operatingSystem}</p>
+                    <p className="text-xs text-slate">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 font-semibold ${
+                          request.kind === "TUTORIAL" ? "bg-accent-100 text-primary-950" : "bg-primary-50 text-primary-800"
+                        }`}
+                      >
+                        {request.kind === "TUTORIAL" ? "Tutorial" : "Software"}
+                      </span>
+                      {request.operatingSystem && <span className="ml-2">{request.operatingSystem}</span>}
+                    </p>
                   </td>
                   <td className="px-5 py-3.5 text-slate">{request.fullName}</td>
                   <td className="px-5 py-3.5 text-slate">{softwareCategoryLabel(request.category)}</td>

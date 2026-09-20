@@ -5,7 +5,8 @@ import {
   priorProgrammeSchema,
   publicDonationSchema,
   softwareListingSchema,
-  softwareRequestSchema,
+  techRequestSchema,
+  tutorialListingSchema,
 } from "@/lib/validations/outreach";
 import { adminBroadcastSchema } from "@/lib/validations/patron-portal";
 import { isPublicGivingReturn, PUBLIC_GIVING_RETURN_PATHS } from "@/lib/services/public-giving-service";
@@ -15,6 +16,7 @@ import {
   sameProgramme,
 } from "@/lib/services/alumni-prior-programme-service";
 import { patronBroadcastEmail } from "@/lib/email/templates";
+import { youTubeEmbedUrl, youTubeThumbnail, youTubeVideoId } from "@/lib/outreach-options";
 
 const brand = { siteTitle: "Association of Students with Special Needs", logoUrl: null, universityLogoUrl: null };
 
@@ -57,7 +59,7 @@ describe("giving without an account", () => {
 
   it("only sends donors back to a fixed list of pages", () => {
     expect(isPublicGivingReturn("allies")).toBe(true);
-    expect(isPublicGivingReturn("assistive-technology")).toBe(true);
+    expect(isPublicGivingReturn("tech-tutorials")).toBe(true);
     // Anything else — including an attempt at an outside address — isn't a page we send people to.
     for (const bad of ["https://evil.example", "//evil.example", "../admin", "constructor", "", null]) {
       expect(isPublicGivingReturn(bad), String(bad)).toBe(false);
@@ -68,23 +70,85 @@ describe("giving without an account", () => {
   });
 });
 
-describe("asking for software", () => {
-  const valid = {
+describe("asking for software, or for a tutorial", () => {
+  const software = {
+    kind: "SOFTWARE",
     fullName: "Ama Owusu",
     email: "ama@example.org",
-    softwareName: "NVDA",
+    topic: "NVDA",
     category: "VISION",
     operatingSystem: "Windows",
     notes: "",
   };
 
-  it("accepts a complete request", () => {
-    expect(softwareRequestSchema.safeParse(valid).success).toBe(true);
+  it("accepts a complete software request", () => {
+    expect(techRequestSchema.safeParse(software).success).toBe(true);
   });
 
   it("needs to know what it's for and what it runs on", () => {
-    expect(softwareRequestSchema.safeParse({ ...valid, category: "" }).success).toBe(false);
-    expect(softwareRequestSchema.safeParse({ ...valid, operatingSystem: "BeOS" }).success).toBe(false);
+    expect(techRequestSchema.safeParse({ ...software, category: "" }).success).toBe(false);
+    expect(techRequestSchema.safeParse({ ...software, operatingSystem: "BeOS" }).success).toBe(false);
+    expect(techRequestSchema.safeParse({ ...software, operatingSystem: "" }).success).toBe(false);
+  });
+
+  it("doesn't ask a tutorial request what operating system it runs on", () => {
+    const tutorial = { ...software, kind: "TUTORIAL", topic: "Reading a PDF with NVDA", operatingSystem: "" };
+    expect(techRequestSchema.safeParse(tutorial).success).toBe(true);
+    expect(techRequestSchema.safeParse({ ...tutorial, topic: "" }).success).toBe(false);
+  });
+});
+
+describe("a tutorial listing", () => {
+  const valid = {
+    title: "Reading a PDF with NVDA",
+    description: "A short walk-through of opening a PDF and reading it with NVDA.",
+    source: "YOUTUBE",
+    url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    thumbnailUrl: "",
+    category: "VISION",
+    durationLabel: "8 min",
+    order: "0",
+    isActive: true,
+  };
+
+  it("needs a title, a description and a link", () => {
+    expect(tutorialListingSchema.safeParse(valid).success).toBe(true);
+    expect(tutorialListingSchema.safeParse({ ...valid, url: "not a link" }).success).toBe(false);
+    expect(tutorialListingSchema.safeParse({ ...valid, title: "" }).success).toBe(false);
+  });
+
+  it("takes TikTok as readily as YouTube, and nothing else", () => {
+    expect(
+      tutorialListingSchema.safeParse({ ...valid, source: "TIKTOK", url: "https://www.tiktok.com/@assn/video/123" }).success,
+    ).toBe(true);
+    expect(tutorialListingSchema.safeParse({ ...valid, source: "VIMEO" }).success).toBe(false);
+  });
+
+  it("lets a tutorial belong to no particular category", () => {
+    expect(tutorialListingSchema.safeParse({ ...valid, category: "" }).success).toBe(true);
+  });
+});
+
+describe("finding the video in a YouTube link", () => {
+  it("reads every shape people paste", () => {
+    expect(youTubeVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
+    expect(youTubeVideoId("https://youtu.be/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
+    expect(youTubeVideoId("https://www.youtube.com/embed/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
+    expect(youTubeVideoId("https://www.youtube.com/shorts/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
+    expect(youTubeVideoId("https://m.youtube.com/watch?v=dQw4w9WgXcQ&t=30s")).toBe("dQw4w9WgXcQ");
+  });
+
+  it("says no to anything that isn't one", () => {
+    expect(youTubeVideoId("https://www.tiktok.com/@assn/video/123")).toBeNull();
+    expect(youTubeVideoId("https://www.youtube.com/")).toBeNull();
+    expect(youTubeVideoId("not a url at all")).toBeNull();
+  });
+
+  it("asks YouTube for nothing until someone presses play", () => {
+    // The still comes from the image host; the player URL is the no-cookie
+    // domain, and is only ever put in the page on a click.
+    expect(youTubeThumbnail("dQw4w9WgXcQ")).toContain("i.ytimg.com/vi/dQw4w9WgXcQ");
+    expect(youTubeEmbedUrl("dQw4w9WgXcQ")).toContain("youtube-nocookie.com/embed/dQw4w9WgXcQ");
   });
 });
 

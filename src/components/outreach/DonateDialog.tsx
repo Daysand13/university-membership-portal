@@ -10,7 +10,7 @@ import { FieldError, FormAlert, Label, inputClasses } from "@/components/ui/Comm
 import { BotProtectionFields } from "@/components/forms/BotProtectionFields";
 import { DONATION_FUNDS, DONATION_PRESETS_CEDIS, MAX_DONATION_CEDIS, MIN_DONATION_CEDIS } from "@/lib/patron-portal-options";
 
-type ReturnPage = "allies" | "assistive-technology";
+type ReturnPage = "allies" | "tech-tutorials";
 
 /**
  * Giving without an account, in a dialog over the page the visitor is

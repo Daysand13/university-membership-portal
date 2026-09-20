@@ -7,15 +7,15 @@ import { detectBot } from "@/lib/bot-protection";
 import { logFlaggedSubmission } from "@/lib/services/flagged-submission-service";
 import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { getCurrentMember } from "@/lib/auth/member";
-import { allySignupSchema, publicDonationSchema, softwareRequestSchema } from "@/lib/validations/outreach";
+import { allySignupSchema, publicDonationSchema, techRequestSchema } from "@/lib/validations/outreach";
 import { cedisToPesewas } from "@/lib/validations/patron-portal";
 import { confirmAllySignup, registerAlly, unsubscribeAlly } from "@/lib/services/ally-service";
-import { createSoftwareRequest } from "@/lib/services/assistive-software-service";
+import { createTechRequest } from "@/lib/services/assistive-software-service";
 import { initiatePublicDonation, isPublicGivingReturn } from "@/lib/services/public-giving-service";
 import type { ActionState } from "./types";
 
 /**
- * The forms on the public Allies and Assistive Software pages. Anyone can
+ * The forms on the public Allies and Tech & Tutorials pages. Anyone can
  * use them without an account, so each one has the same invisible bot
  * checks and per-address rate limits as the contact form — and none of them
  * says whether an email address is already known.
@@ -106,39 +106,41 @@ async function startPublicDonationActionImpl(_prevState: ActionState, formData: 
     amountPesewas: cedisToPesewas(parsed.data.amount),
     fund: parsed.data.fund,
     callbackUrl: appUrl(`/api/donations/callback?return=${page}`),
-    sourcePage: page === "allies" ? "Allies & Champions" : page === "assistive-technology" ? "Assistive Software" : "Donate",
+    sourcePage: page === "allies" ? "Allies & Champions" : page === "tech-tutorials" ? "Tech & Tutorials" : "Donate",
   });
   if (!result.ok) return { error: result.error };
   redirect(result.authorizationUrl);
 }
 
 // ---------------------------------------------------------------------------
-// Asking for software
+// Asking for software, or for a tutorial
 // ---------------------------------------------------------------------------
 
-async function submitSoftwareRequestActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+async function submitTechRequestActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
   const botSignal = detectBot(formData);
   if (botSignal) {
-    await logFlaggedSubmission({ form: "software-request", signal: botSignal, allowedThrough: false, formData });
+    await logFlaggedSubmission({ form: "tech-request", signal: botSignal, allowedThrough: false, formData });
     return { success: true };
   }
 
   const ip = await getClientIp();
-  const limit = await checkRateLimit(`software-request:ip:${ip}`, { max: 5, windowSeconds: 3600 });
+  const limit = await checkRateLimit(`tech-request:ip:${ip}`, { max: 5, windowSeconds: 3600 });
   if (!limit.allowed) return { error: RATE_LIMIT_MESSAGE };
 
-  const parsed = softwareRequestSchema.safeParse(Object.fromEntries(formData));
+  const parsed = techRequestSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
   // Linked to the student's record when they happen to be signed in, so the
   // team can see who they're helping; never required.
   const member = await getCurrentMember().catch(() => null);
-  await createSoftwareRequest({
+  await createTechRequest({
     ...parsed.data,
+    // A tutorial is watched, not installed, so the field isn't asked for.
+    operatingSystem: parsed.data.kind === "SOFTWARE" ? (parsed.data.operatingSystem ?? null) : null,
     notes: blankToNull(parsed.data.notes),
     memberId: member?.id ?? null,
   });
-  revalidatePath("/admin/assistive-tech/requests");
+  revalidatePath("/admin/tech-tutorials/requests");
   return { success: true };
 }
 
@@ -149,7 +151,7 @@ export const startPublicDonationAction = withActionErrorHandling(
   "startPublicDonationAction",
   startPublicDonationActionImpl,
 );
-export const submitSoftwareRequestAction = withActionErrorHandling(
-  "submitSoftwareRequestAction",
-  submitSoftwareRequestActionImpl,
+export const submitTechRequestAction = withActionErrorHandling(
+  "submitTechRequestAction",
+  submitTechRequestActionImpl,
 );

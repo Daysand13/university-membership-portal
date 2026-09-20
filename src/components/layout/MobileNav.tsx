@@ -15,7 +15,7 @@ const PRIMARY_LINKS = [
   { href: "/alumni", label: "Alumni" },
   { href: "/patrons", label: "Patrons" },
   { href: "/allies", label: "Allies & Champions" },
-  { href: "/assistive-technology", label: "Assistive Software" },
+  { href: "/tech-tutorials", label: "Tech & Tutorials" },
   { href: "/contact", label: "Contact Us" },
 ];
 

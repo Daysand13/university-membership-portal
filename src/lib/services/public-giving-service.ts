@@ -6,7 +6,7 @@ import { initializeTransaction, isPaystackConfigured } from "@/lib/services/pays
 import { ONLINE_DONATION_PREFIX } from "@/lib/services/patron-finance-service";
 
 /**
- * Giving from the public pages — Allies & Champions and Assistive Software —
+ * Giving from the public pages — Allies & Champions and Tech & Tutorials —
  * by anyone, with no account. The same Donation rows, funds and Paystack
  * path as patrons' and alumni's gifts, with neither patronId nor alumniId
  * set. The receipt goes to the email address they gave.
@@ -18,7 +18,9 @@ import { ONLINE_DONATION_PREFIX } from "@/lib/services/patron-finance-service";
  */
 export const PUBLIC_GIVING_RETURN_PATHS = {
   allies: "/allies",
-  "assistive-technology": "/assistive-technology",
+  // The old Software Hub address still resolves (it redirects), but a gift
+  // should land back on the page the giver was actually reading.
+  "tech-tutorials": "/tech-tutorials",
   donate: "/donate",
 } as const;
 

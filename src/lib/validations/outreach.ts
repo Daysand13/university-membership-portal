@@ -4,6 +4,8 @@ import {
   ALLY_TYPE_VALUES,
   PRIOR_QUALIFICATIONS,
   REQUEST_OPERATING_SYSTEMS,
+  TECH_REQUEST_KIND_VALUES,
+  TUTORIAL_SOURCE_VALUES,
   SOFTWARE_CATEGORY_VALUES,
   SOFTWARE_PLATFORM_VALUES,
 } from "@/lib/outreach-options";
@@ -55,15 +57,39 @@ export const publicDonationSchema = z.object({
 });
 export type PublicDonationInput = z.infer<typeof publicDonationSchema>;
 
-export const softwareRequestSchema = z.object({
-  fullName: z.string().trim().min(2, "Enter your full name").max(150),
-  email,
-  softwareName: z.string().trim().min(2, "Which software do you need?").max(150),
-  category: z.enum(SOFTWARE_CATEGORY_VALUES, { message: "Choose the area it helps with" }),
-  operatingSystem: z.enum(REQUEST_OPERATING_SYSTEMS, { message: "Choose your operating system" }),
-  notes: optionalText(2000),
+export const techRequestSchema = z
+  .object({
+    kind: z.enum(TECH_REQUEST_KIND_VALUES, { message: "Choose what you're asking for" }),
+    fullName: z.string().trim().min(2, "Enter your full name").max(150),
+    email,
+    topic: z.string().trim().min(2, "Tell us what you need").max(150),
+    category: z.enum(SOFTWARE_CATEGORY_VALUES, { message: "Choose the area it helps with" }),
+    /** Only meaningful for software: a tutorial is watched, not installed. */
+    operatingSystem: z.enum(REQUEST_OPERATING_SYSTEMS).or(z.literal("")).optional(),
+    notes: optionalText(2000),
+  })
+  .refine((data) => data.kind !== "SOFTWARE" || Boolean(data.operatingSystem), {
+    message: "Choose your operating system",
+    path: ["operatingSystem"],
+  });
+export type TechRequestInput = z.infer<typeof techRequestSchema>;
+
+export const tutorialListingSchema = z.object({
+  title: z.string().trim().min(3, "Give the tutorial a title").max(200),
+  description: z.string().trim().min(10, "Say what it covers").max(600),
+  source: z.enum(TUTORIAL_SOURCE_VALUES, { message: "Choose YouTube or TikTok" }),
+  url: z
+    .string()
+    .trim()
+    .url("Paste the link to the video")
+    .max(1000),
+  thumbnailUrl: optionalText(1000),
+  category: z.enum(SOFTWARE_CATEGORY_VALUES).or(z.literal("")).optional(),
+  durationLabel: optionalText(20),
+  order: z.coerce.number().int().min(0).max(9999).default(0),
+  isActive: z.boolean(),
 });
-export type SoftwareRequestInput = z.infer<typeof softwareRequestSchema>;
+export type TutorialListingInput = z.infer<typeof tutorialListingSchema>;
 
 // --- Admin forms ------------------------------------------------------------------
 

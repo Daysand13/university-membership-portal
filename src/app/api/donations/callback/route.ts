@@ -32,6 +32,6 @@ export async function GET(request: NextRequest) {
   const url = new URL(path, request.nextUrl.origin);
   url.searchParams.set("donation", result.ok ? result.status.toLowerCase() : "error");
   // Land back on the part of the page the gift was made from.
-  if (path === "/allies" || path === "/assistive-technology") url.hash = "donate";
+  if (path === "/allies" || path === "/tech-tutorials") url.hash = "donate";
   return NextResponse.redirect(url);
 }

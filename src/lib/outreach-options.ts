@@ -1,6 +1,6 @@
 /**
  * Fixed choices for the public outreach pages — Allies & Champions and
- * Assistive Software — and for alumni's earlier programmes. Plain data,
+ * Tech & Tutorials — and for alumni's earlier programmes. Plain data,
  * safe to import from client components.
  */
 
@@ -94,3 +94,68 @@ export const DEFAULT_ALLIES_PAGE_SETTINGS: AlliesPageSettings = {
 export const PRIOR_QUALIFICATIONS = ["Bachelor's degree", "Diploma", "Higher National Diploma", "Other"] as const;
 
 export const DEFAULT_PRIOR_INSTITUTION = "University of Education, Winneba";
+
+// --- Tutorials ----------------------------------------------------------------
+
+export const TUTORIAL_SOURCES = [
+  { value: "YOUTUBE", label: "YouTube", short: "YouTube Tutorials" },
+  { value: "TIKTOK", label: "TikTok", short: "TikTok Tips" },
+] as const;
+
+export type TutorialSourceValue = (typeof TUTORIAL_SOURCES)[number]["value"];
+export const TUTORIAL_SOURCE_VALUES = TUTORIAL_SOURCES.map((s) => s.value) as [TutorialSourceValue, ...TutorialSourceValue[]];
+
+export function tutorialSourceLabel(value: string): string {
+  return TUTORIAL_SOURCES.find((s) => s.value === value)?.label ?? value;
+}
+
+/**
+ * The YouTube video id inside any of the shapes people paste: a watch
+ * link, a share link, an embed, or a Short. Returns null for anything
+ * else, including a TikTok URL — TikTok has no equivalent id we can build
+ * a thumbnail from, so those keep an uploaded one.
+ */
+export function youTubeVideoId(url: string): string | null {
+  try {
+    const parsed = new URL(url.trim());
+    const host = parsed.hostname.replace(/^www\./, "");
+    if (host === "youtu.be") return parsed.pathname.slice(1).split("/")[0] || null;
+    if (!host.endsWith("youtube.com") && !host.endsWith("youtube-nocookie.com")) return null;
+    const fromQuery = parsed.searchParams.get("v");
+    if (fromQuery) return fromQuery;
+    const match = parsed.pathname.match(/^\/(?:embed|shorts|live|v)\/([^/?#]+)/);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+/** YouTube's own still for a video — no API key, and nothing loads until the card is on screen. */
+export function youTubeThumbnail(videoId: string): string {
+  return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+}
+
+/** Privacy-respecting player: nothing is requested from YouTube until someone presses play. */
+export function youTubeEmbedUrl(videoId: string): string {
+  return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0`;
+}
+
+/** The filter tabs across the top of the Tech & Tutorials grid. */
+export const TECH_FILTERS = [
+  { value: "ALL", label: "All" },
+  { value: "SOFTWARE", label: "Software Downloads" },
+  { value: "YOUTUBE", label: "YouTube Tutorials" },
+  { value: "TIKTOK", label: "TikTok Tips" },
+] as const;
+
+/** What someone is asking for on the request form. */
+export const TECH_REQUEST_KINDS = [
+  { value: "SOFTWARE", label: "Software", hint: "A tool or app you need for your studies." },
+  { value: "TUTORIAL", label: "A tutorial", hint: "A walk-through of how to do something." },
+] as const;
+
+export type TechRequestKindValue = (typeof TECH_REQUEST_KINDS)[number]["value"];
+export const TECH_REQUEST_KIND_VALUES = TECH_REQUEST_KINDS.map((k) => k.value) as [
+  TechRequestKindValue,
+  ...TechRequestKindValue[],
+];

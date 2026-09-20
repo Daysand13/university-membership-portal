@@ -89,8 +89,8 @@ export const CAPABILITY_MODULES: CapabilityModule[] = [
     title: "Outreach",
     capabilities: [
       { key: "outreach.allies", label: "Manage allies and champions" },
-      { key: "outreach.software", label: "Manage assistive software" },
-      { key: "outreach.software.requests", label: "Handle software requests" },
+      { key: "outreach.software", label: "Manage tech & tutorials" },
+      { key: "outreach.software.requests", label: "Handle software and tutorial requests" },
     ],
   },
   {

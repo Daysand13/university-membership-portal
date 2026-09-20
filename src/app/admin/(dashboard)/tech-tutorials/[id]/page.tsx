@@ -25,8 +25,8 @@ export default async function EditSoftwarePage({
 
   return (
     <div className="max-w-3xl">
-      <Link href="/admin/assistive-tech" className="inline-flex items-center gap-1 text-sm text-slate hover:text-primary-800 mb-4">
-        <ChevronLeft size={16} aria-hidden="true" /> Assistive Software
+      <Link href="/admin/tech-tutorials" className="inline-flex items-center gap-1 text-sm text-slate hover:text-primary-800 mb-4">
+        <ChevronLeft size={16} aria-hidden="true" /> Tech &amp; Tutorials
       </Link>
       {created === "1" && (
         <div role="status" className="mb-5 rounded-lg border border-success bg-success-light text-success px-4 py-3 text-sm font-medium">

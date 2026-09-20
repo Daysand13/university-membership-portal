@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, Inbox, UserRound } from "lucide-react";
 import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
-import { getSoftwareRequest } from "@/lib/services/assistive-software-service";
+import { getTechRequest } from "@/lib/services/assistive-software-service";
 import { SoftwareRequestUpdateForm } from "@/components/admin/forms/OutreachForms";
 import { SOFTWARE_REQUEST_STATUS_LABELS, softwareCategoryLabel } from "@/lib/outreach-options";
 
@@ -15,18 +15,18 @@ const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "lo
 export default async function SoftwareRequestPage({ params }: { params: Promise<{ id: string }> }) {
   await requireCapability("outreach.software.requests");
   const { id } = await params;
-  const request = await getSoftwareRequest(id);
+  const request = await getTechRequest(id);
   if (!request) notFound();
 
   return (
     <div className="max-w-5xl">
       <Link
-        href="/admin/assistive-tech/requests"
+        href="/admin/tech-tutorials/requests"
         className="inline-flex items-center gap-1 text-sm text-slate hover:text-primary-800 mb-4"
       >
         <ChevronLeft size={16} aria-hidden="true" /> Software Requests
       </Link>
-      <h1 className="font-display font-bold text-2xl text-primary-950 mb-1">{request.softwareName}</h1>
+      <h1 className="font-display font-bold text-2xl text-primary-950 mb-1">{request.topic}</h1>
       <p className="text-sm text-slate mb-6">
         {SOFTWARE_REQUEST_STATUS_LABELS[request.status]} · asked {dateFormat.format(request.createdAt)}
         {request.handledBy && ` · last updated by ${request.handledBy.name}`}
@@ -41,7 +41,7 @@ export default async function SoftwareRequestPage({ params }: { params: Promise<
             <dl className="grid gap-3 sm:grid-cols-2 text-sm">
               <div>
                 <dt className="text-slate">Software</dt>
-                <dd className="font-semibold text-primary-950">{request.softwareName}</dd>
+                <dd className="font-semibold text-primary-950">{request.topic}</dd>
               </div>
               <div>
                 <dt className="text-slate">Helps with</dt>

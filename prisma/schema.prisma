@@ -1912,6 +1912,12 @@ model AssistiveSoftware {
   @@map("assistive_software")
 }
 
+/// What someone is asking the technical team for.
+enum TechRequestKind {
+  SOFTWARE
+  TUTORIAL
+}
+
 enum SoftwareRequestStatus {
   NEW
   IN_PROGRESS
@@ -1921,13 +1927,57 @@ enum SoftwareRequestStatus {
 
 /// A request for a tool the library doesn't have yet, from the public page.
 /// Handled by the technical team; paid tools are bought with donations.
+/// Where a tutorial lives. Only the two the association actually posts to.
+enum TutorialSource {
+  YOUTUBE
+  TIKTOK
+}
+
+/// A video walk-through — using a screen reader, setting up captions,
+/// getting the most out of a phone's accessibility settings.
+///
+/// The video itself stays on YouTube or TikTok, where it is already
+/// captioned and playable; this row is what the site needs to show a card
+/// for it and let someone play or open it.
+model Tutorial {
+  id          String         @id @default(cuid())
+  title       String
+  description String
+  source      TutorialSource
+  /// The page a viewer would open: a YouTube watch URL or a TikTok video URL.
+  url         String
+  /// For YouTube, the video id pulled out of the URL — enough to show a
+  /// thumbnail and play it in place, without loading anything from
+  /// YouTube until someone asks for it.
+  videoId     String?
+  /// Uploaded by an administrator. YouTube falls back to its own thumbnail.
+  thumbnailUrl String?
+  /// Which kind of access it helps with, so it filters alongside software.
+  category     SoftwareCategory?
+  /// As written on the video, e.g. "8 min".
+  durationLabel String?
+
+  order    Int     @default(0)
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, order])
+  @@map("tutorials")
+}
+
 model SoftwareRequest {
-  id              String           @id @default(cuid())
-  fullName        String
-  email           String
-  softwareName    String
+  id       String          @id @default(cuid())
+  kind     TechRequestKind @default(SOFTWARE)
+  fullName String
+  email    String
+  /// The software they need, or what the tutorial should cover. The column
+  /// keeps its original name so existing requests are untouched.
+  topic           String           @map("softwareName")
   category        SoftwareCategory
-  operatingSystem String
+  /// Only asked for software: a tutorial is watched, not installed.
+  operatingSystem String?
   notes           String?
 
   /// The signed-in student who asked, when they were signed in.

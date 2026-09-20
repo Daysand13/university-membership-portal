@@ -10,11 +10,13 @@ import {
   saveAlliesSettingsAction,
   saveAssistiveSettingsAction,
   saveSoftwareAction,
-  updateSoftwareRequestAction,
+  saveTutorialAction,
+  updateTechRequestAction,
 } from "@/lib/actions/outreach-admin-actions";
 import { initialActionState } from "@/lib/actions/types";
 import {
   SOFTWARE_CATEGORIES,
+  TUTORIAL_SOURCES,
   SOFTWARE_PLATFORMS,
   SOFTWARE_REQUEST_STATUS_LABELS,
   type AlliesPageSettings,
@@ -444,6 +446,180 @@ export function SoftwareForm({ software }: { software: SoftwareFormValues }) {
   );
 }
 
+
+export interface TutorialFormValues {
+  id?: string;
+  title: string;
+  description: string;
+  source: string;
+  url: string;
+  thumbnailUrl: string | null;
+  category: string | null;
+  durationLabel: string | null;
+  order: number;
+  isActive: boolean;
+}
+
+/**
+ * One video walk-through. The link is the only thing that has to be right:
+ * a YouTube link gives the page a still and an in-place player on its own,
+ * and TikTok gets an uploaded still because TikTok gives us none.
+ */
+export function TutorialForm({ tutorial }: { tutorial: TutorialFormValues }) {
+  const [source, setSource] = useState(tutorial.source);
+  const [state, formAction, isPending] = useActionState(
+    saveTutorialAction.bind(null, tutorial.id ?? null),
+    initialActionState,
+  );
+  const fe = state.fieldErrors ?? {};
+
+  return (
+    <form action={formAction} className="space-y-5">
+      <FormAlert message={state.error} />
+
+      <fieldset>
+        <legend className="text-sm font-medium text-primary-950 mb-1.5">Where it lives</legend>
+        <div className="flex flex-wrap gap-2">
+          {TUTORIAL_SOURCES.map((option) => (
+            <label
+              key={option.value}
+              className="flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 cursor-pointer has-[:checked]:border-primary-800 has-[:checked]:bg-primary-50"
+            >
+              <input
+                type="radio"
+                name="source"
+                value={option.value}
+                checked={source === option.value}
+                onChange={() => setSource(option.value)}
+                className="h-4 w-4 text-primary-800"
+              />
+              <span className="text-sm font-semibold text-primary-950">{option.label}</span>
+            </label>
+          ))}
+        </div>
+        <FieldError messages={fe.source} />
+      </fieldset>
+
+      <div>
+        <Label htmlFor="tutorial-url" required>
+          Link to the video
+        </Label>
+        <input
+          id="tutorial-url"
+          name="url"
+          type="url"
+          required
+          maxLength={1000}
+          defaultValue={tutorial.url}
+          className={inputClasses}
+          placeholder={source === "TIKTOK" ? "https://www.tiktok.com/@name/video/…" : "https://www.youtube.com/watch?v=…"}
+        />
+        <p className="text-xs text-slate mt-1">
+          {source === "TIKTOK"
+            ? "Opens on TikTok when someone presses play, since TikTok has no player we can put on the page."
+            : "A watch, share, embed or Shorts link — the page works out the rest, and only loads YouTube when someone presses play."}
+        </p>
+        <FieldError messages={fe.url} />
+      </div>
+
+      <div>
+        <Label htmlFor="tutorial-title" required>
+          Title
+        </Label>
+        <input
+          id="tutorial-title"
+          name="title"
+          required
+          maxLength={200}
+          defaultValue={tutorial.title}
+          className={inputClasses}
+          placeholder="e.g. Reading a PDF with NVDA"
+        />
+        <FieldError messages={fe.title} />
+      </div>
+
+      <div>
+        <Label htmlFor="tutorial-description" required>
+          What it covers
+        </Label>
+        <textarea
+          id="tutorial-description"
+          name="description"
+          rows={3}
+          required
+          maxLength={600}
+          defaultValue={tutorial.description}
+          className={inputClasses}
+        />
+        <FieldError messages={fe.description} />
+      </div>
+
+      <ImageUploadField
+        name="thumbnailUrl"
+        category="OTHER"
+        label={source === "TIKTOK" ? "Thumbnail (recommended)" : "Thumbnail (optional)"}
+        defaultUrl={tutorial.thumbnailUrl}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="tutorial-category">It helps with</Label>
+          <select id="tutorial-category" name="category" defaultValue={tutorial.category ?? ""} className={inputClasses}>
+            <option value="">Not specific</option>
+            {SOFTWARE_CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <FieldError messages={fe.category} />
+        </div>
+        <div>
+          <Label htmlFor="tutorial-duration">How long it runs</Label>
+          <input
+            id="tutorial-duration"
+            name="durationLabel"
+            maxLength={20}
+            defaultValue={tutorial.durationLabel ?? ""}
+            className={inputClasses}
+            placeholder="e.g. 8 min"
+          />
+          <FieldError messages={fe.durationLabel} />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-6">
+        <div>
+          <Label htmlFor="tutorial-order">Display order</Label>
+          <input
+            id="tutorial-order"
+            name="order"
+            type="number"
+            min={0}
+            defaultValue={tutorial.order}
+            className={`${inputClasses} max-w-[7rem]`}
+          />
+        </div>
+        <label className="flex items-center gap-2.5 pb-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            name="isActive"
+            defaultChecked={tutorial.isActive}
+            className="h-4 w-4 rounded border-line text-primary-800"
+          />
+          <span className="text-sm font-semibold text-primary-950">Show on the page</span>
+        </label>
+      </div>
+
+      <SubmitRow
+        isPending={isPending}
+        label={tutorial.id ? "Save changes" : "Add the tutorial"}
+        saved={<SavedNotice state={state} isPending={isPending}>Saved. The tutorial is up to date.</SavedNotice>}
+      />
+    </form>
+  );
+}
+
 export function AssistiveSettingsForm({ settings }: { settings: AssistiveTechSettings }) {
   const [state, formAction, isPending] = useActionState(saveAssistiveSettingsAction, initialActionState);
   const fe = state.fieldErrors ?? {};
@@ -517,7 +693,7 @@ export function SoftwareRequestUpdateForm({
   adminNote: string | null;
 }) {
   const [state, formAction, isPending] = useActionState(
-    updateSoftwareRequestAction.bind(null, requestId),
+    updateTechRequestAction.bind(null, requestId),
     initialActionState,
   );
   const fe = state.fieldErrors ?? {};

@@ -3,17 +3,17 @@ import { MonitorSmartphone, Plus, Settings2 } from "lucide-react";
 import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { getAssistiveTechSettings, listSoftwareForAdmin } from "@/lib/services/assistive-software-service";
-import { AssistiveTechSectionNav } from "@/components/admin/OutreachSectionNav";
+import { TechTutorialsSectionNav } from "@/components/admin/OutreachSectionNav";
 import { AssistiveSettingsForm } from "@/components/admin/forms/OutreachForms";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
 import { softwareCategoryLabel, softwarePlatformLabel } from "@/lib/outreach-options";
 
-export const metadata = { title: "Assistive Software" };
+export const metadata = { title: "Tech & Tutorials" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminAssistiveTechPage() {
+export default async function AdminTechTutorialsPage() {
   await requireCapability("outreach.software");
   const [software, settings] = await Promise.all([listSoftwareForAdmin(), getAssistiveTechSettings()]);
 
@@ -21,22 +21,22 @@ export default async function AdminAssistiveTechPage() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <h1 className="font-display font-bold text-2xl text-primary-950">Assistive Software</h1>
+          <h1 className="font-display font-bold text-2xl text-primary-950">Tech &amp; Tutorials</h1>
           <p className="text-sm text-slate mt-1">
-            The directory on the public{" "}
-            <Link href="/assistive-technology" target="_blank" className="font-semibold text-primary-800 hover:text-accent-600">
-              Assistive Software page
+            The software on the public{" "}
+            <Link href="/tech-tutorials" target="_blank" className="font-semibold text-primary-800 hover:text-accent-600">
+              Tech &amp; Tutorials page
             </Link>
-            , and where it points.
+            , where it points, and the page&apos;s settings. Video walk-throughs are on the Tutorials tab.
           </p>
         </div>
-        <Link href="/admin/assistive-tech/new">
+        <Link href="/admin/tech-tutorials/new">
           <Button>
             <Plus size={16} aria-hidden="true" /> Add Software
           </Button>
         </Link>
       </div>
-      <AssistiveTechSectionNav current="directory" />
+      <TechTutorialsSectionNav current="software" />
 
       {!settings.telegramUrl && (
         <div className="mb-5 rounded-lg border border-accent-400 bg-accent-50 px-4 py-3 text-sm text-primary-950">
@@ -67,7 +67,7 @@ export default async function AdminAssistiveTechPage() {
               {software.map((tool) => (
                 <tr key={tool.id} className="hover:bg-surface-muted/60">
                   <td className="px-5 py-3.5">
-                    <Link href={`/admin/assistive-tech/${tool.id}`} className="font-medium text-primary-950 hover:text-accent-600">
+                    <Link href={`/admin/tech-tutorials/${tool.id}`} className="font-medium text-primary-950 hover:text-accent-600">
                       {tool.name}
                     </Link>
                     <p className="text-xs text-slate line-clamp-1 max-w-xs">{tool.description}</p>

@@ -24,7 +24,7 @@ export async function logFlaggedSubmission(params: {
     | "patron-registration"
     | "ally-signup"
     | "public-donation"
-    | "software-request";
+    | "tech-request";
   signal: BotSignal;
   /** True when other evidence showed a real person, so it was accepted. */
   allowedThrough: boolean;

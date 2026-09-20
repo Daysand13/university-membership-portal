@@ -119,8 +119,8 @@ export const ADMIN_NAV: AdminNavGroup[] = [
         capability: "outreach.allies",
       },
       {
-        href: "/admin/assistive-tech",
-        label: "Assistive Software",
+        href: "/admin/tech-tutorials",
+        label: "Tech & Tutorials",
         icon: MonitorSmartphone,
         capability: "outreach.software",
       },

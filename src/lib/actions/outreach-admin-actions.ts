@@ -4,8 +4,11 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
 import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
-import { AdminRole } from "@/generated/prisma/client";
+import { createTutorial, deleteTutorial, updateTutorial } from "@/lib/services/tutorial-service";
+import { youTubeVideoId } from "@/lib/outreach-options";
+import { AdminRole, type SoftwareCategory, type TutorialSource } from "@/generated/prisma/client";
 import {
+  tutorialListingSchema,
   allyListingSchema,
   alliesSettingsSchema,
   assistiveSettingsSchema,
@@ -24,7 +27,7 @@ import {
   deleteSoftware,
   updateAssistiveTechSettings,
   updateSoftware,
-  updateSoftwareRequest,
+  updateTechRequest,
 } from "@/lib/services/assistive-software-service";
 import type { ActionState } from "./types";
 
@@ -154,22 +157,22 @@ async function saveSoftwareActionImpl(
     isActive: d.isActive,
   };
 
-  revalidatePath("/assistive-technology");
-  revalidatePath("/admin/assistive-tech");
+  revalidatePath("/tech-tutorials");
+  revalidatePath("/admin/tech-tutorials");
   if (softwareId) {
     await updateSoftware(softwareId, fields, admin);
     return { success: true };
   }
   const software = await createSoftware(fields, admin);
-  redirect(`/admin/assistive-tech/${software.id}?created=1`);
+  redirect(`/admin/tech-tutorials/${software.id}?created=1`);
 }
 
 async function deleteSoftwareActionImpl(softwareId: string): Promise<void> {
   const admin = await requireCapability("outreach.software");
   await deleteSoftware(softwareId, admin);
-  revalidatePath("/assistive-technology");
-  revalidatePath("/admin/assistive-tech");
-  redirect("/admin/assistive-tech");
+  revalidatePath("/tech-tutorials");
+  revalidatePath("/admin/tech-tutorials");
+  redirect("/admin/tech-tutorials");
 }
 
 async function saveAssistiveSettingsActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
@@ -185,11 +188,11 @@ async function saveAssistiveSettingsActionImpl(_prevState: ActionState, formData
     },
     admin.id,
   );
-  revalidatePath("/assistive-technology");
+  revalidatePath("/tech-tutorials");
   return { success: true };
 }
 
-async function updateSoftwareRequestActionImpl(
+async function updateTechRequestActionImpl(
   requestId: string,
   _prevState: ActionState,
   formData: FormData,
@@ -202,15 +205,15 @@ async function updateSoftwareRequestActionImpl(
   });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
-  await updateSoftwareRequest({
+  await updateTechRequest({
     id: requestId,
     admin,
     status: parsed.data.status,
     adminNote: blankToNull(parsed.data.adminNote),
     notify: parsed.data.notify,
   });
-  revalidatePath("/admin/assistive-tech/requests");
-  revalidatePath(`/admin/assistive-tech/requests/${requestId}`);
+  revalidatePath("/admin/tech-tutorials/requests");
+  revalidatePath(`/admin/tech-tutorials/requests/${requestId}`);
   return { success: true };
 }
 
@@ -227,7 +230,70 @@ export const saveAssistiveSettingsAction = withActionErrorHandling(
   "saveAssistiveSettingsAction",
   saveAssistiveSettingsActionImpl,
 );
-export const updateSoftwareRequestAction = withActionErrorHandling(
-  "updateSoftwareRequestAction",
-  updateSoftwareRequestActionImpl,
+export const updateTechRequestAction = withActionErrorHandling(
+  "updateTechRequestAction",
+  updateTechRequestActionImpl,
 );
+
+// ---------------------------------------------------------------------------
+// Tutorials
+// ---------------------------------------------------------------------------
+
+async function saveTutorialActionImpl(
+  tutorialId: string | null,
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireCapability("outreach.software");
+  const parsed = tutorialListingSchema.safeParse({
+    title: text(formData, "title"),
+    description: text(formData, "description"),
+    source: text(formData, "source"),
+    url: text(formData, "url"),
+    thumbnailUrl: text(formData, "thumbnailUrl"),
+    category: text(formData, "category"),
+    durationLabel: text(formData, "durationLabel"),
+    order: text(formData, "order") || "0",
+    isActive: formData.get("isActive") === "on",
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  const d = parsed.data;
+  // A YouTube link that carries no video id can't be played or given a
+  // still, so it is caught here rather than showing an empty card.
+  if (d.source === "YOUTUBE" && !youTubeVideoId(d.url)) {
+    return { fieldErrors: { url: ["That doesn't look like a YouTube video link."] } };
+  }
+
+  const fields = {
+    title: d.title,
+    description: d.description,
+    source: d.source as TutorialSource,
+    url: d.url,
+    thumbnailUrl: blankToNull(d.thumbnailUrl),
+    category: (blankToNull(d.category) as SoftwareCategory | null) ?? null,
+    durationLabel: blankToNull(d.durationLabel),
+    order: d.order,
+    isActive: d.isActive,
+  };
+
+  revalidatePath("/tech-tutorials");
+  revalidatePath("/admin/tech-tutorials/tutorials");
+  if (tutorialId) {
+    await updateTutorial(tutorialId, fields, admin);
+    return { success: true, message: "Saved. The tutorial is up to date." };
+  }
+  const created = await createTutorial(fields, admin);
+  redirect(`/admin/tech-tutorials/tutorials/${created.id}`);
+}
+
+async function deleteTutorialActionImpl(tutorialId: string): Promise<void> {
+  const admin = await requireCapability("outreach.software");
+  await deleteTutorial(tutorialId, admin);
+  revalidatePath("/tech-tutorials");
+  revalidatePath("/admin/tech-tutorials/tutorials");
+  redirect("/admin/tech-tutorials/tutorials");
+}
+
+export const saveTutorialAction = withActionErrorHandling("saveTutorialAction", saveTutorialActionImpl);
+export const deleteTutorialAction = withVoidActionErrorHandling("deleteTutorialAction", deleteTutorialActionImpl);

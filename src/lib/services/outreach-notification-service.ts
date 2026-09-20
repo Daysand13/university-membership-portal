@@ -45,34 +45,44 @@ export async function notifyAdminsOfAllySignup(signup: {
   });
 }
 
-export async function notifyAdminsOfSoftwareRequest(request: {
+export async function notifyAdminsOfTechRequest(request: {
   id: string;
+  kind: "SOFTWARE" | "TUTORIAL";
   fullName: string;
-  softwareName: string;
+  topic: string;
   category: string;
-  operatingSystem: string;
+  operatingSystem: string | null;
 }): Promise<void> {
+  const isTutorial = request.kind === "TUTORIAL";
+  const heading = isTutorial ? "Tutorial request" : "Software request";
+  const path = `/admin/tech-tutorials/requests/${request.id}`;
+
   await notifyAdmins({
     roles: ["MEMBERSHIP_OFFICER", "EDITOR"],
-    template: "admin-software-request",
+    template: isTutorial ? "admin-tutorial-request" : "admin-software-request",
     entityType: "SoftwareRequest",
     entityId: request.id,
     bell: {
       type: "SYSTEM",
-      title: `Software request: ${request.softwareName}`,
+      title: `${heading}: ${request.topic}`,
       body: `From ${request.fullName}`,
-      link: `/admin/assistive-tech/requests/${request.id}`,
+      link: path,
     },
     build: () => ({
-      subject: `Software request: ${request.softwareName}`,
-      paragraphs: ["Someone has asked for a tool that isn't in the Telegram library yet."],
+      subject: `${heading}: ${request.topic}`,
+      paragraphs: [
+        isTutorial
+          ? "Someone has asked for a walk-through the Tech & Tutorials page doesn't cover yet."
+          : "Someone has asked for a tool that isn't in the Telegram library yet.",
+      ],
       details: [
         { label: "From", value: request.fullName },
-        { label: "Software", value: request.softwareName },
+        { label: isTutorial ? "Tutorial" : "Software", value: request.topic },
         { label: "For", value: softwareCategoryLabel(request.category) },
-        { label: "On", value: request.operatingSystem },
+        ...(request.operatingSystem ? [{ label: "On", value: request.operatingSystem }] : []),
       ],
-      cta: { path: `/admin/assistive-tech/requests/${request.id}`, label: "Open the Request" },
+      cta: { path, label: "Open the Request" },
     }),
   });
 }
+
