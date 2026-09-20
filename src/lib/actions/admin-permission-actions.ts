@@ -13,6 +13,7 @@ import {
   setAdminPasswordWithToken,
 } from "@/lib/services/admin-account-service";
 import { DuplicateAdminEmailError } from "@/lib/services/admin-auth-service";
+import { getExecutiveAccess } from "@/lib/services/executive-access-service";
 import { adminAccountSchema, adminSetPasswordSchema } from "@/lib/validations/admin-account";
 import { withActionErrorHandling, withTypedActionErrorHandling } from "./with-error-handling";
 import type { ActionState } from "./types";
@@ -123,3 +124,57 @@ export const createAdminAccountAction = withActionErrorHandling("createAdminAcco
 export const resendAdminInviteAction = withTypedActionErrorHandling("resendAdminInviteAction", resendAdminInviteActionImpl);
 export const setAdminActiveAction = withTypedActionErrorHandling("setAdminActiveAction", setAdminActiveActionImpl);
 export const setAdminPasswordAction = withActionErrorHandling("setAdminPasswordAction", setAdminPasswordActionImpl);
+
+/**
+ * Giving an executive portal access from their own leadership listing —
+ * the place the rest of their profile is edited.
+ *
+ * Their name comes from the listing and their address from the member
+ * account it is linked to, so there is nothing to retype and no chance of
+ * creating an account for a slightly different person.
+ */
+async function createExecutiveAccountActionImpl(
+  teamMemberId: string,
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const actor = await requireCapability("site.permissions");
+
+  const access = await getExecutiveAccess(teamMemberId);
+  if (!access) return { error: "That leadership listing no longer exists." };
+  if (access.admin) return { error: `${access.admin.name} already has an administrator account.` };
+
+  const parsed = adminAccountSchema.safeParse({
+    name: access.listing.name,
+    email: String(formData.get("email") ?? access.member?.email ?? ""),
+    role: String(formData.get("role") ?? ""),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  try {
+    const { admin, invitationEmailed } = await createAdminAccount({
+      name: parsed.data.name,
+      email: parsed.data.email,
+      role: parsed.data.role as AdminRole,
+      actorId: actor.id,
+      inviteBaseUrl: INVITE_BASE_URL,
+      userId: access.member?.userId ?? null,
+    });
+    revalidatePath(`/admin/team/${teamMemberId}`);
+    revalidatePath("/admin/team");
+    return {
+      success: true,
+      message: invitationEmailed
+        ? `${admin.name} can now be given privileges below. An invitation to choose a password has been emailed to ${admin.email}.`
+        : `${admin.name}'s account was created, but the invitation email to ${admin.email} could not be sent. Send it again once email is working.`,
+    };
+  } catch (err) {
+    if (err instanceof DuplicateAdminEmailError || err instanceof AdminAccountError) return { error: err.message };
+    throw err;
+  }
+}
+
+export const createExecutiveAccountAction = withActionErrorHandling(
+  "createExecutiveAccountAction",
+  createExecutiveAccountActionImpl,
+);

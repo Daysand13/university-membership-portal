@@ -79,8 +79,10 @@ export async function createAdminAccount(params: {
   role: AdminRole;
   actorId: string;
   inviteBaseUrl: string;
+  /** The person's existing account on the site, where they already have one. */
+  userId?: string | null;
 }): Promise<{ admin: AdminUser; invitationEmailed: boolean }> {
-  const { name, email, role, actorId, inviteBaseUrl } = params;
+  const { name, email, role, actorId, inviteBaseUrl, userId } = params;
 
   // Hashed, never recorded, never sent: it exists only so the column is
   // filled with something no password can ever match.
@@ -89,7 +91,7 @@ export async function createAdminAccount(params: {
   let admin: AdminUser;
   try {
     admin = await db.adminUser.create({
-      data: { name, email, role, passwordHash: unusablePassword, isActive: true },
+      data: { name, email, role, passwordHash: unusablePassword, isActive: true, userId: userId ?? null },
     });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ShieldCheck, UserCog } from "lucide-react";
+import { ChevronLeft, ShieldCheck, UserCog } from "lucide-react";
 import { requireCapability } from "@/lib/auth/admin";
 import { listAdminAccounts } from "@/lib/services/admin-permission-service";
 import { PermissionManager } from "@/components/admin/forms/PermissionManager";
@@ -8,7 +8,7 @@ import { CAPABILITY_MODULES } from "@/lib/auth/capabilities";
 import { roleLabel } from "@/lib/auth/role-labels";
 import { AddAdminForm, AdminAccountActions } from "@/components/admin/forms/AdminAccountForms";
 
-export const metadata = { title: "Executive Permissions" };
+export const metadata = { title: "Administrator Accounts" };
 export const dynamic = "force-dynamic";
 
 const TOTAL_CAPABILITIES = CAPABILITY_MODULES.reduce((sum, group) => sum + group.capabilities.length, 0);
@@ -25,11 +25,14 @@ export default async function AdminPermissionsPage({
 
   return (
     <div>
-      <h1 className="font-display font-bold text-2xl text-primary-950 mb-1">Executive Permissions</h1>
+      <Link href="/admin/team" className="inline-flex items-center gap-1.5 text-sm text-slate hover:text-primary-800 mb-4">
+        <ChevronLeft size={15} aria-hidden="true" /> Leadership
+      </Link>
+      <h1 className="font-display font-bold text-2xl text-primary-950 mb-1">Administrator Accounts</h1>
       <p className="text-sm text-slate mb-8 max-w-2xl">
-        Every administrator starts from a base role, which sets sensible defaults. Where one person&apos;s job
-        differs from another with the same title, grant or withhold individual capabilities for that account
-        alone. What they can open, and what the site will let them do, both follow from this.
+        Every account that can sign in to the admin area. An executive&apos;s privileges are better set on their own
+        profile under Leadership, where the rest of their details live; this page is for the accounts that aren&apos;t
+        behind a listing, and for adding one.
       </p>
 
       {admins.length === 0 ? (

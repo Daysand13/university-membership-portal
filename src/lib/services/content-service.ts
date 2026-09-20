@@ -50,7 +50,9 @@ export async function listTeamMembersForAdmin(type: TeamMemberType) {
     where: { type },
     orderBy: { order: "asc" },
     include: {
-      member: { select: { firstName: true, middleName: true, lastName: true, indexNumber: true } },
+      // email and userId are what tie a listing to its administrator
+      // account, so the Leadership list can show who has portal access.
+      member: { select: { firstName: true, middleName: true, lastName: true, indexNumber: true, email: true, userId: true } },
     },
   });
 }

@@ -27,7 +27,6 @@ import {
   Radio,
   Handshake,
   MonitorSmartphone,
-  ShieldCheck,
 } from "lucide-react";
 
 export interface AdminNavItem {
@@ -142,7 +141,6 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { href: "/admin/media", label: "Media Library", icon: ImageIcon, capability: "content.media" },
       { href: "/admin/social-links", label: "Social Links", icon: Share2, capability: "content.social" },
-      { href: "/admin/permissions", label: "Executive Permissions", icon: ShieldCheck, capability: "site.permissions" },
       { href: "/admin/settings", label: "Settings", icon: Settings, capability: "site.settings" },
       { href: "/admin/audit-log", label: "Audit Log", icon: ScrollText, capability: "site.audit" },
       { href: "/admin/email-logs", label: "Email Logs", icon: Mail, capability: "site.emails" },
