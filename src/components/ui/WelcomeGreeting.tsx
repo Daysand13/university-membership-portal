@@ -79,8 +79,8 @@ export function WelcomeGreeting({
   return (
     <div aria-live="polite" className={className}>
       {greeting && (
-        <p className="flex items-center gap-3 rounded-lg border border-accent-200 bg-accent-100 px-4 py-3 sm:px-5 text-[15px] sm:text-base font-medium leading-snug text-primary-950">
-          <Icon size={20} aria-hidden="true" className="shrink-0 text-accent-700" />
+        <p className="flex items-center gap-2.5 text-[15px] sm:text-base font-medium leading-snug text-ink">
+          <Icon size={18} aria-hidden="true" className="shrink-0 text-primary-800" />
           {greeting.text}
         </p>
       )}
