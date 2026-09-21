@@ -240,8 +240,10 @@ function registerHandlers() {
 
   ipcMain.handle("ballot:quit", async (_event, key) => {
     // Leaving kiosk mode takes the terminal's own key, so a voter cannot
-    // walk out of the ballot into the desktop.
-    if (!config || String(key || "").trim() !== config.stationKey) return { ok: false };
+    // walk out of the ballot into the desktop. Before the terminal has
+    // been set up there is no key and nothing to protect — and somebody
+    // has to be able to close a window that fills the screen.
+    if (config && String(key || "").trim() !== config.stationKey) return { ok: false };
     await flushQueue();
     app.exit(0);
     return { ok: true };
@@ -251,10 +253,17 @@ function registerHandlers() {
 // --- The window ------------------------------------------------------------
 
 function createWindow() {
+  // A terminal in a hall is locked full-screen with no way back to the
+  // desktop. Somebody trying the application out on their own laptop
+  // wants an ordinary window they can close — ASSN_BALLOT_WINDOWED=1.
+  const windowed = process.env.ASSN_BALLOT_WINDOWED === "1";
+
   window = new BrowserWindow({
-    kiosk: true,
-    fullscreen: true,
-    frame: false,
+    kiosk: !windowed,
+    fullscreen: !windowed,
+    frame: windowed,
+    width: 1280,
+    height: 860,
     autoHideMenuBar: true,
     backgroundColor: "#0B1B3A",
     webPreferences: {

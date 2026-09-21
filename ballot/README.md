@@ -10,10 +10,14 @@ Vercel.
 
 ```
 npm install
-npm start          # run it on this machine
+npm start          # run it on this machine, locked full-screen
 npm test           # the queue, the countdown, the clock, the portal client
 npm run package    # a Windows installer, into dist/
 ```
+
+Trying it out on your own laptop rather than a polling workstation? Set
+`ASSN_BALLOT_WINDOWED=1` and it opens as an ordinary window you can close,
+instead of taking over the screen.
 
 ## Setting up a terminal
 

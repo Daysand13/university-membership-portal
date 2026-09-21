@@ -298,6 +298,11 @@ document.addEventListener("keydown", (event) => {
 // Leaving kiosk mode: the officer's key, never a voter's keystroke.
 document.addEventListener("keydown", async (event) => {
   if (!(event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "q")) return;
+  // A terminal nobody has set up yet has no key to ask for.
+  if (!state.configured) {
+    await bridge.quit("");
+    return;
+  }
   const key = window.prompt("Officer key to close ASSN Ballot:");
   if (!key) return;
   const result = await bridge.quit(key);
