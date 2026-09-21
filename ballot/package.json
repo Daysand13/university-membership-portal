@@ -16,14 +16,27 @@
   "build": {
     "appId": "gh.assnuew.ballot",
     "productName": "ASSN Ballot",
+    "copyright": "Association of Students with Special Needs, University of Education, Winneba",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
     "files": ["src/**/*", "assets/**/*"],
     "win": {
-      "target": "nsis"
+      "target": ["nsis", "portable"],
+      "icon": "assets/icon.png"
     },
     "nsis": {
+      "artifactName": "ASSN-Ballot-Setup-${version}.${ext}",
       "oneClick": false,
-      "perMachine": true,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ASSN Ballot",
+      "perMachine": false
+    },
+    "portable": {
+      "artifactName": "ASSN-Ballot-Portable-${version}.${ext}"
     }
   }
 }
