@@ -29,9 +29,14 @@ let queue = null;
 const clock = new ServerClock();
 const announcer = new CountdownAnnouncer();
 
+/** Mirrors CONNECTION in renderer/screen.js. */
+const CONNECTION = { UNKNOWN: "unknown", CONNECTED: "connected", OFFLINE: "offline", REJECTED: "rejected" };
+
 let state = {
   configured: false,
-  online: false,
+  connection: CONNECTION.UNKNOWN,
+  /** What the terminal was set up with, minus the key. */
+  station: null,
   election: null,
   positions: [],
   queued: 0,
@@ -92,6 +97,9 @@ function startPortal(cfg) {
     stationKey: cfg.stationKey,
   });
   state.configured = true;
+  // The address and the code go back to the screen so the setup form can
+  // offer them again if the key turns out to be wrong. The key does not.
+  state.station = { portalUrl: cfg.portalUrl, stationCode: cfg.stationCode };
 }
 
 // --- Telling the window what is going on -----------------------------------
@@ -144,7 +152,7 @@ async function pollSchedule() {
       say(announcer.tick(msRemaining));
     }
 
-    publish({ online: true, election, msRemaining, lastError: null });
+    publish({ connection: CONNECTION.CONNECTED, election, msRemaining, lastError: null });
 
     // The paper itself is fetched once per election and kept, so a hall
     // that loses its line can carry on from what it already holds.
@@ -154,9 +162,14 @@ async function pollSchedule() {
     }
   } catch (err) {
     if (err instanceof OfflineError) {
-      publish({ online: false });
+      publish({ connection: CONNECTION.OFFLINE });
+    } else if (err.name === "StationRejectedError") {
+      // The portal answered and will not have this terminal. That is not
+      // a network problem and must not be shown as one: the officer is
+      // sent back to the setup form to put the code and key right.
+      publish({ connection: CONNECTION.REJECTED, lastError: err.message });
     } else {
-      publish({ online: false, lastError: err.message });
+      publish({ connection: CONNECTION.OFFLINE, lastError: err.message });
     }
   }
 }
@@ -181,7 +194,7 @@ async function flushQueue() {
       break;
     }
   }
-  publish({ queued: await queue.size(), online: true });
+  publish({ queued: await queue.size() });
 }
 
 // --- Messages from the window ----------------------------------------------
@@ -190,14 +203,40 @@ function registerHandlers() {
   ipcMain.handle("ballot:getState", async () => state);
 
   ipcMain.handle("ballot:configure", async (_event, { portalUrl, stationCode, stationKey }) => {
-    const cfg = await saveConfig({
-      portalUrl: String(portalUrl || "").trim(),
+    const candidate = {
+      portalUrl: String(portalUrl || "").trim().replace(/\/+$/, ""),
       stationCode: String(stationCode || "").trim().toUpperCase(),
       stationKey: String(stationKey || "").trim(),
-    });
+    };
+
+    // Tried before it is kept. A key that was mistyped must never reach
+    // the disk: the terminal would come back to it on every restart and
+    // there would be nothing the officer standing at it could do.
+    try {
+      await createPortalClient({
+        baseUrl: candidate.portalUrl,
+        stationCode: candidate.stationCode,
+        stationKey: candidate.stationKey,
+      }).getSchedule();
+    } catch (err) {
+      if (err.name === "StationRejectedError") {
+        return {
+          ok: false,
+          error: `The portal does not accept ${candidate.stationCode} with that key. Check both with the Electoral Commission — the key is the one issued with this terminal's code.`,
+        };
+      }
+      return {
+        ok: false,
+        error: `Could not reach ${candidate.portalUrl}. Check the address and this machine's internet connection.`,
+      };
+    }
+
+    const cfg = await saveConfig(candidate);
     startPortal(cfg);
+    publish({ connection: CONNECTION.CONNECTED, lastError: null });
     await pollSchedule();
-    return { ok: state.online, encrypted: cfg.encrypted, error: state.lastError };
+    await flushQueue();
+    return { ok: true, encrypted: cfg.encrypted };
   });
 
   ipcMain.handle("ballot:verify", async (_event, indexNumber) => {
@@ -221,7 +260,7 @@ function registerHandlers() {
     try {
       const result = await portal.castVote(entry);
       if (result.httpStatus === 200) {
-        publish({ online: true });
+        publish({ connection: CONNECTION.CONNECTED });
         // RECORDED, or ALREADY_VOTED if they voted at another terminal
         // while this one was thinking about it.
         return { status: result.status };
@@ -233,7 +272,7 @@ function registerHandlers() {
       // The line is down and there is somebody standing at the machine.
       // Their vote is kept and sent when it comes back.
       await queue.add(entry);
-      publish({ queued: await queue.size(), online: false });
+      publish({ queued: await queue.size(), connection: CONNECTION.OFFLINE });
       return { status: "QUEUED" };
     }
   });

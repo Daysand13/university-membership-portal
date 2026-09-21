@@ -1,6 +1,7 @@
 "use strict";
 
 import { announce, play } from "./audio.js";
+import { CONNECTION, chooseScreen, connectionLabel } from "./screen.js";
 
 /**
  * The ballot as a voter meets it.
@@ -38,8 +39,8 @@ function live(message) {
 function render(next) {
   state = { ...state, ...next };
 
-  el("connection").textContent = state.online ? "Connected" : "Offline — votes are being kept";
-  el("connection").classList.toggle("warn", !state.online);
+  el("connection").textContent = connectionLabel(state.connection, state.queued);
+  el("connection").classList.toggle("warn", state.connection !== CONNECTION.CONNECTED);
   el("election-title").textContent = state.election ? state.election.title : "";
   el("queued").textContent = state.queued ? `${state.queued} waiting to be sent` : "";
 
@@ -47,31 +48,31 @@ function render(next) {
   el("countdown").textContent =
     remaining === null || remaining === undefined ? "" : `${Math.ceil(remaining / 60000)} min left`;
 
-  if (!state.configured) {
+  // Somebody standing at the machine with a half-finished ballot keeps it.
+  const chosen = chooseScreen(state, Boolean(session));
+  if (session && chosen.screen === "ballot") return;
+
+  if (chosen.screen === "setup") {
+    // A terminal the portal has refused comes back here with the address
+    // and code it had, so only the key has to be typed again.
+    if (state.station) {
+      el("portalUrl").value = el("portalUrl").value || state.station.portalUrl || "";
+      el("stationCode").value = el("stationCode").value || state.station.stationCode || "";
+    }
+    if (chosen.message) el("setup-error").textContent = chosen.message;
     show("setup");
     return;
   }
 
-  // A voter part-way through a ballot is not thrown off it by the clock;
-  // the paper they are holding is still taken. Anyone arriving after the
-  // close finds the terminal locked.
-  const phase = state.election ? state.election.phase : "CLOSED";
-  if (phase !== "OPEN" && !session) {
-    showLocked(phase);
+  if (chosen.screen === "locked") {
+    el("locked-heading").textContent = chosen.heading;
+    el("locked-message").textContent = chosen.message;
+    show("locked");
     return;
   }
-  if (!session && el("screen-welcome").hidden && el("screen-done").hidden) show("welcome");
-}
 
-function showLocked(phase) {
-  const messages = {
-    SCHEDULED: "Voting has not opened yet. Please come back at the published time.",
-    POSTPONED: state.election?.notice || "The election has been postponed by the Electoral Commission.",
-    CLOSED: "Voting has closed. Thank you to everyone who took part.",
-  };
-  el("locked-heading").textContent = phase === "POSTPONED" ? "The election has been postponed" : "Voting is closed";
-  el("locked-message").textContent = messages[phase] ?? messages.CLOSED;
-  show("locked");
+  // "Thank you for voting" holds for its few seconds before the reset.
+  if (!session && el("screen-welcome").hidden && el("screen-done").hidden) show("welcome");
 }
 
 // --- Checking a voter in ---------------------------------------------------
