@@ -1,0 +1,29 @@
+{
+  "name": "assn-ballot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Polling terminal for the Association of Students with Special Needs, University of Education, Winneba.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "package": "electron-builder --win --x64"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "gh.assnuew.ballot",
+    "productName": "ASSN Ballot",
+    "files": ["src/**/*", "assets/**/*"],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

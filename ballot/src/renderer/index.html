@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>ASSN Ballot</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <h1 class="wordmark">ASSN Ballot</h1>
+      <p id="election-title" class="election-title"></p>
+      <p class="status">
+        <span id="connection" class="pill">Checking…</span>
+        <span id="countdown" class="pill countdown" aria-live="off"></span>
+      </p>
+    </header>
+
+    <!-- Everything the terminal has to say about what just happened is
+         announced from here, so a screen reader hears it without the
+         focus having to move. -->
+    <p id="live" class="visually-hidden" role="status" aria-live="assertive"></p>
+
+    <main id="main">
+      <!-- 1. Setting the terminal up, once, before the hall opens -->
+      <section id="screen-setup" class="screen" hidden>
+        <h2>Set this terminal up</h2>
+        <p class="lede">
+          The Electoral Commission registers each terminal in the portal and issues its key. Enter what you were
+          given.
+        </p>
+        <form id="setup-form" class="form">
+          <div class="field">
+            <label for="portalUrl">Portal address</label>
+            <input id="portalUrl" name="portalUrl" type="url" required placeholder="https://assnuew.com" />
+          </div>
+          <div class="field">
+            <label for="stationCode">Station ID</label>
+            <input id="stationCode" name="stationCode" required autocomplete="off" placeholder="LIB-1" />
+          </div>
+          <div class="field">
+            <label for="stationKey">Officer key</label>
+            <input id="stationKey" name="stationKey" required autocomplete="off" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" />
+          </div>
+          <p id="setup-error" class="error" role="alert"></p>
+          <button type="submit" class="primary">Connect this terminal</button>
+        </form>
+      </section>
+
+      <!-- 2. Waiting for a voter -->
+      <section id="screen-welcome" class="screen" hidden>
+        <h2 id="welcome-heading">Welcome</h2>
+        <p class="lede">Enter your index number to begin.</p>
+        <form id="index-form" class="form">
+          <div class="field">
+            <label for="indexNumber">Index number</label>
+            <input
+              id="indexNumber"
+              name="indexNumber"
+              required
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+              class="index-input"
+            />
+          </div>
+          <p id="verify-error" class="error" role="alert"></p>
+          <button type="submit" class="primary big">Begin</button>
+        </form>
+      </section>
+
+      <!-- 3. Voting closed, postponed, or not yet open -->
+      <section id="screen-locked" class="screen" hidden>
+        <h2 id="locked-heading">Voting is closed</h2>
+        <p id="locked-message" class="lede"></p>
+      </section>
+
+      <!-- 4. The ballot, one portfolio at a time -->
+      <section id="screen-ballot" class="screen" hidden>
+        <p id="ballot-progress" class="progress"></p>
+        <form id="ballot-form">
+          <fieldset>
+            <legend id="position-title" class="position-title"></legend>
+            <p class="hint">
+              Choose one, or skip this post. Press a number key to choose, or use Tab and the arrow keys.
+            </p>
+            <div id="candidates" class="candidates"></div>
+          </fieldset>
+          <div class="actions">
+            <button type="button" id="skip" class="ghost">Skip this post</button>
+            <button type="submit" class="primary">Next</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- 5. Reading it back before it is final -->
+      <section id="screen-review" class="screen" hidden>
+        <h2>Check your ballot</h2>
+        <p class="lede">Nothing has been submitted yet. Read it through, then confirm.</p>
+        <dl id="review-list" class="review"></dl>
+        <div class="actions">
+          <button type="button" id="review-back" class="ghost">Go back and change it</button>
+          <button type="button" id="review-confirm" class="primary big">Confirm and submit</button>
+        </div>
+      </section>
+
+      <!-- 6. Done -->
+      <section id="screen-done" class="screen" hidden>
+        <h2 id="done-heading">Thank you for voting</h2>
+        <p id="done-message" class="lede"></p>
+        <p class="hint">This terminal will be ready for the next voter in a moment.</p>
+      </section>
+    </main>
+
+    <footer class="bar foot">
+      <p id="queued" class="pill quiet"></p>
+      <p class="quiet">Association of Students with Special Needs · University of Education, Winneba</p>
+    </footer>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
