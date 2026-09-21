@@ -65,7 +65,18 @@ async function loadConfig() {
       stationKey = safeStorage.decryptString(Buffer.from(raw.stationKey, "base64"));
     }
     return { ...raw, stationKey };
-  } catch {
+  } catch (err) {
+    // Not having been set up yet is the ordinary case, and needs no
+    // comment. Anything else is worth saying out loud, because the
+    // terminal will otherwise ask for its key again and nobody standing
+    // at it will know why.
+    if (err.code === "ENOENT") return null;
+    console.error("[ballot] could not read the saved terminal settings:", err.message);
+
+    // A key this machine can no longer decrypt is not a key: it would
+    // fail again on every restart. Better to clear it and ask once than
+    // to keep a file nobody can read.
+    await fs.rm(configPath(), { force: true }).catch(() => undefined);
     return null;
   }
 }
@@ -323,6 +334,11 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  // Before anything can open a window and ask: a page that loads while
+  // these are still being registered gets an error instead of a state,
+  // and then renders nothing at all.
+  registerHandlers();
+
   queue = new BallotQueue(path.join(app.getPath("userData"), "queued-ballots.json"));
   await queue.load();
 
@@ -330,6 +346,11 @@ app.whenReady().then(async () => {
   if (saved && saved.portalUrl && saved.stationCode && saved.stationKey) startPortal(saved);
 
   createWindow();
+
+  // Whatever the startup checks have worked out by the time the page is
+  // ready, the page is told. Without this, everything published while it
+  // was still loading is simply lost.
+  window.webContents.on("did-finish-load", () => publish());
 
   // A voter must not be able to open the developer tools, reload into a
   // half-finished state, or print the ballot.
@@ -353,7 +374,6 @@ app.whenReady().then(async () => {
     publish({ msRemaining });
   }, 5_000);
 
-  registerHandlers();
 });
 
 app.on("window-all-closed", () => app.quit());
