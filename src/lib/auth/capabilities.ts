@@ -108,6 +108,17 @@ export const CAPABILITY_MODULES: CapabilityModule[] = [
     capabilities: [
       { key: "elections.manage", label: "Manage elections and candidates" },
       { key: "elections.publish", label: "Publish or close an election" },
+      {
+        key: "elections.commission",
+        label: "Run the ballot on the day",
+        hint: "Open it, postpone it, add time, close it, and show or hide the results.",
+      },
+      { key: "elections.nominations", label: "Approve or turn down nominations" },
+      {
+        key: "elections.stations",
+        label: "Register polling terminals",
+        hint: "Issues the key a terminal needs to take votes.",
+      },
     ],
   },
   {
@@ -165,7 +176,17 @@ export const ROLE_DEFAULTS: Record<AdminRole, string[]> = {
     "content.media",
   ],
   [AdminRole.LIBRARIAN]: ["library.documents", "content.media", "messages.contact"],
-  [AdminRole.ELECTION_OFFICER]: ["elections.manage", "elections.publish", "content.media", "messages.contact"],
+  // The Electoral Commission: everything about an election, including the
+  // day itself, and nothing else.
+  [AdminRole.ELECTION_OFFICER]: [
+    "elections.manage",
+    "elections.publish",
+    "elections.commission",
+    "elections.nominations",
+    "elections.stations",
+    "content.media",
+    "messages.contact",
+  ],
 };
 
 /** The overrides stored on an account: a capability key set to true (granted) or false (withheld). */

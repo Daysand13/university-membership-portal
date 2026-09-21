@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Plus } from "lucide-react";
 import { hasJustSaved, type ActionState } from "@/lib/actions/types";
@@ -29,6 +29,7 @@ export function SuccessDialog({
   title,
   description,
   againLabel,
+  againIcon,
   onAgain,
   listHref,
   listLabel,
@@ -41,6 +42,8 @@ export function SuccessDialog({
   description?: string;
   /** "Write another", "Add another tool" — what they'd be starting next. */
   againLabel: string;
+  /** Defaults to a plus, which is wrong when the button isn't starting another one. */
+  againIcon?: ReactNode;
   onAgain: () => void;
   listHref: string;
   listLabel: string;
@@ -102,7 +105,7 @@ export function SuccessDialog({
           onClick={() => dialogRef.current?.close()}
           className={buttonClasses("primary", "md", "flex-1")}
         >
-          <Plus size={16} aria-hidden="true" /> {againLabel}
+          {againIcon ?? <Plus size={16} aria-hidden="true" />} {againLabel}
         </button>
       </div>
     </dialog>

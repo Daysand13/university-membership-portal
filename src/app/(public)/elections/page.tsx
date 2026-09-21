@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { CalendarClock, Vote, Megaphone } from "lucide-react";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { getCurrentPublishedElection } from "@/lib/services/election-service";
+import { getCurrentPublishedElection, tallyElection } from "@/lib/services/election-service";
+import { PHASE_LABELS, effectivePhase } from "@/lib/election-status";
+import { ElectionPhase } from "@/generated/prisma/client";
 
 export const metadata: Metadata = { title: "Elections" };
 export const dynamic = "force-dynamic";
@@ -13,6 +15,10 @@ function formatDate(date: Date | null): string {
 
 export default async function ElectionsPage() {
   const election = await getCurrentPublishedElection();
+  // Counted live while people are still voting, so the page shows where
+  // things stand rather than a summary typed in afterwards — but only if
+  // the Electoral Commission has switched it on.
+  const results = election?.resultsPublic ? await tallyElection(election.id) : null;
 
   return (
     <div className="bg-white">
@@ -26,6 +32,15 @@ export default async function ElectionsPage() {
         {election ? (
           <>
             <h2 className="font-display font-bold text-2xl text-primary-950">{election.title}</h2>
+            <p className="mt-2 text-sm font-semibold text-primary-800">{PHASE_LABELS[effectivePhase(election)]}</p>
+            {election.noticeText && (
+              <p
+                role="status"
+                className="mt-4 rounded-lg border border-accent-200 bg-accent-100/50 px-4 py-3 text-sm text-primary-950"
+              >
+                {election.noticeText}
+              </p>
+            )}
             {election.description && (
               <p className="mt-3 text-slate leading-relaxed whitespace-pre-line">{election.description}</p>
             )}
@@ -71,10 +86,50 @@ export default async function ElectionsPage() {
               </div>
             )}
 
-            {election.resultsSummary && (
+            {results ? (
+              <div className="mt-10">
+                <h3 className="font-display font-bold text-lg text-primary-950">Results</h3>
+                <p className="text-sm text-slate mt-1 mb-5">
+                  {results.ballotsCast} ballot{results.ballotsCast === 1 ? "" : "s"} cast · {results.turnout}% of
+                  paid-up members
+                  {effectivePhase(election) === ElectionPhase.OPEN && " · still counting"}
+                </p>
+                <div className="space-y-6">
+                  {results.positions.map((position) => (
+                    <div key={position.positionId}>
+                      <h4 className="font-semibold text-primary-950 mb-2">{position.title}</h4>
+                      <ul className="space-y-2.5">
+                        {position.candidates.map((candidate) => (
+                          <li key={candidate.id}>
+                            <div className="flex items-baseline justify-between gap-3 text-sm">
+                              <span className="text-primary-950">{candidate.name}</span>
+                              <span className="text-slate shrink-0">
+                                {candidate.votes} vote{candidate.votes === 1 ? "" : "s"} · {candidate.share}%
+                              </span>
+                            </div>
+                            <div
+                              role="img"
+                              aria-label={`${candidate.name}: ${candidate.share} per cent`}
+                              className="mt-1 h-2.5 rounded-full bg-surface-muted overflow-hidden"
+                            >
+                              <div className="h-full rounded-full bg-primary-800" style={{ width: `${candidate.share}%` }} />
+                            </div>
+                          </li>
+                        ))}
+                        {position.candidates.length === 0 && (
+                          <li className="text-sm text-slate">No candidates stood for this post.</li>
+                        )}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
               <div className="mt-10 rounded-lg border border-accent-200 bg-accent-100/40 p-6">
                 <p className="kicker mb-2">Results</p>
-                <p className="text-sm text-primary-950 whitespace-pre-line">{election.resultsSummary}</p>
+                <p className="text-sm text-primary-950 whitespace-pre-line">
+                  {election.resultsSummary || "Election results are currently hidden by the Electoral Commission."}
+                </p>
               </div>
             )}
           </>

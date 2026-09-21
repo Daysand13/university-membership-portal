@@ -26,6 +26,22 @@ enum ContentStatus {
   ARCHIVED
 }
 
+/// Where an election stands on the day itself, which is a different
+/// question from whether its page is published.
+enum ElectionPhase {
+  SCHEDULED
+  OPEN
+  POSTPONED
+  CLOSED
+}
+
+enum CandidateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
 enum ApplicationStatus {
   PENDING
   UNDER_REVIEW
@@ -143,6 +159,8 @@ model AdminUser {
   reviewedSupport       SupportRequest[]      @relation("SupportRequestReviewer")
   reviewedOpportunities Opportunity[]         @relation("OpportunityReviewer")
   handledSoftware       SoftwareRequest[]     @relation("SoftwareRequestHandler")
+  reviewedCandidacies   ElectionCandidate[]   @relation("CandidateReviewer")
+  registeredStations    PollingStation[]      @relation("StationRegistrar")
 
   // Link to the unified identity row. The granular AdminRole above stays
   // the source of truth for what an admin may actually do — the unified
@@ -207,6 +225,8 @@ model Member {
   studyGroups         StudyGroupMember[]
   createdStudyGroups  StudyGroup[]         @relation("StudyGroupCreator")
   softwareRequests    SoftwareRequest[]
+  candidacies         ElectionCandidate[]
+  electionsVotedIn    ElectionVoter[]
   // The public Leadership/Patron listing this account is linked to, if any
   // — the far side of TeamMember.memberId, used to charge the Executive
   // dues rate instead of the level/track rate.
@@ -460,6 +480,20 @@ model Election {
   title            String
   description      String?
   status           ContentStatus @default(DRAFT)
+
+  /// Where the ballot stands. Separate from `status`, which only decides
+  /// whether the election has a page on the website.
+  phase          ElectionPhase @default(SCHEDULED)
+  /// When the terminals will accept a vote. The Electoral Commission can
+  /// move `votingClosesAt` later while voting is under way — a late start
+  /// at one centre shouldn't cost everybody their last hour.
+  votingOpensAt  DateTime?
+  votingClosesAt DateTime?
+  /// Why the commission stopped or moved it — read out at the terminals
+  /// and shown on the website.
+  noticeText     String?
+  /// The commission's switch for the public results page.
+  resultsPublic  Boolean       @default(false)
   nominationStart  DateTime?
   nominationEnd    DateTime?
   votingDate       DateTime?
@@ -474,8 +508,29 @@ model Election {
   updatedAt        DateTime      @updatedAt
 
   candidates ElectionCandidate[]
+  positions  ElectionPosition[]
+  ballots    ElectionBallot[]
+  voters     ElectionVoter[]
 
   @@map("elections")
+}
+
+/// A post being contested — President, Secretary. The commission sets
+/// these first; members then nominate themselves for one of them, and the
+/// terminals show one screen per portfolio, in this order.
+model ElectionPosition {
+  id         String   @id @default(cuid())
+  electionId String
+  election   Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  title      String
+  /// Where it comes on the ballot: president first, and so on down.
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  candidates ElectionCandidate[]
+
+  @@unique([electionId, title])
+  @@map("election_positions")
 }
 
 model ElectionCandidate {
@@ -483,13 +538,112 @@ model ElectionCandidate {
   electionId String
   election   Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
   name       String
+  /// The portfolio as typed. Kept alongside `positionId` because entries
+  /// made before there were portfolios have nothing else to show.
   position   String
   photoUrl   String?
   manifesto  String?
   voteCount  Int      @default(0)
   createdAt  DateTime @default(now())
 
+  /// Set once the candidate is on a real ballot paper; without it the
+  /// entry is only a name on the website.
+  positionId String?
+  portfolio  ElectionPosition? @relation(fields: [positionId], references: [id], onDelete: SetNull)
+
+  /// The member who put themselves forward, where they did. Null for an
+  /// entry the commission typed in itself.
+  memberId String?
+  member   Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  /// Defaults to APPROVED so entries made before nominations existed keep
+  /// showing; a self-nomination starts PENDING and waits for the commission.
+  status       CandidateStatus @default(APPROVED)
+  reviewNote   String?
+  reviewedById String?
+  reviewedBy   AdminUser?      @relation("CandidateReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+
+  choices ElectionVoteChoice[]
+
+  /// One nomination per member per portfolio. Postgres counts NULLs as
+  /// distinct, so the commission's own entries are unaffected.
+  @@unique([electionId, memberId, positionId])
+  @@index([electionId, status])
   @@map("election_candidates")
+}
+
+/// A terminal standing in a polling centre. It identifies itself with the
+/// code below and a key it is given once at registration; only the hash of
+/// that key is kept here.
+model PollingStation {
+  id         String    @id @default(cuid())
+  code       String    @unique
+  name       String
+  keyHash    String
+  isActive   Boolean   @default(true)
+  /// Last time this terminal asked the portal anything — how the
+  /// commission sees that a centre is up without ringing it.
+  lastSeenAt DateTime?
+
+  createdById String?
+  createdBy   AdminUser? @relation("StationRegistrar", fields: [createdById], references: [id])
+  createdAt   DateTime   @default(now())
+
+  ballots ElectionBallot[]
+
+  @@map("polling_stations")
+}
+
+/// Who has voted. Never what they voted for: there is no candidate on this
+/// table and no member on the ballot table, and nothing joins the two.
+model ElectionVoter {
+  id          String   @id @default(cuid())
+  electionId  String
+  election    Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  memberId    String
+  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  votedAt     DateTime @default(now())
+  stationCode String?
+
+  @@unique([electionId, memberId])
+  @@map("election_voters")
+}
+
+/// One completed ballot paper, with nobody's name on it.
+model ElectionBallot {
+  id         String   @id @default(cuid())
+  electionId String
+  election   Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  /// The terminal's own id for this paper. A vote that was queued offline
+  /// and sent twice when the line came back is recognised, not counted twice.
+  clientRef  String   @unique
+  /// Deliberately rounded down to the hour: enough to see turnout through
+  /// the day, not enough to line a ballot up against the roll by its
+  /// timestamp and work out who cast it.
+  castHour   DateTime
+  stationId  String?
+  station    PollingStation? @relation(fields: [stationId], references: [id], onDelete: SetNull)
+
+  choices ElectionVoteChoice[]
+
+  @@index([electionId])
+  @@map("election_ballots")
+}
+
+model ElectionVoteChoice {
+  id          String            @id @default(cuid())
+  ballotId    String
+  ballot      ElectionBallot    @relation(fields: [ballotId], references: [id], onDelete: Cascade)
+  candidateId String
+  candidate   ElectionCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  positionId  String?
+
+  /// One mark per portfolio per paper, enforced here rather than trusted
+  /// from the terminal.
+  @@unique([ballotId, positionId])
+  @@index([candidateId])
+  @@map("election_vote_choices")
 }
 
 // ==================================================================
