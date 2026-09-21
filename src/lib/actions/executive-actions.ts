@@ -245,7 +245,7 @@ async function sendBroadcastActionImpl(_prevState: ActionState, formData: FormDa
     }
   }
 
-  const { broadcast, recipients, emailsSent } = await sendAdminBroadcast({
+  const { recipients, emailsSent } = await sendAdminBroadcast({
     admin,
     authorName: parsed.data.authorName,
     audience: parsed.data.audience,
@@ -259,7 +259,12 @@ async function sendBroadcastActionImpl(_prevState: ActionState, formData: FormDa
   revalidatePath("/admin/broadcasts");
   revalidatePath("/membership/dashboard/announcements");
   revalidatePath("/alumni/announcements");
-  redirect(`/admin/broadcasts?sent=${broadcast.id}&to=${recipients}&emails=${emailsSent}`);
+  return {
+    success: true,
+    message: `Sent to ${recipients} recipient${recipients === 1 ? "" : "s"}${
+      emailsSent ? ` · ${emailsSent} email${emailsSent === 1 ? "" : "s"} delivered` : ""
+    }.`,
+  };
 }
 
 export const updateBarrierReportAction = withActionErrorHandling(

@@ -93,7 +93,7 @@ async function createHeroSlideActionImpl(_prevState: ActionState, formData: Form
     ctaUrl: fields.ctaUrl ?? undefined,
   });
   revalidateHeroSlides();
-  redirect("/admin/hero-slides?created=1");
+  return { success: true };
 }
 
 async function updateHeroSlideActionImpl(id: string, _prevState: ActionState, formData: FormData): Promise<ActionState> {
@@ -226,9 +226,8 @@ async function createTeamMemberActionImpl(formData: FormData): Promise<ActionSta
 
   const photoUrl = formData.get("photoUrl");
   const memberId = formData.get("memberId");
-  let created;
   try {
-    created = await createTeamMember({
+    await createTeamMember({
       ...parsed.data,
       photoUrl: typeof photoUrl === "string" && photoUrl ? photoUrl : undefined,
       memberId: typeof memberId === "string" && memberId ? memberId : null,
@@ -239,7 +238,7 @@ async function createTeamMemberActionImpl(formData: FormData): Promise<ActionSta
     return { error: err instanceof Error ? err.message : "Could not save this entry." };
   }
   revalidateTeamViews();
-  redirect(created.type === "PATRON" ? `/admin/patrons/profiles/${created.id}` : `/admin/team/${created.id}`);
+  return { success: true };
 }
 
 async function updateTeamMemberActionImpl(id: string, formData: FormData): Promise<ActionState> {

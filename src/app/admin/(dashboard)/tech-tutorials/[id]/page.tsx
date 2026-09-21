@@ -11,15 +11,9 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 export const metadata = { title: "Edit Software" };
 export const dynamic = "force-dynamic";
 
-export default async function EditSoftwarePage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ created?: string }>;
-}) {
+export default async function EditSoftwarePage({ params }: { params: Promise<{ id: string }> }) {
   await requireCapability("outreach.software");
-  const [{ id }, { created }] = await Promise.all([params, searchParams]);
+  const { id } = await params;
   const software = await getSoftware(id);
   if (!software) notFound();
 
@@ -28,11 +22,6 @@ export default async function EditSoftwarePage({
       <Link href="/admin/tech-tutorials" className="inline-flex items-center gap-1 text-sm text-slate hover:text-primary-800 mb-4">
         <ChevronLeft size={16} aria-hidden="true" /> Tech &amp; Tutorials
       </Link>
-      {created === "1" && (
-        <div role="status" className="mb-5 rounded-lg border border-success bg-success-light text-success px-4 py-3 text-sm font-medium">
-          Added to the directory.
-        </div>
-      )}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <h1 className="font-display font-bold text-2xl text-primary-950">{software.name}</h1>
         <ConfirmButton

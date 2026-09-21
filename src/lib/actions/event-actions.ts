@@ -3,7 +3,6 @@
 import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole, ContentStatus } from "@/generated/prisma/client";
 import { eventSchema } from "@/lib/validations/content";
@@ -41,7 +40,7 @@ async function createEventActionImpl(_prevState: ActionState, formData: FormData
   if (parsed.data.status !== ContentStatus.DRAFT) await requireCapability("content.events.publish");
 
   const imageUrl = formData.get("imageUrl");
-  const event = await createEvent(
+  await createEvent(
     parsed.data,
     typeof imageUrl === "string" && imageUrl ? imageUrl : null,
     admin.id,
@@ -50,9 +49,7 @@ async function createEventActionImpl(_prevState: ActionState, formData: FormData
   revalidatePath("/events");
   revalidatePath("/");
   revalidatePath("/admin/events");
-  // To the saved event, as News does — landing back on the list gave no
-  // sign that anything had been saved.
-  redirect(`/admin/events/${event.id}?created=1`);
+  return { success: true };
 }
 
 async function updateEventActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {

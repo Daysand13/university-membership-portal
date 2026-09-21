@@ -14,16 +14,9 @@ export const dynamic = "force-dynamic";
 
 const dateTime = new Intl.DateTimeFormat("en-GH", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Accra" });
 
-export default async function AdminIssuePage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ created?: string }>;
-}) {
+export default async function AdminIssuePage({ params }: { params: Promise<{ id: string }> }) {
   await requireCapability("members.patrons");
   const { id } = await params;
-  const { created } = await searchParams;
   const issue = await getIssue(id);
   if (!issue) notFound();
   const today = new Date().toISOString().slice(0, 10);
@@ -33,11 +26,6 @@ export default async function AdminIssuePage({
       <Link href="/admin/patrons/advocacy" className="inline-flex items-center gap-1 text-sm text-slate hover:text-primary-800 mb-4">
         <ChevronLeft size={16} aria-hidden="true" /> Advocacy
       </Link>
-      {created === "1" && (
-        <div role="status" className="mb-5 rounded-lg border border-success bg-success-light text-success px-4 py-3 text-sm font-medium">
-          Issue escalated. Patrons can see it and act on it now.
-        </div>
-      )}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <h1 className="font-display font-bold text-2xl text-primary-950">{issue.title}</h1>
         <ConfirmButton

@@ -130,8 +130,8 @@ async function saveCampaignActionImpl(campaignId: string | null, _prevState: Act
     revalidatePath(`/patrons/dashboard/advocacy/campaigns/${campaignId}`);
     return { success: true };
   }
-  const campaign = await createCampaign(fields, admin.id);
-  redirect(`/admin/patrons/advocacy/campaigns/${campaign.id}?created=1`);
+  await createCampaign(fields, admin.id);
+  return { success: true, message: "Patrons can see it and endorse it now." };
 }
 
 async function deleteCampaignActionImpl(campaignId: string): Promise<void> {
@@ -164,8 +164,8 @@ async function saveIssueActionImpl(issueId: string | null, _prevState: ActionSta
     revalidatePath(`/patrons/dashboard/advocacy/issues/${issueId}`);
     return { success: true };
   }
-  const issue = await createIssue(fields, admin.id);
-  redirect(`/admin/patrons/advocacy/issues/${issue.id}?created=1`);
+  await createIssue(fields, admin.id);
+  return { success: true, message: "Patrons can see it and act on it now." };
 }
 
 async function deleteIssueActionImpl(issueId: string): Promise<void> {

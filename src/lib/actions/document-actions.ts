@@ -3,7 +3,6 @@
 import { withActionErrorHandling, withVoidActionErrorHandling, withTypedActionErrorHandling } from "./with-error-handling";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole, ContentStatus } from "@/generated/prisma/client";
 import { documentSchema } from "@/lib/validations/content";
@@ -65,7 +64,7 @@ async function createDocumentActionImpl(_prevState: ActionState, formData: FormD
   );
 
   revalidateLibraries();
-  redirect("/admin/library");
+  return { success: true };
 }
 
 async function updateDocumentActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {

@@ -3,7 +3,6 @@
 import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole, ContentStatus } from "@/generated/prisma/client";
 import { newsSchema } from "@/lib/validations/content";
@@ -38,7 +37,7 @@ async function createNewsActionImpl(_prevState: ActionState, formData: FormData)
   if (parsed.data.status !== ContentStatus.DRAFT) await requireCapability("content.news.publish");
 
   const coverImageUrl = formData.get("coverImageUrl");
-  const article = await createNews(
+  await createNews(
     parsed.data,
     typeof coverImageUrl === "string" && coverImageUrl ? coverImageUrl : null,
     admin.id,
@@ -47,7 +46,7 @@ async function createNewsActionImpl(_prevState: ActionState, formData: FormData)
   revalidatePath("/news");
   revalidatePath("/");
   revalidatePath("/admin/news");
-  redirect(`/admin/news/${article.id}?created=1`);
+  return { success: true };
 }
 
 async function updateNewsActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {

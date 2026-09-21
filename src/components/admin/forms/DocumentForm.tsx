@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { createDocumentAction, updateDocumentAction } from "@/lib/actions/document-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert, SavedNotice } from "@/components/ui/Common";
+import { SuccessDialog, useResettableForm } from "@/components/ui/SuccessDialog";
 import { Button } from "@/components/ui/Button";
 import { DocumentUploadField } from "@/components/admin/DocumentUploadField";
 import type { Document, DocumentCategory } from "@/generated/prisma/client";
@@ -14,75 +15,94 @@ export function DocumentForm({ document, categories }: { document?: Document; ca
   const [state, formAction, isPending] = useActionState(action, initialActionState);
   const fe = state.fieldErrors ?? {};
 
+  const { formKey, formRef, resetForm } = useResettableForm();
+
   return (
-    <form action={formAction} className="space-y-5">
-      <FormAlert message={state.error} />
-      {document && <input type="hidden" name="id" value={document.id} />}
+    <>
+      <form ref={formRef} key={formKey} action={formAction} className="space-y-5">
+        <FormAlert message={state.error} />
+        {document && <input type="hidden" name="id" value={document.id} />}
 
-      {!document && <DocumentUploadField />}
+        {!document && <DocumentUploadField />}
 
-      <div>
-        <Label htmlFor="title" required>Title</Label>
-        <input id="title" name="title" required defaultValue={document?.title} className={inputClasses} />
-        <FieldError messages={fe.title} />
-      </div>
-      <div>
-        <Label htmlFor="description">Description</Label>
-        <textarea id="description" name="description" rows={3} defaultValue={document?.description ?? ""} className={inputClasses} />
-      </div>
-      <div className="grid sm:grid-cols-2 gap-5">
         <div>
-          <Label htmlFor="categoryId">Category</Label>
-          <select id="categoryId" name="categoryId" defaultValue={document?.categoryId ?? ""} className={inputClasses}>
-            <option value="">No category</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+          <Label htmlFor="title" required>Title</Label>
+          <input id="title" name="title" required defaultValue={document?.title} className={inputClasses} />
+          <FieldError messages={fe.title} />
         </div>
         <div>
-          <Label htmlFor="version">Version (optional)</Label>
-          <input id="version" name="version" defaultValue={document?.version ?? ""} className={inputClasses} />
+          <Label htmlFor="description">Description</Label>
+          <textarea id="description" name="description" rows={3} defaultValue={document?.description ?? ""} className={inputClasses} />
         </div>
-        <div>
-          <Label htmlFor="audience">Who can see it</Label>
-          <select id="audience" name="audience" defaultValue={document?.audience ?? "PUBLIC"} className={inputClasses}>
-            <option value="PUBLIC">Everyone (public library)</option>
-            <option value="PATRONS">Patrons only (Patrons&apos; Portal)</option>
-          </select>
-          <p className="text-xs text-slate mt-1">
-            Patrons see both. File quarterly balance sheets under the Financial Reports category.
-          </p>
+        <div className="grid sm:grid-cols-2 gap-5">
+          <div>
+            <Label htmlFor="categoryId">Category</Label>
+            <select id="categoryId" name="categoryId" defaultValue={document?.categoryId ?? ""} className={inputClasses}>
+              <option value="">No category</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label htmlFor="version">Version (optional)</Label>
+            <input id="version" name="version" defaultValue={document?.version ?? ""} className={inputClasses} />
+          </div>
+          <div>
+            <Label htmlFor="audience">Who can see it</Label>
+            <select id="audience" name="audience" defaultValue={document?.audience ?? "PUBLIC"} className={inputClasses}>
+              <option value="PUBLIC">Everyone (public library)</option>
+              <option value="PATRONS">Patrons only (Patrons&apos; Portal)</option>
+            </select>
+            <p className="text-xs text-slate mt-1">
+              Patrons see both. File quarterly balance sheets under the Financial Reports category.
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="status">Status</Label>
+            <select id="status" name="status" defaultValue={document?.status ?? "DRAFT"} className={inputClasses}>
+              <option value="DRAFT">Draft</option>
+              <option value="PUBLISHED">Published</option>
+              <option value="ARCHIVED">Archived</option>
+            </select>
+          </div>
+          <div className="flex flex-wrap items-center gap-6 pt-6 sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
+              <input type="checkbox" name="featured" defaultChecked={document?.featured} className="h-4 w-4 rounded border-line text-primary-800" />
+              Featured
+            </label>
+            <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
+              <input type="checkbox" name="isPublic" defaultChecked={document?.isPublic ?? true} className="h-4 w-4 rounded border-line text-primary-800" />
+              Publicly downloadable
+            </label>
+          </div>
         </div>
-        <div>
-          <Label htmlFor="status">Status</Label>
-          <select id="status" name="status" defaultValue={document?.status ?? "DRAFT"} className={inputClasses}>
-            <option value="DRAFT">Draft</option>
-            <option value="PUBLISHED">Published</option>
-            <option value="ARCHIVED">Archived</option>
-          </select>
-        </div>
-        <div className="flex flex-wrap items-center gap-6 pt-6 sm:col-span-2">
-          <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
-            <input type="checkbox" name="featured" defaultChecked={document?.featured} className="h-4 w-4 rounded border-line text-primary-800" />
-            Featured
-          </label>
-          <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
-            <input type="checkbox" name="isPublic" defaultChecked={document?.isPublic ?? true} className="h-4 w-4 rounded border-line text-primary-800" />
-            Publicly downloadable
-          </label>
-        </div>
-      </div>
 
-      <div className="flex flex-wrap items-center gap-4">
-        <Button type="submit" disabled={isPending}>
-          {isPending && <Loader2 size={15} className="animate-spin" />}
-          {isPending ? "Saving…" : document ? "Save Changes" : "Add to Library"}
-        </Button>
-        <SavedNotice state={state} isPending={isPending}>
-          Saved.
-        </SavedNotice>
-      </div>
-    </form>
+        <div className="flex flex-wrap items-center gap-4">
+          <Button type="submit" disabled={isPending}>
+            {isPending && <Loader2 size={15} className="animate-spin" />}
+            {isPending ? "Saving…" : document ? "Save Changes" : "Add to Library"}
+          </Button>
+          {document && (
+            <SavedNotice state={state} isPending={isPending}>
+              Saved.
+            </SavedNotice>
+          )}
+        </div>
+      </form>
+
+      {!document && (
+        <SuccessDialog
+          state={state}
+          isPending={isPending}
+          title="Added to the library"
+          description="Members can download it now."
+          againLabel="Add another file"
+          onAgain={resetForm}
+          listHref="/admin/library"
+          listLabel="Back to the library"
+        />
+      )}
+    </>
   );
 }

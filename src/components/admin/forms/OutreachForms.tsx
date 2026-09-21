@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { FieldError, FormAlert, Label, SavedNotice, inputClasses } from "@/components/ui/Common";
+import { SuccessDialog, useResettableForm } from "@/components/ui/SuccessDialog";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import {
   saveAllyAction,
@@ -69,183 +70,199 @@ export function AllyForm({ ally }: { ally: AllyFormValues }) {
   const fe = state.fieldErrors ?? {};
   const corporate = type === "CORPORATE";
 
+  const { formKey, formRef, resetForm } = useResettableForm();
+
   return (
-    <form action={formAction} className="space-y-5">
-      <FormAlert message={state.error} />
-      {ally.signupId && <input type="hidden" name="signupId" value={ally.signupId} />}
+    <>
+      <form ref={formRef} key={formKey} action={formAction} className="space-y-5">
+        <FormAlert message={state.error} />
+        {ally.signupId && <input type="hidden" name="signupId" value={ally.signupId} />}
 
-      <fieldset>
-        <legend className="text-sm font-medium text-primary-950 mb-1.5">Kind of ally</legend>
-        <div className="flex flex-wrap gap-2">
-          {(["INDIVIDUAL", "CORPORATE"] as const).map((value) => (
-            <label
-              key={value}
-              className="flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 cursor-pointer has-[:checked]:border-primary-800 has-[:checked]:bg-primary-50"
-            >
-              <input
-                type="radio"
-                name="type"
-                value={value}
-                checked={type === value}
-                onChange={() => setType(value)}
-                className="h-4 w-4 text-primary-800"
-              />
-              <span className="text-sm font-semibold text-primary-950">
-                {value === "INDIVIDUAL" ? "Individual" : "Corporate / institution"}
-              </span>
-            </label>
-          ))}
+        <fieldset>
+          <legend className="text-sm font-medium text-primary-950 mb-1.5">Kind of ally</legend>
+          <div className="flex flex-wrap gap-2">
+            {(["INDIVIDUAL", "CORPORATE"] as const).map((value) => (
+              <label
+                key={value}
+                className="flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 cursor-pointer has-[:checked]:border-primary-800 has-[:checked]:bg-primary-50"
+              >
+                <input
+                  type="radio"
+                  name="type"
+                  value={value}
+                  checked={type === value}
+                  onChange={() => setType(value)}
+                  className="h-4 w-4 text-primary-800"
+                />
+                <span className="text-sm font-semibold text-primary-950">
+                  {value === "INDIVIDUAL" ? "Individual" : "Corporate / institution"}
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div>
+          <Label htmlFor="ally-name" required>
+            {corporate ? "Organisation name" : "Full name"}
+          </Label>
+          <input id="ally-name" name="name" required maxLength={200} defaultValue={ally.name} className={inputClasses} />
+          <FieldError messages={fe.name} />
         </div>
-      </fieldset>
 
-      <div>
-        <Label htmlFor="ally-name" required>
-          {corporate ? "Organisation name" : "Full name"}
-        </Label>
-        <input id="ally-name" name="name" required maxLength={200} defaultValue={ally.name} className={inputClasses} />
-        <FieldError messages={fe.name} />
-      </div>
-
-      <ImageUploadField
-        key={type}
-        name="imageUrl"
-        category={corporate ? "LOGO" : "PROFILE"}
-        label={corporate ? "Logo (a high-resolution PNG with a transparent background works best)" : "Photo (a professional headshot)"}
-        defaultUrl={ally.imageUrl}
-        aspect={corporate ? "aspect-[3/2]" : "aspect-square"}
-      />
-
-      {corporate ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="ally-sector">Industry / sector</Label>
-            <input
-              id="ally-sector"
-              name="sector"
-              maxLength={200}
-              defaultValue={ally.sector ?? ""}
-              className={inputClasses}
-              placeholder="e.g. Assistive Technology"
-            />
-            <FieldError messages={fe.sector} />
-          </div>
-          <div>
-            <Label htmlFor="ally-website">Website</Label>
-            <input
-              id="ally-website"
-              name="websiteUrl"
-              type="url"
-              maxLength={500}
-              defaultValue={ally.websiteUrl ?? ""}
-              className={inputClasses}
-              placeholder="https://…"
-            />
-            <FieldError messages={fe.websiteUrl} />
-          </div>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="ally-role">Role</Label>
-            <input
-              id="ally-role"
-              name="role"
-              maxLength={200}
-              defaultValue={ally.role ?? ""}
-              className={inputClasses}
-              placeholder="e.g. Senior Policy Advisor"
-            />
-            <FieldError messages={fe.role} />
-          </div>
-          <div>
-            <Label htmlFor="ally-organization">Organisation</Label>
-            <input
-              id="ally-organization"
-              name="organization"
-              maxLength={200}
-              defaultValue={ally.organization ?? ""}
-              className={inputClasses}
-              placeholder="e.g. Accessibility Division"
-            />
-            <FieldError messages={fe.organization} />
-          </div>
-        </div>
-      )}
-
-      <div>
-        <Label htmlFor="ally-statement">{corporate ? "Partnership note" : "Ally statement"}</Label>
-        <p className="text-xs text-slate mb-1.5">
-          {corporate
-            ? "One line on how they support, e.g. “Sponsoring digital inclusion initiatives since 2024.”"
-            : "One or two sentences, in their words, on why they support the association."}
-        </p>
-        <textarea
-          id="ally-statement"
-          name="statement"
-          rows={3}
-          maxLength={400}
-          defaultValue={ally.statement ?? ""}
-          className={inputClasses}
+        <ImageUploadField
+          key={type}
+          name="imageUrl"
+          category={corporate ? "LOGO" : "PROFILE"}
+          label={corporate ? "Logo (a high-resolution PNG with a transparent background works best)" : "Photo (a professional headshot)"}
+          defaultUrl={ally.imageUrl}
+          aspect={corporate ? "aspect-[3/2]" : "aspect-square"}
         />
-        <FieldError messages={fe.statement} />
-      </div>
 
-      <div className="rounded-lg border border-line p-4 space-y-3">
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            name="featured"
-            checked={featured}
-            onChange={(e) => setFeatured(e.target.checked)}
-            className="mt-1 h-4 w-4 rounded border-line text-primary-800"
-          />
-          <span>
-            <span className="block text-sm font-semibold text-primary-950">Feature in the spotlight</span>
-            <span className="block text-xs text-slate">Up to three featured quotes appear on the page.</span>
-          </span>
-        </label>
-        {featured && (
-          <div>
-            <Label htmlFor="ally-quote" required>
-              Spotlight quote
-            </Label>
-            <textarea
-              id="ally-quote"
-              name="spotlightQuote"
-              rows={4}
-              maxLength={800}
-              defaultValue={ally.spotlightQuote ?? ""}
-              className={inputClasses}
-            />
-            <FieldError messages={fe.spotlightQuote} />
+        {corporate ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="ally-sector">Industry / sector</Label>
+              <input
+                id="ally-sector"
+                name="sector"
+                maxLength={200}
+                defaultValue={ally.sector ?? ""}
+                className={inputClasses}
+                placeholder="e.g. Assistive Technology"
+              />
+              <FieldError messages={fe.sector} />
+            </div>
+            <div>
+              <Label htmlFor="ally-website">Website</Label>
+              <input
+                id="ally-website"
+                name="websiteUrl"
+                type="url"
+                maxLength={500}
+                defaultValue={ally.websiteUrl ?? ""}
+                className={inputClasses}
+                placeholder="https://…"
+              />
+              <FieldError messages={fe.websiteUrl} />
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="ally-role">Role</Label>
+              <input
+                id="ally-role"
+                name="role"
+                maxLength={200}
+                defaultValue={ally.role ?? ""}
+                className={inputClasses}
+                placeholder="e.g. Senior Policy Advisor"
+              />
+              <FieldError messages={fe.role} />
+            </div>
+            <div>
+              <Label htmlFor="ally-organization">Organisation</Label>
+              <input
+                id="ally-organization"
+                name="organization"
+                maxLength={200}
+                defaultValue={ally.organization ?? ""}
+                className={inputClasses}
+                placeholder="e.g. Accessibility Division"
+              />
+              <FieldError messages={fe.organization} />
+            </div>
           </div>
         )}
-      </div>
 
-      <div className="flex flex-wrap items-end gap-6">
         <div>
-          <Label htmlFor="ally-order">Display order</Label>
-          <input
-            id="ally-order"
-            name="order"
-            type="number"
-            min={0}
-            defaultValue={ally.order}
-            className={`${inputClasses} max-w-[7rem]`}
+          <Label htmlFor="ally-statement">{corporate ? "Partnership note" : "Ally statement"}</Label>
+          <p className="text-xs text-slate mb-1.5">
+            {corporate
+              ? "One line on how they support, e.g. “Sponsoring digital inclusion initiatives since 2024.”"
+              : "One or two sentences, in their words, on why they support the association."}
+          </p>
+          <textarea
+            id="ally-statement"
+            name="statement"
+            rows={3}
+            maxLength={400}
+            defaultValue={ally.statement ?? ""}
+            className={inputClasses}
           />
+          <FieldError messages={fe.statement} />
         </div>
-        <label className="flex items-center gap-2.5 pb-2.5 cursor-pointer">
-          <input type="checkbox" name="isActive" defaultChecked={ally.isActive} className="h-4 w-4 rounded border-line text-primary-800" />
-          <span className="text-sm font-semibold text-primary-950">Show on the public page</span>
-        </label>
-      </div>
 
-      <SubmitRow
-        isPending={isPending}
-        label={ally.id ? "Save changes" : "Add ally"}
-        saved={<SavedNotice state={state} isPending={isPending}>Saved. The Allies page is up to date.</SavedNotice>}
-      />
-    </form>
+        <div className="rounded-lg border border-line p-4 space-y-3">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              name="featured"
+              checked={featured}
+              onChange={(e) => setFeatured(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-line text-primary-800"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-primary-950">Feature in the spotlight</span>
+              <span className="block text-xs text-slate">Up to three featured quotes appear on the page.</span>
+            </span>
+          </label>
+          {featured && (
+            <div>
+              <Label htmlFor="ally-quote" required>
+                Spotlight quote
+              </Label>
+              <textarea
+                id="ally-quote"
+                name="spotlightQuote"
+                rows={4}
+                maxLength={800}
+                defaultValue={ally.spotlightQuote ?? ""}
+                className={inputClasses}
+              />
+              <FieldError messages={fe.spotlightQuote} />
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-end gap-6">
+          <div>
+            <Label htmlFor="ally-order">Display order</Label>
+            <input
+              id="ally-order"
+              name="order"
+              type="number"
+              min={0}
+              defaultValue={ally.order}
+              className={`${inputClasses} max-w-[7rem]`}
+            />
+          </div>
+          <label className="flex items-center gap-2.5 pb-2.5 cursor-pointer">
+            <input type="checkbox" name="isActive" defaultChecked={ally.isActive} className="h-4 w-4 rounded border-line text-primary-800" />
+            <span className="text-sm font-semibold text-primary-950">Show on the public page</span>
+          </label>
+        </div>
+
+        <SubmitRow
+          isPending={isPending}
+          label={ally.id ? "Save changes" : "Add ally"}
+          saved={ally.id ? <SavedNotice state={state} isPending={isPending}>Saved. The Allies page is up to date.</SavedNotice> : null}
+        />
+      </form>
+
+      {!ally.id && (
+        <SuccessDialog
+          state={state}
+          isPending={isPending}
+          title="Ally added"
+          againLabel="Add another"
+          onAgain={resetForm}
+          listHref="/admin/allies"
+          listLabel="Back to allies"
+        />
+      )}
+    </>
   );
 }
 
@@ -299,151 +316,167 @@ export function SoftwareForm({ software }: { software: SoftwareFormValues }) {
   );
   const fe = state.fieldErrors ?? {};
 
+  const { formKey, formRef, resetForm } = useResettableForm();
+
   return (
-    <form action={formAction} className="space-y-5">
-      <FormAlert message={state.error} />
+    <>
+      <form ref={formRef} key={formKey} action={formAction} className="space-y-5">
+        <FormAlert message={state.error} />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="software-name" required>
-            Name
-          </Label>
-          <input id="software-name" name="name" required maxLength={150} defaultValue={software.name} className={inputClasses} />
-          <FieldError messages={fe.name} />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="software-name" required>
+              Name
+            </Label>
+            <input id="software-name" name="name" required maxLength={150} defaultValue={software.name} className={inputClasses} />
+            <FieldError messages={fe.name} />
+          </div>
+          <div>
+            <Label htmlFor="software-category" required>
+              Category
+            </Label>
+            <select id="software-category" name="category" defaultValue={software.category} className={inputClasses}>
+              {SOFTWARE_CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <FieldError messages={fe.category} />
+          </div>
         </div>
+
+        <ImageUploadField name="logoUrl" category="LOGO" label="Logo" defaultUrl={software.logoUrl} aspect="aspect-square" />
+
         <div>
-          <Label htmlFor="software-category" required>
-            Category
+          <Label htmlFor="software-description" required>
+            Short description
           </Label>
-          <select id="software-category" name="category" defaultValue={software.category} className={inputClasses}>
-            {SOFTWARE_CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
+          <textarea
+            id="software-description"
+            name="description"
+            rows={3}
+            required
+            maxLength={600}
+            defaultValue={software.description}
+            className={inputClasses}
+          />
+          <FieldError messages={fe.description} />
+        </div>
+
+        <fieldset>
+          <legend className="text-sm font-medium text-primary-950 mb-1.5">Works on</legend>
+          <div className="flex flex-wrap gap-2">
+            {SOFTWARE_PLATFORMS.map((p) => (
+              <label
+                key={p.value}
+                className="flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 cursor-pointer has-[:checked]:border-primary-800 has-[:checked]:bg-primary-50"
+              >
+                <input
+                  type="checkbox"
+                  name="platforms"
+                  value={p.value}
+                  defaultChecked={software.platforms.includes(p.value)}
+                  className="h-4 w-4 rounded border-line text-primary-800"
+                />
+                <span className="text-sm font-semibold text-primary-950">{p.label}</span>
+              </label>
             ))}
-          </select>
-          <FieldError messages={fe.category} />
+          </div>
+          <FieldError messages={fe.platforms} />
+        </fieldset>
+
+        <fieldset>
+          <legend className="text-sm font-medium text-primary-950 mb-1.5">Licence</legend>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: "FREE", label: "Free / Open Source" },
+              { value: "FUNDED", label: "Paid — funded via donations" },
+            ].map((option) => (
+              <label
+                key={option.value}
+                className="flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 cursor-pointer has-[:checked]:border-primary-800 has-[:checked]:bg-primary-50"
+              >
+                <input
+                  type="radio"
+                  name="licence"
+                  value={option.value}
+                  defaultChecked={(option.value === "FREE") === software.isFree}
+                  className="h-4 w-4 text-primary-800"
+                />
+                <span className="text-sm font-semibold text-primary-950">{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="software-telegram">Telegram post link</Label>
+            <input
+              id="software-telegram"
+              name="telegramUrl"
+              type="url"
+              maxLength={500}
+              defaultValue={software.telegramUrl ?? ""}
+              className={inputClasses}
+              placeholder="https://t.me/…"
+            />
+            <p className="text-xs text-slate mt-1">Leave blank to send people to the library itself.</p>
+            <FieldError messages={fe.telegramUrl} />
+          </div>
+          <div>
+            <Label htmlFor="software-website">Official website</Label>
+            <input
+              id="software-website"
+              name="websiteUrl"
+              type="url"
+              maxLength={500}
+              defaultValue={software.websiteUrl ?? ""}
+              className={inputClasses}
+              placeholder="https://…"
+            />
+            <FieldError messages={fe.websiteUrl} />
+          </div>
         </div>
-      </div>
 
-      <ImageUploadField name="logoUrl" category="LOGO" label="Logo" defaultUrl={software.logoUrl} aspect="aspect-square" />
+        <div className="flex flex-wrap items-end gap-6">
+          <div>
+            <Label htmlFor="software-order">Display order</Label>
+            <input
+              id="software-order"
+              name="order"
+              type="number"
+              min={0}
+              defaultValue={software.order}
+              className={`${inputClasses} max-w-[7rem]`}
+            />
+          </div>
+          <label className="flex items-center gap-2.5 pb-2.5 cursor-pointer">
+            <input type="checkbox" name="isActive" defaultChecked={software.isActive} className="h-4 w-4 rounded border-line text-primary-800" />
+            <span className="text-sm font-semibold text-primary-950">Show in the directory</span>
+          </label>
+        </div>
 
-      <div>
-        <Label htmlFor="software-description" required>
-          Short description
-        </Label>
-        <textarea
-          id="software-description"
-          name="description"
-          rows={3}
-          required
-          maxLength={600}
-          defaultValue={software.description}
-          className={inputClasses}
+        <SubmitRow
+          isPending={isPending}
+          label={software.id ? "Save changes" : "Add to directory"}
+          saved={software.id ? <SavedNotice state={state} isPending={isPending}>Saved. The directory is up to date.</SavedNotice> : null}
         />
-        <FieldError messages={fe.description} />
-      </div>
+      </form>
 
-      <fieldset>
-        <legend className="text-sm font-medium text-primary-950 mb-1.5">Works on</legend>
-        <div className="flex flex-wrap gap-2">
-          {SOFTWARE_PLATFORMS.map((p) => (
-            <label
-              key={p.value}
-              className="flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 cursor-pointer has-[:checked]:border-primary-800 has-[:checked]:bg-primary-50"
-            >
-              <input
-                type="checkbox"
-                name="platforms"
-                value={p.value}
-                defaultChecked={software.platforms.includes(p.value)}
-                className="h-4 w-4 rounded border-line text-primary-800"
-              />
-              <span className="text-sm font-semibold text-primary-950">{p.label}</span>
-            </label>
-          ))}
-        </div>
-        <FieldError messages={fe.platforms} />
-      </fieldset>
-
-      <fieldset>
-        <legend className="text-sm font-medium text-primary-950 mb-1.5">Licence</legend>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { value: "FREE", label: "Free / Open Source" },
-            { value: "FUNDED", label: "Paid — funded via donations" },
-          ].map((option) => (
-            <label
-              key={option.value}
-              className="flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 cursor-pointer has-[:checked]:border-primary-800 has-[:checked]:bg-primary-50"
-            >
-              <input
-                type="radio"
-                name="licence"
-                value={option.value}
-                defaultChecked={(option.value === "FREE") === software.isFree}
-                className="h-4 w-4 text-primary-800"
-              />
-              <span className="text-sm font-semibold text-primary-950">{option.label}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="software-telegram">Telegram post link</Label>
-          <input
-            id="software-telegram"
-            name="telegramUrl"
-            type="url"
-            maxLength={500}
-            defaultValue={software.telegramUrl ?? ""}
-            className={inputClasses}
-            placeholder="https://t.me/…"
-          />
-          <p className="text-xs text-slate mt-1">Leave blank to send people to the library itself.</p>
-          <FieldError messages={fe.telegramUrl} />
-        </div>
-        <div>
-          <Label htmlFor="software-website">Official website</Label>
-          <input
-            id="software-website"
-            name="websiteUrl"
-            type="url"
-            maxLength={500}
-            defaultValue={software.websiteUrl ?? ""}
-            className={inputClasses}
-            placeholder="https://…"
-          />
-          <FieldError messages={fe.websiteUrl} />
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-end gap-6">
-        <div>
-          <Label htmlFor="software-order">Display order</Label>
-          <input
-            id="software-order"
-            name="order"
-            type="number"
-            min={0}
-            defaultValue={software.order}
-            className={`${inputClasses} max-w-[7rem]`}
-          />
-        </div>
-        <label className="flex items-center gap-2.5 pb-2.5 cursor-pointer">
-          <input type="checkbox" name="isActive" defaultChecked={software.isActive} className="h-4 w-4 rounded border-line text-primary-800" />
-          <span className="text-sm font-semibold text-primary-950">Show in the directory</span>
-        </label>
-      </div>
-
-      <SubmitRow
-        isPending={isPending}
-        label={software.id ? "Save changes" : "Add to directory"}
-        saved={<SavedNotice state={state} isPending={isPending}>Saved. The directory is up to date.</SavedNotice>}
-      />
-    </form>
+      {!software.id && (
+        <SuccessDialog
+          state={state}
+          isPending={isPending}
+          title="Added to the directory"
+          againLabel="Add another tool"
+          onAgain={resetForm}
+          listHref="/admin/tech-tutorials"
+          listLabel="Back to the directory"
+        />
+      )}
+    </>
   );
 }
 
@@ -474,150 +507,166 @@ export function TutorialForm({ tutorial }: { tutorial: TutorialFormValues }) {
   );
   const fe = state.fieldErrors ?? {};
 
+  const { formKey, formRef, resetForm } = useResettableForm();
+
   return (
-    <form action={formAction} className="space-y-5">
-      <FormAlert message={state.error} />
+    <>
+      <form ref={formRef} key={formKey} action={formAction} className="space-y-5">
+        <FormAlert message={state.error} />
 
-      <fieldset>
-        <legend className="text-sm font-medium text-primary-950 mb-1.5">Where it lives</legend>
-        <div className="flex flex-wrap gap-2">
-          {TUTORIAL_SOURCES.map((option) => (
-            <label
-              key={option.value}
-              className="flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 cursor-pointer has-[:checked]:border-primary-800 has-[:checked]:bg-primary-50"
-            >
-              <input
-                type="radio"
-                name="source"
-                value={option.value}
-                checked={source === option.value}
-                onChange={() => setSource(option.value)}
-                className="h-4 w-4 text-primary-800"
-              />
-              <span className="text-sm font-semibold text-primary-950">{option.label}</span>
-            </label>
-          ))}
-        </div>
-        <FieldError messages={fe.source} />
-      </fieldset>
-
-      <div>
-        <Label htmlFor="tutorial-url" required>
-          Link to the video
-        </Label>
-        <input
-          id="tutorial-url"
-          name="url"
-          type="url"
-          required
-          maxLength={1000}
-          defaultValue={tutorial.url}
-          className={inputClasses}
-          placeholder={source === "TIKTOK" ? "https://www.tiktok.com/@name/video/…" : "https://www.youtube.com/watch?v=…"}
-        />
-        <p className="text-xs text-slate mt-1">
-          {source === "TIKTOK"
-            ? "Opens on TikTok when someone presses play, since TikTok has no player we can put on the page."
-            : "A watch, share, embed or Shorts link — the page works out the rest, and only loads YouTube when someone presses play."}
-        </p>
-        <FieldError messages={fe.url} />
-      </div>
-
-      <div>
-        <Label htmlFor="tutorial-title" required>
-          Title
-        </Label>
-        <input
-          id="tutorial-title"
-          name="title"
-          required
-          maxLength={200}
-          defaultValue={tutorial.title}
-          className={inputClasses}
-          placeholder="e.g. Reading a PDF with NVDA"
-        />
-        <FieldError messages={fe.title} />
-      </div>
-
-      <div>
-        <Label htmlFor="tutorial-description" required>
-          What it covers
-        </Label>
-        <textarea
-          id="tutorial-description"
-          name="description"
-          rows={3}
-          required
-          maxLength={600}
-          defaultValue={tutorial.description}
-          className={inputClasses}
-        />
-        <FieldError messages={fe.description} />
-      </div>
-
-      <ImageUploadField
-        name="thumbnailUrl"
-        category="OTHER"
-        label={source === "TIKTOK" ? "Thumbnail (recommended)" : "Thumbnail (optional)"}
-        defaultUrl={tutorial.thumbnailUrl}
-      />
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="tutorial-category">It helps with</Label>
-          <select id="tutorial-category" name="category" defaultValue={tutorial.category ?? ""} className={inputClasses}>
-            <option value="">Not specific</option>
-            {SOFTWARE_CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
+        <fieldset>
+          <legend className="text-sm font-medium text-primary-950 mb-1.5">Where it lives</legend>
+          <div className="flex flex-wrap gap-2">
+            {TUTORIAL_SOURCES.map((option) => (
+              <label
+                key={option.value}
+                className="flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 cursor-pointer has-[:checked]:border-primary-800 has-[:checked]:bg-primary-50"
+              >
+                <input
+                  type="radio"
+                  name="source"
+                  value={option.value}
+                  checked={source === option.value}
+                  onChange={() => setSource(option.value)}
+                  className="h-4 w-4 text-primary-800"
+                />
+                <span className="text-sm font-semibold text-primary-950">{option.label}</span>
+              </label>
             ))}
-          </select>
-          <FieldError messages={fe.category} />
-        </div>
+          </div>
+          <FieldError messages={fe.source} />
+        </fieldset>
+
         <div>
-          <Label htmlFor="tutorial-duration">How long it runs</Label>
+          <Label htmlFor="tutorial-url" required>
+            Link to the video
+          </Label>
           <input
-            id="tutorial-duration"
-            name="durationLabel"
-            maxLength={20}
-            defaultValue={tutorial.durationLabel ?? ""}
+            id="tutorial-url"
+            name="url"
+            type="url"
+            required
+            maxLength={1000}
+            defaultValue={tutorial.url}
             className={inputClasses}
-            placeholder="e.g. 8 min"
+            placeholder={source === "TIKTOK" ? "https://www.tiktok.com/@name/video/…" : "https://www.youtube.com/watch?v=…"}
           />
-          <FieldError messages={fe.durationLabel} />
+          <p className="text-xs text-slate mt-1">
+            {source === "TIKTOK"
+              ? "Opens on TikTok when someone presses play, since TikTok has no player we can put on the page."
+              : "A watch, share, embed or Shorts link — the page works out the rest, and only loads YouTube when someone presses play."}
+          </p>
+          <FieldError messages={fe.url} />
         </div>
-      </div>
 
-      <div className="flex flex-wrap items-end gap-6">
         <div>
-          <Label htmlFor="tutorial-order">Display order</Label>
+          <Label htmlFor="tutorial-title" required>
+            Title
+          </Label>
           <input
-            id="tutorial-order"
-            name="order"
-            type="number"
-            min={0}
-            defaultValue={tutorial.order}
-            className={`${inputClasses} max-w-[7rem]`}
+            id="tutorial-title"
+            name="title"
+            required
+            maxLength={200}
+            defaultValue={tutorial.title}
+            className={inputClasses}
+            placeholder="e.g. Reading a PDF with NVDA"
           />
+          <FieldError messages={fe.title} />
         </div>
-        <label className="flex items-center gap-2.5 pb-2.5 cursor-pointer">
-          <input
-            type="checkbox"
-            name="isActive"
-            defaultChecked={tutorial.isActive}
-            className="h-4 w-4 rounded border-line text-primary-800"
-          />
-          <span className="text-sm font-semibold text-primary-950">Show on the page</span>
-        </label>
-      </div>
 
-      <SubmitRow
-        isPending={isPending}
-        label={tutorial.id ? "Save changes" : "Add the tutorial"}
-        saved={<SavedNotice state={state} isPending={isPending}>Saved. The tutorial is up to date.</SavedNotice>}
-      />
-    </form>
+        <div>
+          <Label htmlFor="tutorial-description" required>
+            What it covers
+          </Label>
+          <textarea
+            id="tutorial-description"
+            name="description"
+            rows={3}
+            required
+            maxLength={600}
+            defaultValue={tutorial.description}
+            className={inputClasses}
+          />
+          <FieldError messages={fe.description} />
+        </div>
+
+        <ImageUploadField
+          name="thumbnailUrl"
+          category="OTHER"
+          label={source === "TIKTOK" ? "Thumbnail (recommended)" : "Thumbnail (optional)"}
+          defaultUrl={tutorial.thumbnailUrl}
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="tutorial-category">It helps with</Label>
+            <select id="tutorial-category" name="category" defaultValue={tutorial.category ?? ""} className={inputClasses}>
+              <option value="">Not specific</option>
+              {SOFTWARE_CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <FieldError messages={fe.category} />
+          </div>
+          <div>
+            <Label htmlFor="tutorial-duration">How long it runs</Label>
+            <input
+              id="tutorial-duration"
+              name="durationLabel"
+              maxLength={20}
+              defaultValue={tutorial.durationLabel ?? ""}
+              className={inputClasses}
+              placeholder="e.g. 8 min"
+            />
+            <FieldError messages={fe.durationLabel} />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-end gap-6">
+          <div>
+            <Label htmlFor="tutorial-order">Display order</Label>
+            <input
+              id="tutorial-order"
+              name="order"
+              type="number"
+              min={0}
+              defaultValue={tutorial.order}
+              className={`${inputClasses} max-w-[7rem]`}
+            />
+          </div>
+          <label className="flex items-center gap-2.5 pb-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              name="isActive"
+              defaultChecked={tutorial.isActive}
+              className="h-4 w-4 rounded border-line text-primary-800"
+            />
+            <span className="text-sm font-semibold text-primary-950">Show on the page</span>
+          </label>
+        </div>
+
+        <SubmitRow
+          isPending={isPending}
+          label={tutorial.id ? "Save changes" : "Add the tutorial"}
+          saved={tutorial.id ? <SavedNotice state={state} isPending={isPending}>Saved. The tutorial is up to date.</SavedNotice> : null}
+        />
+      </form>
+
+      {!tutorial.id && (
+        <SuccessDialog
+          state={state}
+          isPending={isPending}
+          title="Tutorial added"
+          againLabel="Add another tutorial"
+          onAgain={resetForm}
+          listHref="/admin/tech-tutorials/tutorials"
+          listLabel="Back to tutorials"
+        />
+      )}
+    </>
   );
 }
 

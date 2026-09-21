@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { createElectionAction, updateElectionAction } from "@/lib/actions/election-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert, SavedNotice } from "@/components/ui/Common";
+import { SuccessDialog, useResettableForm } from "@/components/ui/SuccessDialog";
 import { Button } from "@/components/ui/Button";
 import type { Election } from "@/generated/prisma/client";
 
@@ -18,63 +19,82 @@ export function ElectionForm({ election }: { election?: Election }) {
   const [state, formAction, isPending] = useActionState(action, initialActionState);
   const fe = state.fieldErrors ?? {};
 
+  const { formKey, formRef, resetForm } = useResettableForm();
+
   return (
-    <form action={formAction} className="space-y-5">
-      <FormAlert message={state.error} />
-      {election && <input type="hidden" name="id" value={election.id} />}
+    <>
+      <form ref={formRef} key={formKey} action={formAction} className="space-y-5">
+        <FormAlert message={state.error} />
+        {election && <input type="hidden" name="id" value={election.id} />}
 
-      <div>
-        <Label htmlFor="title" required>Election Title</Label>
-        <input id="title" name="title" required defaultValue={election?.title} className={inputClasses} />
-        <FieldError messages={fe.title} />
-      </div>
-      <div>
-        <Label htmlFor="description">Description</Label>
-        <textarea id="description" name="description" rows={4} defaultValue={election?.description ?? ""} className={inputClasses} />
-      </div>
-
-      <div className="grid sm:grid-cols-2 gap-5">
         <div>
-          <Label htmlFor="nominationStart">Nominations Open</Label>
-          <input id="nominationStart" name="nominationStart" type="date" defaultValue={toDateInputValue(election?.nominationStart)} className={inputClasses} />
+          <Label htmlFor="title" required>Election Title</Label>
+          <input id="title" name="title" required defaultValue={election?.title} className={inputClasses} />
+          <FieldError messages={fe.title} />
         </div>
         <div>
-          <Label htmlFor="nominationEnd">Nominations Close</Label>
-          <input id="nominationEnd" name="nominationEnd" type="date" defaultValue={toDateInputValue(election?.nominationEnd)} className={inputClasses} />
+          <Label htmlFor="description">Description</Label>
+          <textarea id="description" name="description" rows={4} defaultValue={election?.description ?? ""} className={inputClasses} />
         </div>
+
+        <div className="grid sm:grid-cols-2 gap-5">
+          <div>
+            <Label htmlFor="nominationStart">Nominations Open</Label>
+            <input id="nominationStart" name="nominationStart" type="date" defaultValue={toDateInputValue(election?.nominationStart)} className={inputClasses} />
+          </div>
+          <div>
+            <Label htmlFor="nominationEnd">Nominations Close</Label>
+            <input id="nominationEnd" name="nominationEnd" type="date" defaultValue={toDateInputValue(election?.nominationEnd)} className={inputClasses} />
+          </div>
+          <div>
+            <Label htmlFor="votingDate">Voting Date</Label>
+            <input id="votingDate" name="votingDate" type="date" defaultValue={toDateInputValue(election?.votingDate)} className={inputClasses} />
+          </div>
+          <div>
+            <Label htmlFor="venueOrMethod">Venue / Method</Label>
+            <input id="venueOrMethod" name="venueOrMethod" defaultValue={election?.venueOrMethod ?? ""} className={inputClasses} />
+          </div>
+        </div>
+
         <div>
-          <Label htmlFor="votingDate">Voting Date</Label>
-          <input id="votingDate" name="votingDate" type="date" defaultValue={toDateInputValue(election?.votingDate)} className={inputClasses} />
+          <Label htmlFor="resultsSummary">Results Summary (publish once voting concludes)</Label>
+          <textarea id="resultsSummary" name="resultsSummary" rows={4} defaultValue={election?.resultsSummary ?? ""} className={inputClasses} />
         </div>
+
         <div>
-          <Label htmlFor="venueOrMethod">Venue / Method</Label>
-          <input id="venueOrMethod" name="venueOrMethod" defaultValue={election?.venueOrMethod ?? ""} className={inputClasses} />
+          <Label htmlFor="status">Status</Label>
+          <select id="status" name="status" defaultValue={election?.status ?? "DRAFT"} className={`${inputClasses} max-w-xs`}>
+            <option value="DRAFT">Draft (not visible to the public)</option>
+            <option value="PUBLISHED">Published</option>
+            <option value="ARCHIVED">Archived</option>
+          </select>
         </div>
-      </div>
 
-      <div>
-        <Label htmlFor="resultsSummary">Results Summary (publish once voting concludes)</Label>
-        <textarea id="resultsSummary" name="resultsSummary" rows={4} defaultValue={election?.resultsSummary ?? ""} className={inputClasses} />
-      </div>
+        <div className="flex flex-wrap items-center gap-4">
+          <Button type="submit" disabled={isPending}>
+            {isPending && <Loader2 size={15} className="animate-spin" />}
+            {isPending ? "Saving…" : election ? "Save Changes" : "Create Election"}
+          </Button>
+          {election && (
+            <SavedNotice state={state} isPending={isPending}>
+              Saved.
+            </SavedNotice>
+          )}
+        </div>
+      </form>
 
-      <div>
-        <Label htmlFor="status">Status</Label>
-        <select id="status" name="status" defaultValue={election?.status ?? "DRAFT"} className={`${inputClasses} max-w-xs`}>
-          <option value="DRAFT">Draft (not visible to the public)</option>
-          <option value="PUBLISHED">Published</option>
-          <option value="ARCHIVED">Archived</option>
-        </select>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-4">
-        <Button type="submit" disabled={isPending}>
-          {isPending && <Loader2 size={15} className="animate-spin" />}
-          {isPending ? "Saving…" : election ? "Save Changes" : "Create Election"}
-        </Button>
-        <SavedNotice state={state} isPending={isPending}>
-          Saved.
-        </SavedNotice>
-      </div>
-    </form>
+      {!election && (
+        <SuccessDialog
+          state={state}
+          isPending={isPending}
+          title="Election created"
+          description="Open it from the list to add the candidates."
+          againLabel="Create another"
+          onAgain={resetForm}
+          listHref="/admin/elections"
+          listLabel="Back to elections"
+        />
+      )}
+    </>
   );
 }

@@ -11,15 +11,9 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 export const metadata = { title: "Edit Ally" };
 export const dynamic = "force-dynamic";
 
-export default async function EditAllyPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ created?: string }>;
-}) {
+export default async function EditAllyPage({ params }: { params: Promise<{ id: string }> }) {
   await requireCapability("outreach.allies");
-  const [{ id }, { created }] = await Promise.all([params, searchParams]);
+  const { id } = await params;
   const ally = await getAllyForAdmin(id);
   if (!ally) notFound();
 
@@ -28,11 +22,6 @@ export default async function EditAllyPage({
       <Link href="/admin/allies" className="inline-flex items-center gap-1 text-sm text-slate hover:text-primary-800 mb-4">
         <ChevronLeft size={16} aria-hidden="true" /> Allies &amp; Champions
       </Link>
-      {created === "1" && (
-        <div role="status" className="mb-5 rounded-lg border border-success bg-success-light text-success px-4 py-3 text-sm font-medium">
-          Ally added{ally.isActive ? " — they're on the public page now." : ". They're hidden until you tick “Show on the public page”."}
-        </div>
-      )}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <h1 className="font-display font-bold text-2xl text-primary-950">{ally.name}</h1>
         <ConfirmButton

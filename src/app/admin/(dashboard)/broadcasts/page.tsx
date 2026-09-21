@@ -20,14 +20,9 @@ const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "sh
  * immediately — there is nobody above the executive board to approve it —
  * so the composer shows the exact number of recipients before it goes.
  */
-export default async function AdminBroadcastComposerPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ sent?: string; to?: string; emails?: string }>;
-}) {
+export default async function AdminBroadcastComposerPage() {
   const admin = await requireCapability("messages.broadcasts");
-  const [{ sent, to, emails }, previous, ...counts] = await Promise.all([
-    searchParams,
+  const [previous, ...counts] = await Promise.all([
     listAdminBroadcasts(),
     ...BROADCAST_AUDIENCES.map((audience) => countBroadcastRecipients(audience.value as BroadcastAudience)),
   ]);
@@ -48,13 +43,6 @@ export default async function AdminBroadcastComposerPage({
         </Link>
         .
       </p>
-
-      {sent && (
-        <div role="status" className="mb-5 rounded-lg border border-success bg-success-light text-success px-4 py-3 text-sm font-medium">
-          Sent to {to ?? "0"} recipient{to === "1" ? "" : "s"}
-          {emails && emails !== "0" && ` · ${emails} email${emails === "1" ? "" : "s"} delivered`}.
-        </div>
-      )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
         <section className="bg-white rounded-lg border border-line p-6">

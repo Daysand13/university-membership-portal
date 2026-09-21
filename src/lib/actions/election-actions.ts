@@ -3,7 +3,6 @@
 import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { requireAdminRole, requireAdminUser, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
 import { electionSchema, adminChangeEmailSchema, adminUpdateNameSchema } from "@/lib/validations/content";
@@ -38,10 +37,10 @@ async function createElectionActionImpl(_prevState: ActionState, formData: FormD
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   if (parsed.data.status !== "DRAFT") await requireCapability("elections.publish");
 
-  const election = await createElection(parsed.data, admin.id);
+  await createElection(parsed.data, admin.id);
   revalidatePath("/elections");
   revalidatePath("/admin/elections");
-  redirect(`/admin/elections/${election.id}`);
+  return { success: true };
 }
 
 async function updateElectionActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {

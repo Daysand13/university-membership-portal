@@ -10,9 +10,9 @@ import { listHeroSlidesForAdmin } from "@/lib/services/content-service";
 export const metadata = { title: "Hero Slides" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminHeroSlidesPage({ searchParams }: { searchParams: Promise<{ created?: string }> }) {
+export default async function AdminHeroSlidesPage() {
   await requireCapability("content.hero");
-  const [slides, { created }] = await Promise.all([listHeroSlidesForAdmin(), searchParams]);
+  const slides = await listHeroSlidesForAdmin();
 
   return (
     <div>
@@ -29,12 +29,6 @@ export default async function AdminHeroSlidesPage({ searchParams }: { searchPara
           </Button>
         </Link>
       </div>
-
-      {created === "1" && (
-        <div role="status" className="mb-5 rounded-lg border border-success bg-success-light text-success px-4 py-3 text-sm font-medium">
-          Slide created.
-        </div>
-      )}
 
       {slides.length === 0 ? (
         <EmptyState

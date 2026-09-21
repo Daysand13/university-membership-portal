@@ -92,8 +92,13 @@ async function saveAllyActionImpl(
     await updateAlly({ id: allyId, fields, admin });
     return { success: true };
   }
-  const ally = await createAlly({ fields, signupId: blankToNull(text(formData, "signupId")), admin });
-  redirect(`/admin/allies/${ally.id}?created=1`);
+  await createAlly({ fields, signupId: blankToNull(text(formData, "signupId")), admin });
+  return {
+    success: true,
+    message: d.isActive
+      ? "They're on the public Allies page now."
+      : "Hidden for now — tick “Show on the public page” when they're ready.",
+  };
 }
 
 async function deleteAllyActionImpl(allyId: string): Promise<void> {
@@ -163,8 +168,11 @@ async function saveSoftwareActionImpl(
     await updateSoftware(softwareId, fields, admin);
     return { success: true };
   }
-  const software = await createSoftware(fields, admin);
-  redirect(`/admin/tech-tutorials/${software.id}?created=1`);
+  await createSoftware(fields, admin);
+  return {
+    success: true,
+    message: d.isActive ? "It's in the public directory now." : "Hidden for now — tick “Show it” when it's ready.",
+  };
 }
 
 async function deleteSoftwareActionImpl(softwareId: string): Promise<void> {
@@ -284,8 +292,11 @@ async function saveTutorialActionImpl(
     await updateTutorial(tutorialId, fields, admin);
     return { success: true, message: "Saved. The tutorial is up to date." };
   }
-  const created = await createTutorial(fields, admin);
-  redirect(`/admin/tech-tutorials/tutorials/${created.id}`);
+  await createTutorial(fields, admin);
+  return {
+    success: true,
+    message: d.isActive ? "It's on the public page now." : "Hidden for now — tick “Show it” when it's ready.",
+  };
 }
 
 async function deleteTutorialActionImpl(tutorialId: string): Promise<void> {
