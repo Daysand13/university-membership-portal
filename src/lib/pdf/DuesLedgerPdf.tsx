@@ -72,6 +72,7 @@ export function DuesLedgerPdf({
   rows,
   collectedPesewas,
   expectedPesewas,
+  filterSummary = "",
   logoDataUri = null,
   universityLogoDataUri = null,
 }: {
@@ -79,6 +80,8 @@ export function DuesLedgerPdf({
   rows: DuesLedgerRow[];
   collectedPesewas: number;
   expectedPesewas: number;
+  /** Which rows these are, when they aren't all of them. */
+  filterSummary?: string;
   logoDataUri?: string | null;
   universityLogoDataUri?: string | null;
 }) {
@@ -92,7 +95,11 @@ export function DuesLedgerPdf({
           logoDataUri={logoDataUri}
           universityLogoDataUri={universityLogoDataUri}
           documentTitle={`Dues Ledger — ${academicYear}`}
-          filterSummary={`${rows.length} member${rows.length === 1 ? "" : "s"} on the roll for ${academicYear}`}
+          filterSummary={
+            filterSummary
+              ? `${rows.length} of the roll for ${academicYear} · ${filterSummary}`
+              : `${rows.length} member${rows.length === 1 ? "" : "s"} on the roll for ${academicYear}`
+          }
         />
 
         <View style={styles.summary}>

@@ -2,7 +2,13 @@ import { NextRequest } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { getCurrentAdmin } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
-import { getCurrentAcademicYear, listMemberDuesStatus } from "@/lib/services/dues-service";
+import type { DuesFilter } from "@/lib/services/dues-service";
+import {
+  describeDuesFilter,
+  filterDuesRows,
+  getCurrentAcademicYear,
+  listMemberDuesStatus,
+} from "@/lib/services/dues-service";
 import { getEmailBrand } from "@/lib/services/content-service";
 import { DuesLedgerPdf } from "@/lib/pdf/DuesLedgerPdf";
 import { loadLogoDataUri } from "@/lib/pdf/logo";
@@ -42,7 +48,16 @@ export async function GET(request: NextRequest) {
   const requested = request.nextUrl.searchParams.get("year");
   const academicYear = requested && YEAR_PATTERN.test(requested) ? requested : getCurrentAcademicYear();
 
-  const [rows, brand] = await Promise.all([listMemberDuesStatus(academicYear), getEmailBrand()]);
+  // The same narrowing the Dues screen applied, so the document that
+  // downloads is the rows the officer was looking at.
+  const statusParam = request.nextUrl.searchParams.get("status");
+  const filter: DuesFilter = {
+    status: statusParam === "paid" || statusParam === "unpaid" ? statusParam : undefined,
+    search: request.nextUrl.searchParams.get("q") ?? undefined,
+  };
+
+  const [allRows, brand] = await Promise.all([listMemberDuesStatus(academicYear), getEmailBrand()]);
+  const rows = filterDuesRows(allRows, filter);
 
   const expectedPesewas = rows.reduce((total, row) => total + row.fee.amountPesewas, 0);
   const collectedPesewas = rows.reduce((total, row) => total + (row.payment?.amountPesewas ?? 0), 0);
@@ -57,6 +72,7 @@ export async function GET(request: NextRequest) {
   const pdfBuffer = await renderToBuffer(
     <DuesLedgerPdf
       academicYear={academicYear}
+      filterSummary={describeDuesFilter(filter)}
       rows={rows.map((row) => ({
         fullName: row.fullName,
         indexNumber: row.indexNumber,

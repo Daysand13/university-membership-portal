@@ -414,6 +414,42 @@ export interface MemberDuesRow {
   payment: { id: string; amountPesewas: number; method: "online" | "cash" } | null;
 }
 
+export interface DuesFilter {
+  status?: "paid" | "unpaid";
+  /** A name or an index number, whole or part. */
+  search?: string;
+}
+
+/**
+ * Narrowing the register down to the person in front of you.
+ *
+ * Done here rather than in the page so the ledger that downloads is
+ * always the rows that were on screen — an officer who filters to the
+ * unpaid and then presses Download expects the unpaid, not everybody.
+ *
+ * Filtering in memory rather than in SQL because the whole year's roll is
+ * already loaded to work each member's fee out: the fee depends on whether
+ * they hold office, which is not a column to filter against.
+ */
+export function filterDuesRows(rows: MemberDuesRow[], filter: DuesFilter): MemberDuesRow[] {
+  const term = filter.search?.trim().toLowerCase();
+  return rows.filter((row) => {
+    if (filter.status === "paid" && !row.paid) return false;
+    if (filter.status === "unpaid" && row.paid) return false;
+    if (!term) return true;
+    return row.fullName.toLowerCase().includes(term) || row.indexNumber.toLowerCase().includes(term);
+  });
+}
+
+/** What the filters come to in words, for the top of the printed ledger. */
+export function describeDuesFilter(filter: DuesFilter): string {
+  const parts: string[] = [];
+  if (filter.status === "paid") parts.push("Paid only");
+  if (filter.status === "unpaid") parts.push("Unpaid only");
+  if (filter.search?.trim()) parts.push(`Matching "${filter.search.trim()}"`);
+  return parts.length ? `Filters applied — ${parts.join(" · ")}` : "";
+}
+
 /**
  * How much of this year's dues is in: how many students who owe them have
  * paid. Two counts rather than the full per-member pass below, because the

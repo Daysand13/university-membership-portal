@@ -1,7 +1,13 @@
-import { Wallet, CheckCircle2, XCircle, Banknote, CreditCard, Undo2, FileDown } from "lucide-react";
+import Link from "next/link";
+import { Wallet, CheckCircle2, XCircle, Banknote, CreditCard, Undo2, FileDown, Search } from "lucide-react";
 import { requireAdminRole, requireCapability } from "@/lib/auth/admin";
 import { AdminRole } from "@/generated/prisma/client";
-import { getCurrentAcademicYear, listMemberDuesStatus, formatPesewasAsCedis } from "@/lib/services/dues-service";
+import {
+  getCurrentAcademicYear,
+  listMemberDuesStatus,
+  formatPesewasAsCedis,
+  filterDuesRows,
+} from "@/lib/services/dues-service";
 import { recordCashDuesPaymentAction, removeCashDuesPaymentAction } from "@/lib/actions/admin-dues-actions";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { EmptyState } from "@/components/ui/Common";
@@ -15,6 +21,8 @@ function formatDate(date: Date): string {
 
 interface DuesSearchParams {
   status?: "paid" | "unpaid";
+  /** A name or an index number — whoever the officer at the desk is looking for. */
+  q?: string;
 }
 
 export default async function AdminDuesPage({ searchParams }: { searchParams: Promise<DuesSearchParams> }) {
@@ -23,7 +31,14 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
   const academicYear = getCurrentAcademicYear();
   const allRows = await listMemberDuesStatus(academicYear);
 
-  const rows = sp.status === "paid" ? allRows.filter((r) => r.paid) : sp.status === "unpaid" ? allRows.filter((r) => !r.paid) : allRows;
+  const search = (sp.q ?? "").trim();
+  const rows = filterDuesRows(allRows, { status: sp.status, search });
+
+  // The ledger that downloads is the rows on screen, so the button never
+  // quietly hands over more than was asked for.
+  const exportQuery = new URLSearchParams({ year: academicYear });
+  if (sp.status) exportQuery.set("status", sp.status);
+  if (search) exportQuery.set("q", search);
 
   const paidCount = allRows.filter((r) => r.paid).length;
   // What was actually paid (online or cash), not today's fee, which can differ if a tier changed since.
@@ -58,25 +73,58 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
         </div>
       </div>
 
-      <form className="mb-6 bg-white rounded-lg border border-line p-4 flex flex-wrap items-center gap-3">
-        <select name="status" defaultValue={sp.status ?? ""} className={selectClasses}>
+      <form className="mb-6 bg-white rounded-lg border border-line p-4 flex flex-wrap items-end gap-3">
+        <div className="flex-1 min-w-[15rem]">
+          <label htmlFor="dues-search" className="block text-xs font-semibold uppercase tracking-wide text-slate mb-1.5">
+            Find a member
+          </label>
+          <input
+            id="dues-search"
+            name="q"
+            defaultValue={search}
+            placeholder="Name or index number"
+            className={`${selectClasses} w-full`}
+          />
+        </div>
+        <select name="status" defaultValue={sp.status ?? ""} className={selectClasses} aria-label="Payment status">
           <option value="">All Members</option>
           <option value="paid">Paid Only</option>
           <option value="unpaid">Unpaid Only</option>
         </select>
-        <button type="submit" className="rounded-md bg-primary-800 text-white px-4 py-2 text-sm font-semibold hover:bg-primary-900">
-          Apply
+        <button
+          type="submit"
+          className="inline-flex items-center gap-1.5 rounded-md bg-primary-800 text-white px-4 py-2 text-sm font-semibold hover:bg-primary-900"
+        >
+          <Search size={15} aria-hidden="true" /> Apply
         </button>
+        {(search || sp.status) && (
+          <Link href="/admin/dues" className="text-sm font-semibold text-slate hover:text-primary-800 px-2 py-2">
+            Clear
+          </Link>
+        )}
         <a
-          href={`/api/admin/dues/export?year=${encodeURIComponent(academicYear)}`}
+          href={`/api/admin/dues/export?${exportQuery.toString()}`}
           className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-line px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-surface-muted"
         >
           <FileDown size={15} aria-hidden="true" /> Download ledger (PDF)
         </a>
       </form>
 
+      {(search || sp.status) && (
+        <p className="text-sm text-slate mb-4">
+          Showing {rows.length} of {allRows.length} member{allRows.length === 1 ? "" : "s"}
+          {search && ` matching "${search}"`}
+          {sp.status === "paid" && " who have paid"}
+          {sp.status === "unpaid" && " who have not paid"}. The ledger button downloads exactly these.
+        </p>
+      )}
+
       {rows.length === 0 ? (
-        <EmptyState icon={<Wallet size={28} />} title="No members match this filter" />
+        <EmptyState
+          icon={<Wallet size={28} />}
+          title={search ? `Nobody matching "${search}"` : "No members match this filter"}
+          description={search ? "Try part of the name, or the index number on its own." : undefined}
+        />
       ) : (
         <div className="bg-white rounded-lg border border-line overflow-hidden overflow-x-auto">
           <table className="w-full text-sm">
