@@ -12,6 +12,10 @@ import { getAcademicOptions } from "@/lib/services/academic-options-service";
 import { getSpecialNeedsCategories } from "@/lib/services/special-needs-category-service";
 import { getSiteSettings } from "@/lib/services/content-service";
 import { IdCardPanel, type IdCardIssue } from "@/components/admin/IdCardPanel";
+import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { recordCashCvPaymentAction } from "@/lib/actions/cv-actions";
+import { PaidDocumentKind } from "@/generated/prisma/client";
+import { formatCedis, hasPaidFor, priceOf } from "@/lib/services/document-purchase-service";
 
 export const metadata = { title: "Member Details" };
 export const dynamic = "force-dynamic";
@@ -26,6 +30,9 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
     getSiteSettings(),
   ]);
   if (!member) notFound();
+
+  const cvPaid = await hasPaidFor(member.id, PaidDocumentKind.CV);
+  const cvPrice = priceOf(PaidDocumentKind.CV);
 
   // Anything that would make a printed ID card incomplete, said before printing.
   const idCardIssues: IdCardIssue[] = [];
@@ -92,6 +99,30 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
         issues={idCardIssues}
         version={`${member.updatedAt.toISOString()}|${settings.logoUrl ?? ""}|${settings.universityLogoUrl ?? ""}`}
       />
+
+      <div className="bg-white rounded-lg border border-line p-6 mb-6">
+        <h2 className="font-display font-bold text-base text-primary-950 mb-4">Paid documents</h2>
+        {cvPaid ? (
+          <p className="text-sm text-ink">
+            This member has paid for their CV. They can write it and download it from their own dashboard, as often
+            as they like.
+          </p>
+        ) : (
+          <>
+            <p className="text-sm text-slate mb-3">
+              A CV costs {formatCedis(cvPrice.pesewas)}. Record it here when the money is handed over at the office —
+              online payment does the same thing by itself.
+            </p>
+            <ConfirmButton
+              action={recordCashCvPaymentAction.bind(null, member.id)}
+              confirmMessage={`Record ${formatCedis(cvPrice.pesewas)} in cash for this member's CV? It unlocks their download straight away.`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-2 text-sm font-semibold text-primary-950 hover:bg-surface-muted"
+            >
+              Record cash payment for a CV
+            </ConfirmButton>
+          </>
+        )}
+      </div>
 
       <div className="bg-white rounded-lg border border-line p-6 mb-6">
         <h2 className="font-display font-bold text-base text-primary-950 mb-4">Graduation &amp; Alumni Status</h2>

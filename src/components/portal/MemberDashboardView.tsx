@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   CalendarDays,
+  FileText,
   IdCard,
   LifeBuoy,
   Megaphone,
@@ -346,6 +347,12 @@ export function MemberDashboardView({
               icon={<Vote size={18} />}
               title="Vote in Elections"
               description="Candidates, key dates and how voting works"
+            />
+            <QuickAction
+              href="/membership/dashboard/cv"
+              icon={<FileText size={18} />}
+              title="Build My CV"
+              description="Write it once, download it as a PDF"
             />
             <QuickAction
               href="/membership/dashboard/profile"

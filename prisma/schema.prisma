@@ -161,6 +161,7 @@ model AdminUser {
   handledSoftware       SoftwareRequest[]     @relation("SoftwareRequestHandler")
   reviewedCandidacies   ElectionCandidate[]   @relation("CandidateReviewer")
   registeredStations    PollingStation[]      @relation("StationRegistrar")
+  recordedDocumentFees  DocumentPurchase[]    @relation("DocumentPurchaseRecorder")
 
   // Link to the unified identity row. The granular AdminRole above stays
   // the source of truth for what an admin may actually do — the unified
@@ -225,6 +226,8 @@ model Member {
   studyGroups         StudyGroupMember[]
   createdStudyGroups  StudyGroup[]         @relation("StudyGroupCreator")
   softwareRequests    SoftwareRequest[]
+  cv                  MemberCv?
+  documentPurchases   DocumentPurchase[]
   candidacies         ElectionCandidate[]
   electionsVotedIn    ElectionVoter[]
   // The public Leadership/Patron listing this account is linked to, if any
@@ -1153,6 +1156,18 @@ enum DuesPaymentStatus {
   FAILED
 }
 
+/// Documents the association prepares for a member for a fee.
+enum PaidDocumentKind {
+  CV
+  ID_CARD
+}
+
+enum DocumentPurchaseStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
 /**
  * One row per payment attempt, not per member-year — a failed or abandoned
  * attempt is kept rather than overwritten, so retrying after a declined
@@ -1295,6 +1310,75 @@ enum DonationSource {
 /// One donation, or one attempt at an online donation. Like DuesPayment, a
 /// failed or abandoned attempt is kept rather than overwritten; only SUCCESS
 /// rows count as money raised.
+/// What a member typed into the CV form. Kept so they can come back and
+/// change one line rather than starting again, and so a fresh PDF can be
+/// made whenever they want one.
+model MemberCv {
+  id       String @id @default(cuid())
+  memberId String @unique
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  /// Under the name: "Final-year special education student seeking…".
+  headline String?
+  summary  String?
+  /// Where employers should write, which is not always the address on file.
+  contactEmail String?
+  contactPhone String?
+  location     String?
+
+  /// Repeating sections, each a list of objects — see validations/cv.ts for
+  /// their shape. A column apiece would be five more tables for something
+  /// only ever read and written whole.
+  education   Json @default("[]")
+  experience  Json @default("[]")
+  skills      Json @default("[]")
+  languages   Json @default("[]")
+  activities  Json @default("[]")
+  referees    Json @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("member_cvs")
+}
+
+/// A member paying for a document the association prepares for them.
+///
+/// Deliberately not specific to the CV: the ID card is the same
+/// transaction with a different word in it, and this is what it will use
+/// when it stops being an admin-only favour.
+model DocumentPurchase {
+  id       String @id @default(cuid())
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  kind PaidDocumentKind
+
+  /// Smallest currency unit (pesewas), as everywhere else money is stored.
+  amountPesewas Int
+  /// The tariff at the time of paying, so changing the price later never
+  /// rewrites what somebody actually paid.
+  priceLabel String
+
+  status DocumentPurchaseStatus @default(PENDING)
+
+  /// Generated here, before Paystack is called, so the callback and the
+  /// webhook have something to look the payment back up by.
+  reference             String    @unique
+  paystackTransactionId String?
+  paidAt                DateTime?
+
+  /// Set when an officer took the money in cash and recorded it.
+  recordedById String?
+  recordedBy   AdminUser? @relation("DocumentPurchaseRecorder", fields: [recordedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([memberId, kind, status])
+  @@map("document_purchases")
+}
+
 model Donation {
   id       String         @id @default(cuid())
   // The patron who gave it, when it was given from the Patrons' Portal.

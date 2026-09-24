@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyWebhookSignature } from "@/lib/services/paystack-client";
 import { verifyAndRecordDuesPayment } from "@/lib/services/dues-service";
+import {
+  isDocumentPurchaseReference,
+  verifyAndRecordPurchase,
+} from "@/lib/services/document-purchase-service";
 import { isDonationReference, verifyAndRecordDonation } from "@/lib/services/patron-finance-service";
 
 export const runtime = "nodejs";
@@ -39,12 +43,14 @@ export async function POST(request: NextRequest) {
   // Paystack sends several other event types this integration doesn't act
   // on, and those are acknowledged without doing anything.
   if (event.event === "charge.success" && event.data?.reference) {
-    // Patrons' donations and members' dues share the one Paystack account;
-    // the reference says which is which.
+    // Donations, dues and paid documents all share the one Paystack
+    // account; the reference says which is which.
     const reference = event.data.reference;
     const result = isDonationReference(reference)
       ? await verifyAndRecordDonation(reference)
-      : await verifyAndRecordDuesPayment(reference);
+      : isDocumentPurchaseReference(reference)
+        ? await verifyAndRecordPurchase(reference)
+        : await verifyAndRecordDuesPayment(reference);
     if (!result.ok) {
       // Not the signature's fault — something failed asking Paystack to
       // re-confirm. Worth a retry, so this is the one case that returns
