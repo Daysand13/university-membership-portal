@@ -43,3 +43,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local-only: a dev server pointed at a deliberately unreachable database,
+# so previewing the UI can never touch the production one. Create
+# .env.preview.local with a DATABASE_URL that goes nowhere.
+.claude/launch.json.bak
