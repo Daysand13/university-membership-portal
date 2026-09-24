@@ -7,6 +7,7 @@
   </head>
   <body>
     <header class="bar">
+      <img id="brand-logo" class="brand-logo" alt="" hidden />
       <h1 class="wordmark">ASSN Ballot</h1>
       <p id="election-title" class="election-title"></p>
       <p class="status">
@@ -23,6 +24,7 @@
     <main id="main">
       <!-- 1. Setting the terminal up, once, before the hall opens -->
       <section id="screen-setup" class="screen" hidden>
+        <img id="setup-logo" class="setup-logo" alt="" hidden />
         <h2>Set this terminal up</h2>
         <p class="lede">
           The Electoral Commission registers each terminal in the portal and issues its key. Enter what you were
@@ -78,6 +80,33 @@
         <p id="locked-message" class="lede"></p>
       </section>
 
+      <!-- 3b. The officer checks the person standing there is the person
+               the index number belongs to -->
+      <section id="screen-identity" class="screen" hidden>
+        <h2>Is this the right person?</h2>
+        <p class="lede">The officer checks the photograph and the name before the ballot opens.</p>
+        <div class="identity">
+          <img id="voter-photo" class="voter-photo" alt="" hidden />
+          <div id="voter-photo-missing" class="voter-photo missing" hidden aria-hidden="true">No photo on file</div>
+          <dl class="voter-details">
+            <dt>Name</dt>
+            <dd id="voter-name"></dd>
+            <dt>Index number</dt>
+            <dd id="voter-index" class="mono"></dd>
+            <dt>Programme</dt>
+            <dd id="voter-programme"></dd>
+            <dt>Level</dt>
+            <dd id="voter-level"></dd>
+            <dt>Campus</dt>
+            <dd id="voter-campus"></dd>
+          </dl>
+        </div>
+        <div class="actions">
+          <button type="button" id="identity-reject" class="ghost">Not this person</button>
+          <button type="button" id="identity-confirm" class="primary big">Yes — open the ballot</button>
+        </div>
+      </section>
+
       <!-- 4. The ballot, one portfolio at a time -->
       <section id="screen-ballot" class="screen" hidden>
         <p id="ballot-progress" class="progress"></p>
@@ -117,8 +146,29 @@
 
     <footer class="bar foot">
       <p id="queued" class="pill quiet"></p>
-      <p class="quiet">Association of Students with Special Needs · University of Education, Winneba</p>
+      <p id="association-name" class="quiet">Association of Students with Special Needs · University of Education, Winneba</p>
+      <button type="button" id="officer" class="officer-button">Officer</button>
     </footer>
+
+    <!-- What an officer with several terminals to run needs: this one
+         closed, or pointed at a different station. Both take the key. -->
+    <dialog id="officer-dialog" class="officer-dialog" aria-labelledby="officer-heading">
+      <h2 id="officer-heading">Officer controls</h2>
+      <p class="hint">
+        This terminal is <strong id="officer-station">not set up</strong>. Enter its key to close it or point it at a
+        different station.
+      </p>
+      <div class="field">
+        <label for="officer-key">Officer key</label>
+        <input id="officer-key" type="password" autocomplete="off" />
+      </div>
+      <p id="officer-error" class="error" role="alert"></p>
+      <div class="actions">
+        <button type="button" id="officer-cancel" class="ghost">Back to the ballot</button>
+        <button type="button" id="officer-switch" class="ghost">Change station</button>
+        <button type="button" id="officer-quit" class="primary">Close ASSN Ballot</button>
+      </div>
+    </dialog>
 
     <script type="module" src="app.js"></script>
   </body>

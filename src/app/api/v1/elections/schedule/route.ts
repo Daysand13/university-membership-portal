@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireStation } from "@/lib/api/station-request";
 import { getCurrentBallotElection } from "@/lib/services/election-service";
+import { getEmailBrand } from "@/lib/services/content-service";
 import { effectivePhase } from "@/lib/election-status";
 
 export const runtime = "nodejs";
@@ -20,16 +21,23 @@ export async function GET(request: NextRequest) {
   const auth = await requireStation(request);
   if ("response" in auth) return auth.response;
 
-  const election = await getCurrentBallotElection();
+  const [election, brand] = await Promise.all([getCurrentBallotElection(), getEmailBrand()]);
   const serverTime = new Date().toISOString();
 
+  // Who the terminals are standing in for. Sent with every schedule check
+  // so a hall's machines carry the association's own mark and name rather
+  // than something built into the software, and so changing the logo in
+  // Settings reaches them without anybody reinstalling anything.
+  const association = { name: brand.siteTitle, logoUrl: brand.logoUrl ?? null };
+
   if (!election) {
-    return NextResponse.json({ ok: true, serverTime, election: null });
+    return NextResponse.json({ ok: true, serverTime, association, election: null });
   }
 
   return NextResponse.json({
     ok: true,
     serverTime,
+    association,
     election: {
       id: election.id,
       title: election.title,

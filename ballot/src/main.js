@@ -37,6 +37,8 @@ let state = {
   connection: CONNECTION.UNKNOWN,
   /** What the terminal was set up with, minus the key. */
   station: null,
+  /** The association's name and mark, as the portal last reported them. */
+  association: null,
   election: null,
   positions: [],
   queued: 0,
@@ -48,6 +50,50 @@ let state = {
 
 function configPath() {
   return path.join(app.getPath("userData"), "station.json");
+}
+
+function brandPath() {
+  return path.join(app.getPath("userData"), "association.json");
+}
+
+/**
+ * The association's mark, kept on the machine.
+ *
+ * It comes from the portal with every schedule check, but a hall that has
+ * lost its line should not lose the logo off its screens — so the picture
+ * itself is fetched once, turned into bytes and written beside the
+ * terminal's settings. Changing the logo in Settings reaches every
+ * terminal on its next check without anyone reinstalling anything.
+ */
+async function rememberAssociation(association) {
+  if (!association) return state.association;
+  const known = state.association;
+  if (known && known.name === association.name && known.logoUrl === association.logoUrl) return known;
+
+  let logoDataUri = known && known.logoUrl === association.logoUrl ? known.logoDataUri : null;
+  if (association.logoUrl && !logoDataUri) {
+    try {
+      const response = await fetch(association.logoUrl, { signal: AbortSignal.timeout(8000) });
+      const type = (response.headers.get("content-type") ?? "image/png").split(";")[0].trim();
+      const bytes = Buffer.from(await response.arrayBuffer());
+      logoDataUri = `data:${type};base64,${bytes.toString("base64")}`;
+    } catch {
+      // A logo is not worth a failed startup; the name alone will do.
+      logoDataUri = null;
+    }
+  }
+
+  const remembered = { name: association.name, logoUrl: association.logoUrl, logoDataUri };
+  await fs.writeFile(brandPath(), JSON.stringify(remembered), "utf8").catch(() => undefined);
+  return remembered;
+}
+
+async function loadAssociation() {
+  try {
+    return JSON.parse(await fs.readFile(brandPath(), "utf8"));
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -163,7 +209,13 @@ async function pollSchedule() {
       say(announcer.tick(msRemaining));
     }
 
-    publish({ connection: CONNECTION.CONNECTED, election, msRemaining, lastError: null });
+    publish({
+      connection: CONNECTION.CONNECTED,
+      election,
+      msRemaining,
+      lastError: null,
+      association: await rememberAssociation(schedule.association),
+    });
 
     // The paper itself is fetched once per election and kept, so a hall
     // that loses its line can carry on from what it already holds.
@@ -288,6 +340,34 @@ function registerHandlers() {
     }
   });
 
+  /**
+   * Handing the machine back to the officer.
+   *
+   * One officer often has several terminals to see to, and may need this
+   * one pointed at a different station or closed down entirely. Both take
+   * the terminal's own key — a voter must not be able to walk out of the
+   * ballot — and neither loses a vote: anything queued is sent first.
+   */
+  ipcMain.handle("ballot:reconfigure", async (_event, key) => {
+    if (config && String(key || "").trim() !== config.stationKey) return { ok: false };
+    await flushQueue().catch(() => undefined);
+    const stillWaiting = queue ? await queue.size() : 0;
+    if (stillWaiting > 0) {
+      return {
+        ok: false,
+        error: `${stillWaiting} vote${stillWaiting === 1 ? "" : "s"} on this terminal have not reached the portal yet. Wait for the connection to come back before changing its settings.`,
+      };
+    }
+
+    // The settings go, the association's mark stays: the next station is
+    // the same association's.
+    await fs.rm(configPath(), { force: true }).catch(() => undefined);
+    config = null;
+    portal = null;
+    publish({ configured: false, connection: CONNECTION.UNKNOWN, election: null, positions: [], lastError: null });
+    return { ok: true };
+  });
+
   ipcMain.handle("ballot:quit", async (_event, key) => {
     // Leaving kiosk mode takes the terminal's own key, so a voter cannot
     // walk out of the ballot into the desktop. Before the terminal has
@@ -344,6 +424,7 @@ app.whenReady().then(async () => {
 
   const saved = await loadConfig();
   if (saved && saved.portalUrl && saved.stationCode && saved.stationKey) startPortal(saved);
+  state.association = await loadAssociation();
 
   createWindow();
 

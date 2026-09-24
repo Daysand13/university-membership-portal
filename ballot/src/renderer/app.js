@@ -14,12 +14,12 @@ import { CONNECTION, chooseScreen, connectionLabel } from "./screen.js";
  */
 
 const el = (id) => document.getElementById(id);
-const screens = ["setup", "welcome", "locked", "ballot", "review", "done"];
+const screens = ["setup", "welcome", "locked", "identity", "ballot", "review", "done"];
 
 const RESET_AFTER_MS = 5000;
 
 let state = { configured: false, positions: [], election: null };
-let session = null; // { token, firstName, choices, index }
+let session = null; // { token, voter, choices, index }
 let resetTimer = null;
 
 function show(name) {
@@ -42,6 +42,19 @@ function render(next) {
   el("connection").textContent = connectionLabel(state.connection, state.queued);
   el("connection").classList.toggle("warn", state.connection !== CONNECTION.CONNECTED);
   el("election-title").textContent = state.election ? state.election.title : "";
+
+  const logo = state.association && state.association.logoDataUri;
+  for (const id of ["brand-logo", "setup-logo"]) {
+    const img = el(id);
+    if (logo) img.src = logo;
+    img.hidden = !logo;
+  }
+  if (state.association && state.association.name) {
+    el("association-name").textContent = state.association.name;
+    el("brand-logo").alt = `${state.association.name} logo`;
+    el("setup-logo").alt = `${state.association.name} logo`;
+  }
+  el("officer-station").textContent = state.station ? state.station.stationCode : "not set up";
   el("queued").textContent = state.queued ? `${state.queued} waiting to be sent` : "";
 
   const remaining = state.msRemaining;
@@ -86,11 +99,10 @@ async function handleIndexSubmit(event) {
   const outcome = await bridge.verify(input.value);
 
   if (outcome.status === "VERIFIED") {
-    session = { token: outcome.token, firstName: outcome.firstName, choices: [], index: 0 };
+    session = { token: outcome.token, voter: outcome, choices: [], index: 0 };
     input.value = "";
     play("member_verified");
-    live(`${outcome.firstName}, you are verified. The ballot begins.`);
-    renderPosition();
+    showIdentity(outcome);
     return;
   }
 
@@ -114,6 +126,48 @@ async function handleIndexSubmit(event) {
   error.textContent = written;
   live(written);
   input.select();
+}
+
+/**
+ * The officer's check, between the keypad and the ballot paper.
+ *
+ * An index number proves somebody knows an index number. The photograph
+ * and the name are what tell the officer standing there that the person in
+ * front of them is the person it belongs to — which is the only moment in
+ * the whole day when that can be caught.
+ *
+ * Nothing about anybody's health or support needs appears here. It is a
+ * screen in a crowded hall.
+ */
+function showIdentity(voter) {
+  const photo = el("voter-photo");
+  const missing = el("voter-photo-missing");
+  if (voter.photoUrl) {
+    photo.src = voter.photoUrl;
+    photo.alt = `Photograph of ${voter.fullName}`;
+    photo.hidden = false;
+    missing.hidden = true;
+    // A photo that will not load is worse than none: it looks like the
+    // record is wrong rather than that the picture is missing.
+    photo.onerror = () => {
+      photo.hidden = true;
+      missing.hidden = false;
+    };
+  } else {
+    photo.hidden = true;
+    missing.hidden = false;
+  }
+
+  el("voter-name").textContent = voter.fullName;
+  el("voter-index").textContent = voter.indexNumber;
+  el("voter-programme").textContent = voter.programme;
+  el("voter-level").textContent = voter.level;
+  el("voter-campus").textContent = voter.campus;
+
+  show("identity");
+  const spoken = `${voter.fullName}, index number ${voter.indexNumber}, ${voter.programme}, level ${voter.level}.`;
+  announce(`Please check the photograph. ${spoken}`);
+  live(spoken);
 }
 
 // --- The ballot ------------------------------------------------------------
@@ -270,6 +324,21 @@ async function handleSetup(event) {
 
 el("setup-form").addEventListener("submit", handleSetup);
 el("index-form").addEventListener("submit", handleIndexSubmit);
+el("identity-confirm").addEventListener("click", () => {
+  if (!session) return;
+  live(`${session.voter.firstName}, the ballot is open.`);
+  renderPosition();
+});
+
+el("identity-reject").addEventListener("click", () => {
+  // The slip goes with them. Nothing was cast, and the next person starts
+  // from the keypad.
+  session = null;
+  el("verify-error").textContent = "That index number belongs to somebody else. Check with the officer.";
+  show("welcome");
+  live("Not the right person. Start again.");
+});
+
 el("skip").addEventListener("click", () => recordChoice(null));
 el("ballot-form").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -296,18 +365,40 @@ document.addEventListener("keydown", (event) => {
   announce(`Chosen: ${label.textContent}.`);
 });
 
-// Leaving kiosk mode: the officer's key, never a voter's keystroke.
-document.addEventListener("keydown", async (event) => {
-  if (!(event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "q")) return;
+/**
+ * The officer's controls: close this terminal, or point it at a different
+ * station. One officer often has several machines to see to, and asking
+ * them to edit a file in AppData to move one is not a plan.
+ */
+function openOfficerPanel() {
+  el("officer-error").textContent = "";
+  el("officer-key").value = "";
+  el("officer-dialog").showModal();
+  el(state.configured ? "officer-key" : "officer-quit").focus();
+}
+
+async function officerAction(run) {
+  const key = el("officer-key").value;
   // A terminal nobody has set up yet has no key to ask for.
-  if (!state.configured) {
-    await bridge.quit("");
+  if (state.configured && !key) {
+    el("officer-error").textContent = "Enter this terminal's key.";
     return;
   }
-  const key = window.prompt("Officer key to close ASSN Ballot:");
-  if (!key) return;
-  const result = await bridge.quit(key);
-  if (!result.ok) live("That key was not accepted.");
+  const result = await run(key);
+  if (result.ok) {
+    el("officer-dialog").close();
+    return;
+  }
+  el("officer-error").textContent = result.error || "That key was not accepted.";
+}
+
+el("officer").addEventListener("click", openOfficerPanel);
+el("officer-cancel").addEventListener("click", () => el("officer-dialog").close());
+el("officer-quit").addEventListener("click", () => officerAction((key) => bridge.quit(key)));
+el("officer-switch").addEventListener("click", () => officerAction((key) => bridge.reconfigure(key)));
+
+document.addEventListener("keydown", (event) => {
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "q") openOfficerPanel();
 });
 
 /**
@@ -335,8 +426,19 @@ const bridge = window.ballot ?? {
     ],
   }),
   configure: async () => ({ ok: false, error: "This is a preview. Run ASSN Ballot to connect a terminal." }),
-  verify: async () => ({ status: "VERIFIED", token: "preview", firstName: "Preview" }),
+  verify: async () => ({
+    status: "VERIFIED",
+    token: "preview",
+    firstName: "Ama",
+    fullName: "Ama Serwaa Mensah",
+    indexNumber: "2300123",
+    photoUrl: null,
+    programme: "BEd Special Education",
+    level: "300",
+    campus: "North Campus",
+  }),
   cast: async () => ({ status: "REFUSED", reason: "This is a preview — no vote was taken." }),
+  reconfigure: async () => ({ ok: false, error: "This is a preview." }),
   quit: async () => ({ ok: false }),
   onState: () => () => undefined,
   onSay: () => () => undefined,

@@ -6,7 +6,7 @@ const { contextBridge, ipcRenderer } = require("electron");
  * The only door between the ballot on screen and the process that holds
  * the terminal's key.
  *
- * Five named messages, nothing else — no file access, no network, no way
+ * Six named messages, nothing else — no file access, no network, no way
  * to ask for the key back. What the page can do is ask whether an index
  * number checks out, and hand over a completed paper.
  */
@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld("ballot", {
   configure: (settings) => ipcRenderer.invoke("ballot:configure", settings),
   verify: (indexNumber) => ipcRenderer.invoke("ballot:verify", indexNumber),
   cast: (paper) => ipcRenderer.invoke("ballot:cast", paper),
+  reconfigure: (key) => ipcRenderer.invoke("ballot:reconfigure", key),
   quit: (key) => ipcRenderer.invoke("ballot:quit", key),
 
   onState: (handler) => {

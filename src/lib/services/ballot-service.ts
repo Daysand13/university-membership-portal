@@ -15,8 +15,25 @@ import { getCurrentAcademicYear, hasPaidDuesForYear } from "@/lib/services/dues-
  * writes a row that joins the two.
  */
 
+/**
+ * What the officer at the terminal is shown to check against the person
+ * standing there: their photograph, their name, their index number and
+ * what they study. Nothing about anybody's health or support needs — that
+ * is on file for the association's own purposes and has no business on a
+ * screen in a crowded hall.
+ */
+export interface VoterOnScreen {
+  firstName: string;
+  fullName: string;
+  indexNumber: string;
+  photoUrl: string | null;
+  programme: string;
+  level: string;
+  campus: string;
+}
+
 export type VerifyOutcome =
-  | { status: "VERIFIED"; firstName: string; fullName: string; token: string }
+  | ({ status: "VERIFIED"; token: string } & VoterOnScreen)
   | { status: "INVALID_INDEX" }
   | { status: "DUES_UNPAID" }
   | { status: "ALREADY_VOTED" }
@@ -40,7 +57,18 @@ export async function verifyVoter(params: {
   const indexNumber = params.indexNumber.trim().toUpperCase();
   const member = await db.member.findUnique({
     where: { indexNumber },
-    select: { id: true, firstName: true, middleName: true, lastName: true, status: true },
+    select: {
+      id: true,
+      firstName: true,
+      middleName: true,
+      lastName: true,
+      status: true,
+      indexNumber: true,
+      profileImageUrl: true,
+      programme: true,
+      level: true,
+      campus: true,
+    },
   });
   // A suspended or inactive account is not told it is suspended at a
   // public terminal with a queue behind it; it reads as not registered,
@@ -65,9 +93,14 @@ export async function verifyVoter(params: {
 
   return {
     status: "VERIFIED",
+    token,
     firstName: member.firstName,
     fullName: [member.firstName, member.middleName, member.lastName].filter(Boolean).join(" "),
-    token,
+    indexNumber: member.indexNumber,
+    photoUrl: member.profileImageUrl,
+    programme: member.programme,
+    level: member.level,
+    campus: member.campus,
   };
 }
 
