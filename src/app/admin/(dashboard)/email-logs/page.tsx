@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { requireCapability } from "@/lib/auth/admin";
-import { Mail } from "lucide-react";
-import { EmptyState } from "@/components/ui/Common";
+import { Mail, Search } from "lucide-react";
+import { EmptyState, inputClasses } from "@/components/ui/Common";
+import { Button } from "@/components/ui/Button";
 import { listEmailLogs } from "@/lib/services/notification-service";
 
 export const metadata = { title: "Email Logs" };
@@ -34,9 +36,15 @@ function StatusBadge({ status }: { status: "SENT" | "FAILED" | "SKIPPED_NO_PROVI
   );
 }
 
-export default async function AdminEmailLogsPage() {
+export default async function AdminEmailLogsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   await requireCapability("site.emails");
-  const logs = await listEmailLogs(200);
+  const { q } = await searchParams;
+  const term = (q ?? "").trim();
+  const logs = await listEmailLogs(200, term || undefined);
   const failedCount = logs.filter((l) => l.status === "FAILED").length;
 
   return (
@@ -55,8 +63,46 @@ export default async function AdminEmailLogsPage() {
         )}
       </div>
 
+      {/* "They say they never received it" is answered by typing their
+          address in here: whether anything was ever attempted, and what
+          the provider said if it refused. */}
+      <form className="flex flex-wrap items-end gap-3 mb-5">
+        <div className="flex-1 min-w-[16rem]">
+          <label htmlFor="q" className="block text-sm font-medium text-primary-950 mb-1.5">
+            Find by address, subject or template
+          </label>
+          <input
+            id="q"
+            name="q"
+            defaultValue={term}
+            placeholder="e.g. someone@gmail.com"
+            className={inputClasses}
+          />
+        </div>
+        <Button type="submit">
+          <Search size={16} aria-hidden="true" /> Search
+        </Button>
+        {term && (
+          <Link href="/admin/email-logs" className="text-sm font-semibold text-slate hover:text-primary-800 pb-2.5">
+            Clear
+          </Link>
+        )}
+      </form>
+
+      {term && (
+        <p className="text-sm text-slate mb-4">
+          {logs.length === 0
+            ? `Nothing has ever been sent to anything matching "${term}". If that is an address we hold, no email was
+               even attempted — which is a different problem from one that was sent and never arrived.`
+            : `${logs.length} message${logs.length === 1 ? "" : "s"} matching "${term}".`}
+        </p>
+      )}
+
       {logs.length === 0 ? (
-        <EmptyState icon={<Mail size={28} />} title="No emails logged yet" />
+        <EmptyState
+          icon={<Mail size={28} />}
+          title={term ? "Nothing matching that" : "No emails logged yet"}
+        />
       ) : (
         <div className="bg-white rounded-lg border border-line overflow-hidden overflow-x-auto">
           <table className="w-full text-sm">

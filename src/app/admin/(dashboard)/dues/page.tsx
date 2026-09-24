@@ -71,7 +71,7 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
           href={`/api/admin/dues/export?year=${encodeURIComponent(academicYear)}`}
           className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-line px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-surface-muted"
         >
-          <FileDown size={15} aria-hidden="true" /> Download ledger (CSV)
+          <FileDown size={15} aria-hidden="true" /> Download ledger (PDF)
         </a>
       </form>
 

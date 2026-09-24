@@ -59,6 +59,20 @@ export class DuplicateEmailError extends Error {
     this.name = "DuplicateEmailError";
   }
 }
+/**
+ * The index number is already on a study record belonging to somebody
+ * else's login. Approving would either fail on the unique column or quietly
+ * move one person's studies onto another person's account, so it stops and
+ * says which account to look at.
+ */
+export class EnrollmentOwnedByAnotherAccountError extends Error {
+  constructor(indexNumber: string) {
+    super(
+      `Index number ${indexNumber} is still attached to a different login. Open User Status Matrix, find that account and delete it, then approve this application again.`,
+    );
+    this.name = "EnrollmentOwnedByAnotherAccountError";
+  }
+}
 export class InvalidCredentialsError extends Error {
   constructor(message = "Incorrect index number or password.") {
     super(message);
@@ -582,26 +596,54 @@ export async function approveApplication(params: {
       data: { status: "GRADUATED", graduatedAt: new Date() },
     });
 
-    await tx.studentEnrollment.create({
-      data: {
-        userId: identityUser.id,
-        indexNumber: createdMember.indexNumber,
-        applicationTrack: createdMember.applicationTrack,
-        degreeCategory: createdMember.degreeCategory,
-        programme: createdMember.programme,
-        academicDepartment: createdMember.academicDepartment,
-        level: createdMember.level,
-        campus: createdMember.campus,
-        hallOfAffiliation: createdMember.hallOfAffiliation,
-        yearOfAdmission: createdMember.yearOfAdmission,
-        expectedGraduationYear: createdMember.expectedGraduationYear,
-        department: createdMember.department,
-        specificSupportNeeds: createdMember.specificSupportNeeds,
-        membershipType: createdMember.membershipType,
-        status: "ACTIVE",
-        applicationId: application.id,
-      },
+    // A study record under this same index number may still be on file.
+    // Deleting a member removed the member row and its application but
+    // left the enrollment behind, and indexNumber is unique across every
+    // enrollment there has ever been — so somebody who was removed and
+    // asked to apply again could never be approved: the create below
+    // failed on that column and the whole approval rolled back with
+    // nothing to explain it. Their old record is taken over instead.
+    const priorEnrollment = await tx.studentEnrollment.findUnique({
+      where: { indexNumber: createdMember.indexNumber },
+      select: { id: true, userId: true },
     });
+    if (priorEnrollment && priorEnrollment.userId !== identityUser.id) {
+      throw new EnrollmentOwnedByAnotherAccountError(createdMember.indexNumber);
+    }
+
+    const enrollmentFields = {
+      applicationTrack: createdMember.applicationTrack,
+      degreeCategory: createdMember.degreeCategory,
+      programme: createdMember.programme,
+      academicDepartment: createdMember.academicDepartment,
+      level: createdMember.level,
+      campus: createdMember.campus,
+      hallOfAffiliation: createdMember.hallOfAffiliation,
+      yearOfAdmission: createdMember.yearOfAdmission,
+      expectedGraduationYear: createdMember.expectedGraduationYear,
+      department: createdMember.department,
+      specificSupportNeeds: createdMember.specificSupportNeeds,
+      membershipType: createdMember.membershipType,
+      status: "ACTIVE" as const,
+      applicationId: application.id,
+    };
+
+    if (priorEnrollment) {
+      await tx.studentEnrollment.update({
+        where: { id: priorEnrollment.id },
+        // graduatedAt is cleared because the updateMany just above closed
+        // this very row as part of ending any earlier cycle.
+        data: { ...enrollmentFields, graduatedAt: null },
+      });
+    } else {
+      await tx.studentEnrollment.create({
+        data: {
+          userId: identityUser.id,
+          indexNumber: createdMember.indexNumber,
+          ...enrollmentFields,
+        },
+      });
+    }
 
     await tx.membershipApplication.update({
       where: { id: applicationId },
@@ -1063,11 +1105,20 @@ export async function deleteMember(params: {
   // actually frees them up to reapply. Order matters: the member row
   // references the application via a foreign key, so it must be deleted
   // first.
+  // The same trap, one table further along. Deleting the member and its
+  // application still left the study record behind, and its index number
+  // is unique across every enrollment there has ever been — so the person
+  // could submit a new application but could never be approved: the
+  // approval failed on that column with nothing on screen to explain it.
+  // The record goes with the member it belonged to, and the MEMBER role
+  // goes with it, since there is no longer a member for it to describe.
   const operations = [
     db.member.delete({ where: { id: memberId } }),
     ...(member.applicationId
       ? [db.membershipApplication.delete({ where: { id: member.applicationId } })]
       : []),
+    db.studentEnrollment.deleteMany({ where: { indexNumber: member.indexNumber } }),
+    ...(member.userId ? [db.userRole.deleteMany({ where: { userId: member.userId, role: "MEMBER" } })] : []),
     db.auditLog.create({
       data: {
         adminId,

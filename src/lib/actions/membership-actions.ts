@@ -23,6 +23,7 @@ import {
   DuplicateIndexNumberError,
   DuplicateEmailError,
   ApplicationAlreadyApprovedError,
+  EnrollmentOwnedByAnotherAccountError,
   InvalidCredentialsError,
   InvalidOrExpiredTokenError,
   InvalidProfilePictureError,
@@ -218,7 +219,8 @@ async function reviewApplicationActionImpl(
     if (
       err instanceof DuplicateEmailError ||
       err instanceof DuplicateIndexNumberError ||
-      err instanceof ApplicationAlreadyApprovedError
+      err instanceof ApplicationAlreadyApprovedError ||
+      err instanceof EnrollmentOwnedByAnotherAccountError
     ) {
       return { error: err.message };
     }

@@ -26,11 +26,46 @@ export async function listAuditLog(limit = 100) {
   });
 }
 
-export async function listEmailLogs(limit = 200) {
+/**
+ * The email trail, newest first — optionally only the ones concerning one
+ * person.
+ *
+ * "They say they never got it" is answered here or nowhere: whether it was
+ * attempted at all, whether the provider took it, and what it said if it
+ * refused. Without a search, that answer is buried under whatever was sent
+ * since, which for a portal this size is a few hundred messages a week.
+ */
+export async function listEmailLogs(limit = 200, search?: string) {
+  const term = search?.trim();
   return db.emailLog.findMany({
+    where: term
+      ? {
+          OR: [
+            { to: { contains: term, mode: "insensitive" } },
+            { subject: { contains: term, mode: "insensitive" } },
+            { template: { contains: term, mode: "insensitive" } },
+          ],
+        }
+      : undefined,
     orderBy: { createdAt: "desc" },
     take: limit,
   });
+}
+
+/** How many messages this address has ever been sent, and how they went. */
+export async function emailHistoryFor(address: string) {
+  const logs = await db.emailLog.findMany({
+    where: { to: { equals: address.trim(), mode: "insensitive" } },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
+  return {
+    total: logs.length,
+    sent: logs.filter((l) => l.status === "SENT").length,
+    failed: logs.filter((l) => l.status === "FAILED").length,
+    skipped: logs.filter((l) => l.status === "SKIPPED_NO_PROVIDER").length,
+    logs,
+  };
 }
 
 export async function getDashboardCounts() {
