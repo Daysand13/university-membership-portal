@@ -62,6 +62,7 @@ export const PORTAL_NAV: Record<PortalMode, PortalNavItem[]> = {
     },
     { href: "/membership/dashboard/mentorship", label: "Mentorship & Alumni", icon: "mentorship" },
     { href: "/membership/dashboard/dues", label: "Dues & Payments", icon: "dues" },
+    { href: "/membership/dashboard/id-card", label: "My ID Card", icon: "records" },
     {
       href: "/membership/dashboard/cv",
       label: "My CV",
