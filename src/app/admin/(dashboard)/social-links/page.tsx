@@ -30,7 +30,7 @@ export default async function AdminSocialLinksPage() {
         <div className="space-y-4 mb-8">
           {links.map((link) => (
             <div key={link.id} className="bg-white rounded-lg border border-line p-5">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <div className="flex items-center gap-2.5 text-primary-800">
                   <SocialIcon platform={link.platform} />
                   <span className="text-sm font-semibold text-primary-950">{link.displayName}</span>

@@ -51,7 +51,7 @@ export default async function AdminCampaignPage({ params }: { params: Promise<{ 
         </section>
 
         <section className="bg-white rounded-lg border border-line p-6">
-          <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <h2 className="font-display font-bold text-base text-primary-950">
               Endorsements ({campaign.endorsements.length})
             </h2>

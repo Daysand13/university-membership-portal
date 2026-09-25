@@ -42,7 +42,7 @@ export function SocialLinkForm({ link }: { link?: SocialLink }) {
         <Label htmlFor="order">Display Order</Label>
         <input id="order" name="order" type="number" defaultValue={link?.order ?? 0} className={inputClasses} />
       </div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
           <input type="checkbox" name="isActive" defaultChecked={link?.isActive ?? true} className="h-4 w-4 rounded border-line text-primary-800" />
           Active

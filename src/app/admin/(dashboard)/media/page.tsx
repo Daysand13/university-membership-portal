@@ -14,7 +14,7 @@ export default async function MediaLibraryPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="font-display font-bold text-2xl text-primary-950">Media Library</h1>
           <p className="text-sm text-slate mt-1">General-purpose uploads, stored in Cloudflare R2.</p>

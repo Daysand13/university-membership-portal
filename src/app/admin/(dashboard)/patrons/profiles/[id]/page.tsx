@@ -27,7 +27,7 @@ export default async function EditPatronProfilePage({ params }: { params: Promis
       <Link href="/admin/patrons/profiles" className="inline-flex items-center gap-1.5 text-sm text-slate hover:text-primary-800 mb-4">
         <ArrowLeft size={15} /> Back to Patron Profiles
       </Link>
-      <div className="flex items-center justify-between gap-4 mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="font-display font-bold text-2xl text-primary-950">Edit {profile.name}</h1>
         <ConfirmButton
           action={deletePatronProfileListingAction.bind(null, profile.id)}
