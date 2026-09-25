@@ -124,10 +124,12 @@ function DateRange({
           onChange={(e) => onChange("endMonth", e.target.value)}
           className={`${inputClasses} disabled:bg-surface-muted disabled:text-slate-light`}
         />
-        <label className="flex items-center gap-2 mt-2 text-sm text-ink cursor-pointer">
+        <label htmlFor={`${idPrefix}-current`} className="flex items-center gap-2 mt-2 text-sm text-ink cursor-pointer">
           <input
+            id={`${idPrefix}-current`}
             type="checkbox"
             checked={current}
+            aria-label={currentLabel}
             onChange={(e) => onChange("current", e.target.checked)}
             className="h-4 w-4 rounded border-line text-primary-800"
           />
@@ -267,7 +269,7 @@ export function CvForm({ cv, portal }: { cv: CvInput; portal: "member" | "alumni
         description="Anything before your current programme — senior high school, an earlier certificate."
         addLabel="Add a school"
         onAdd={() =>
-          education.add({ institution: "", qualification: "", startMonth: "", endMonth: "", current: "", grade: "", details: "" })
+          education.add({ institution: "", qualification: "", startMonth: "", endMonth: "", current: "", details: "" })
         }
       >
         {education.rows.map((row, i) => (
@@ -292,13 +294,6 @@ export function CvForm({ cv, portal }: { cv: CvInput; portal: "member" | "alumni
               current={Boolean(row.current)}
               currentLabel="Still studying here"
               onChange={(field, value) => education.set(i, field, value)}
-            />
-            <Field
-              id={`edu-grade-${i}`}
-              label="Result"
-              value={String(row.grade ?? "")}
-              onChange={(v) => education.set(i, "grade", v)}
-              placeholder="Aggregate 12"
             />
             <Field
               id={`edu-details-${i}`}

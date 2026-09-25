@@ -113,9 +113,7 @@ export function MemberCvPdf({ document, associationName }: { document: CvDocumen
               <Text style={styles.entryTitle}>{document.programme}</Text>
               <Text style={styles.entryPeriod}>{document.standing}</Text>
             </View>
-            <Text style={styles.entrySub}>
-              University of Education, Winneba{document.identifier ? ` · ${document.identifier}` : ""}
-            </Text>
+            <Text style={styles.entrySub}>University of Education, Winneba</Text>
           </View>
 
           {cv.education.map((entry, i) => (
@@ -125,7 +123,6 @@ export function MemberCvPdf({ document, associationName }: { document: CvDocumen
                 {periodLabel(entry) ? <Text style={styles.entryPeriod}>{periodLabel(entry)}</Text> : null}
               </View>
               {entry.qualification ? <Text style={styles.entrySub}>{entry.institution}</Text> : null}
-              {entry.grade ? <Text style={styles.entrySub}>{entry.grade}</Text> : null}
               {entry.details ? <Text style={styles.entryBody}>{entry.details}</Text> : null}
             </View>
           ))}

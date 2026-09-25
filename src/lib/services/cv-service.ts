@@ -66,8 +66,6 @@ export async function saveCv(owner: CvOwner, cv: CvInput) {
 
 export interface CvDocument {
   fullName: string;
-  /** Index number for a student, graduation year for an alumnus. */
-  identifier: string;
   programme: string;
   /** "Level 300", "Graduated 2024" — whatever describes where they are. */
   standing: string;
@@ -94,7 +92,6 @@ export async function loadCvDocument(owner: CvOwner): Promise<CvDocument | null>
     if (!member) return null;
     return {
       fullName: formatFullName(member.firstName, member.middleName, member.lastName),
-      identifier: member.indexNumber,
       programme: member.programme,
       standing: `Level ${member.level}`,
       // What they put on the CV wins: a student often wants a personal
@@ -109,9 +106,6 @@ export async function loadCvDocument(owner: CvOwner): Promise<CvDocument | null>
   if (!alumnus) return null;
   return {
     fullName: alumnus.fullName,
-    // A graduate has no index number to quote; their profession is what
-    // an employer reads next, where they have given one.
-    identifier: alumnus.profession ?? "",
     programme: alumnus.programme,
     standing: `Graduated ${alumnus.graduationYear}`,
     email: cv.contactEmail || alumnus.email,

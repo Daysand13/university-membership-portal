@@ -115,13 +115,17 @@ export function NominationForm({
 
               <div className="space-y-2">
                 <label
+                  htmlFor="attach-portal-cv"
                   className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer ${
                     attachment === "portal-cv" ? "border-primary-800 bg-primary-50" : "border-line"
                   } ${hasPortalCv ? "" : "opacity-60"}`}
                 >
                   <input
+                    id="attach-portal-cv"
                     type="radio"
                     name="attachmentChoice"
+                    aria-label="My portal CV"
+                    aria-describedby="attach-portal-cv-note"
                     checked={attachment === "portal-cv"}
                     disabled={!hasPortalCv}
                     onChange={() => setAttachment("portal-cv")}
@@ -131,7 +135,7 @@ export function NominationForm({
                     <span className="flex items-center gap-2 text-sm font-semibold text-primary-950">
                       <FileText size={15} aria-hidden="true" /> My portal CV
                     </span>
-                    <span className="block text-xs text-slate mt-0.5">
+                    <span id="attach-portal-cv-note" className="block text-xs text-slate mt-0.5">
                       {hasPortalCv
                         ? "The commission sees the CV as it stands when they open your nomination."
                         : "Not available — your CV hasn't been paid for yet."}
@@ -140,13 +144,17 @@ export function NominationForm({
                 </label>
 
                 <label
+                  htmlFor="attach-upload"
                   className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer ${
                     attachment === "upload" ? "border-primary-800 bg-primary-50" : "border-line"
                   }`}
                 >
                   <input
+                    id="attach-upload"
                     type="radio"
                     name="attachmentChoice"
+                    aria-label="A document or picture of my own"
+                    aria-describedby="attach-upload-note"
                     checked={attachment === "upload"}
                     onChange={() => setAttachment("upload")}
                     className="mt-1 h-4 w-4 text-primary-800"
@@ -155,7 +163,7 @@ export function NominationForm({
                     <span className="flex items-center gap-2 text-sm font-semibold text-primary-950">
                       <Upload size={15} aria-hidden="true" /> A document or picture of my own
                     </span>
-                    <span className="block text-xs text-slate mt-0.5">
+                    <span id="attach-upload-note" className="block text-xs text-slate mt-0.5">
                       Your own CV, a certificate, a passport picture — whatever the commission asked for.
                     </span>
                   </span>

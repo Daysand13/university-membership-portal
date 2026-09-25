@@ -450,7 +450,7 @@ export async function nominateForElection(params: {
   const paidForForm = await hasPaidFor(
     { kind: "member", id: member.id, email: member.email },
     PaidDocumentKind.NOMINATION_FORM,
-    position.id,
+    { positionId: position.id },
   );
   if (position.nominationFeePesewas > 0 && !paidForForm) {
     return { ok: false, error: `Buy the nomination form for ${position.title} first.` };

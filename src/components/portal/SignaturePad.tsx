@@ -113,7 +113,7 @@ export function SignaturePad({
       </p>
 
       <fieldset className="mb-4">
-        <legend className="sr-only">How would you like to sign?</legend>
+        <legend className="text-sm font-medium text-primary-950 mb-1.5">How would you like to sign?</legend>
         <div className="grid gap-2 sm:grid-cols-3">
           {[
             { value: SignatureKind.TYPED, label: "Type my initials", icon: <Type size={16} aria-hidden="true" /> },
@@ -122,12 +122,19 @@ export function SignaturePad({
           ].map((option) => (
             <label
               key={option.value}
+              // Explicit id and htmlFor, not a wrapped input: a reader that
+              // doesn't follow the implicit association falls back to the
+              // input's value and announces "radio, TYPED" — or nothing at
+              // all, which is what a member reported.
+              htmlFor={`signature-${option.value}`}
               className="flex items-center gap-2.5 rounded-lg border border-line p-3 text-sm font-semibold text-primary-950 cursor-pointer hover:border-primary-400 has-[:checked]:border-primary-800 has-[:checked]:bg-primary-50"
             >
               <input
+                id={`signature-${option.value}`}
                 type="radio"
                 name="signatureKind"
                 value={option.value}
+                aria-label={option.label}
                 checked={kind === option.value}
                 onChange={() => onChange({ kind: option.value, data: "" })}
                 className="h-4 w-4 text-primary-800"

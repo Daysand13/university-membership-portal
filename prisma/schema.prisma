@@ -227,6 +227,7 @@ model Member {
   createdStudyGroups  StudyGroup[]         @relation("StudyGroupCreator")
   softwareRequests    SoftwareRequest[]
   cv                  MemberCv?
+  letters             MemberLetter[]
   documentPurchases   DocumentPurchase[]
   candidacies         ElectionCandidate[]
   electionsVotedIn    ElectionVoter[]
@@ -957,6 +958,7 @@ model AlumniProfile {
   @@map("alumni_profiles")
   cv                MemberCv?
   documentPurchases DocumentPurchase[]
+  letters           MemberLetter[]
 }
 
 /// The showcase presentation of an alumnus — the editorial layer on top of
@@ -1180,6 +1182,8 @@ enum PaidDocumentKind {
   ID_CARD
   /// The form a member buys in order to stand for a particular post.
   NOMINATION_FORM
+  /// One letter, laid out and turned into a Word document.
+  LETTER
 }
 
 enum DocumentPurchaseStatus {
@@ -1381,6 +1385,59 @@ model MemberCv {
   @@map("member_cvs")
 }
 
+/// A letter somebody has written, before it is laid out.
+///
+/// The point of this is not the words — those are theirs — but the
+/// arrangement: where the addresses go, what sits above the subject line,
+/// how far down the signature falls. That is exactly the part a student
+/// who cannot see the page has no way to get right, and exactly the part
+/// a reader will judge them on.
+model MemberLetter {
+  id String @id @default(cuid())
+
+  /// Exactly one of these.
+  memberId        String?
+  member          Member?        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  alumniProfileId String?
+  alumniProfile   AlumniProfile? @relation(fields: [alumniProfileId], references: [id], onDelete: Cascade)
+
+  /// What they call it in their own list. Never printed.
+  title String
+
+  /// Who it is from — the block at the top.
+  senderName    String
+  senderAddress String?
+  senderPhone   String?
+  senderEmail   String?
+
+  /// The date on the letter. Null means the day it is downloaded.
+  letterDate DateTime?
+
+  /// Who it is to.
+  recipientName         String?
+  recipientTitle        String?
+  recipientOrganisation String?
+  recipientAddress      String?
+
+  salutation String
+  subject    String?
+  /// Blank lines separate paragraphs. Nothing else is interpreted.
+  body       String
+  closing    String
+
+  signatureKind SignatureKind @default(NONE)
+  signatureData String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  purchases DocumentPurchase[]
+
+  @@index([memberId])
+  @@index([alumniProfileId])
+  @@map("member_letters")
+}
+
 /// A member paying for a document the association prepares for them.
 ///
 /// Deliberately not specific to the CV: the ID card is the same
@@ -1400,6 +1457,11 @@ model DocumentPurchase {
   /// Which post the form was bought for, when it is a nomination form.
   positionId String?
   position   ElectionPosition? @relation(fields: [positionId], references: [id], onDelete: SetNull)
+
+  /// Which letter was paid for. Letters are charged one at a time, not
+  /// once for the service, so each purchase names the letter it bought.
+  letterId String?
+  letter   MemberLetter? @relation(fields: [letterId], references: [id], onDelete: SetNull)
 
   /// Smallest currency unit (pesewas), as everywhere else money is stored.
   amountPesewas Int

@@ -45,7 +45,6 @@ export const educationEntrySchema = z
   .object({
     institution: text(SHORT).min(2, "Name the school or university"),
     qualification: optional(SHORT),
-    grade: optional(SHORT),
     details: optional(LINE),
     ...dated,
   })

@@ -46,6 +46,9 @@ export const DOCUMENT_PRICES: Record<PaidDocumentKind, { pesewas: number; label:
   // ElectionPosition.nominationFeePesewas. This is only the fallback for
   // a post nobody has priced.
   [PaidDocumentKind.NOMINATION_FORM]: { pesewas: 0, label: "Nomination form" },
+  // Charged per letter, not once for the service: somebody who needs one
+  // letter should not be asked to buy a subscription to write it.
+  [PaidDocumentKind.LETTER]: { pesewas: 10 * PESEWAS_PER_CEDI, label: "Letter" },
 };
 
 /**
@@ -90,17 +93,20 @@ export function formatCedis(pesewas: number): string {
 }
 
 /** Has this person paid for this document, and is that payment still good? */
+/** Which particular thing a purchase was about, where it was about one. */
+export type PurchaseAbout = { positionId?: string; letterId?: string };
+
 export async function hasPaidFor(
   owner: PurchaseOwner,
   kind: PaidDocumentKind,
-  /** For a nomination form: which post it was bought for. */
-  positionId?: string,
+  about?: PurchaseAbout,
 ): Promise<boolean> {
   const paid = await db.documentPurchase.findFirst({
     where: {
       ...ownerWhere(owner),
       kind,
-      ...(positionId ? { positionId } : {}),
+      ...(about?.positionId ? { positionId: about.positionId } : {}),
+      ...(about?.letterId ? { letterId: about.letterId } : {}),
       status: "SUCCESS",
       OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }],
     },
@@ -135,10 +141,12 @@ export async function startDocumentPurchase(params: {
   callbackUrl: string;
   /** A nomination form is bought for one post, at that post's price. */
   position?: { id: string; title: string; nominationFeePesewas: number };
+  /** A letter is bought one at a time, so the purchase names which one. */
+  letterId?: string;
 }): Promise<StartPurchaseResult> {
-  const { owner, kind, callbackUrl, position } = params;
+  const { owner, kind, callbackUrl, position, letterId } = params;
 
-  if (await hasPaidFor(owner, kind, position?.id)) {
+  if (await hasPaidFor(owner, kind, { positionId: position?.id, letterId })) {
     return { ok: false, error: "You have already paid for this." };
   }
 
@@ -160,6 +168,7 @@ export async function startDocumentPurchase(params: {
       ...ownerWhere(owner),
       kind,
       positionId: position?.id ?? null,
+      letterId: letterId ?? null,
       amountPesewas: price.pesewas,
       priceLabel: price.label,
       reference,
@@ -243,10 +252,11 @@ export async function recordCashDocumentPayment(params: {
   kind: PaidDocumentKind;
   admin: Pick<AdminUser, "id">;
   position?: { id: string; title: string; nominationFeePesewas: number };
+  letterId?: string;
 }): Promise<{ ok: true; summary: string } | { ok: false; error: string }> {
-  const { owner, kind, admin, position } = params;
+  const { owner, kind, admin, position, letterId } = params;
 
-  if (await hasPaidFor(owner, kind, position?.id)) {
+  if (await hasPaidFor(owner, kind, { positionId: position?.id, letterId })) {
     return { ok: false, error: "They have already paid for that." };
   }
 
@@ -259,6 +269,7 @@ export async function recordCashDocumentPayment(params: {
       ...ownerWhere(owner),
       kind,
       positionId: position?.id ?? null,
+      letterId: letterId ?? null,
       amountPesewas: price.pesewas,
       priceLabel: price.label,
       reference: `cash-doc-${kind.toLowerCase()}-${randomUUID()}`,

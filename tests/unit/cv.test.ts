@@ -10,6 +10,13 @@ import {
   periodLabel,
 } from "@/lib/validations/cv";
 import {
+  EMPTY_LETTER,
+  addressLines,
+  letterDateLabel,
+  letterSchema,
+  paragraphsOf,
+} from "@/lib/validations/letter";
+import {
   DOCUMENT_PRICES,
   formatCedis,
   isDocumentPurchaseReference,
@@ -194,5 +201,49 @@ describe("what a graduate pays", () => {
 
   it("charges a graduate the same money as a student", () => {
     expect(DOCUMENT_PRICES.CV.pesewas).toBe(2000);
+  });
+});
+
+describe("a letter, in its parts", () => {
+  it("splits the body on blank lines and nothing else", () => {
+    expect(paragraphsOf("One line.\n\nSecond paragraph.")).toEqual(["One line.", "Second paragraph."]);
+    // A single newline is a wrapped line, not a new paragraph.
+    expect(paragraphsOf("A sentence that\nwrapped.")).toEqual(["A sentence that wrapped."]);
+    // Nothing else is interpreted: a dash stays a dash.
+    expect(paragraphsOf("- not a bullet")).toEqual(["- not a bullet"]);
+    expect(paragraphsOf("   \n\n  ")).toEqual([]);
+  });
+
+  it("drops blank lines out of an address block", () => {
+    expect(addressLines("P.O. Box 25\n\n Winneba \nCentral Region")).toEqual([
+      "P.O. Box 25",
+      "Winneba",
+      "Central Region",
+    ]);
+    expect(addressLines(null)).toEqual([]);
+  });
+
+  it("dates itself the way a letter does", () => {
+    expect(letterDateLabel("2026-09-25")).toBe("25 September 2026");
+    // No date typed means the day it is downloaded.
+    expect(letterDateLabel("", new Date("2026-01-05T12:00:00Z"))).toBe("5 January 2026");
+    expect(letterDateLabel("nonsense", new Date("2026-01-05T12:00:00Z"))).toBe("5 January 2026");
+  });
+
+  it("wants enough of a letter to be worth laying out", () => {
+    const empty = letterSchema.safeParse({ ...EMPTY_LETTER, title: "Draft", senderName: "Ama", body: "Hello." });
+    expect(empty.success).toBe(false);
+
+    const real = letterSchema.safeParse({
+      ...EMPTY_LETTER,
+      title: "Attachment request",
+      senderName: "Ama Serwaa Mensah",
+      body: "I am writing to ask whether your school would take me on attachment during the coming vacation.",
+    });
+    expect(real.success).toBe(true);
+  });
+
+  it("charges ten cedis a letter", () => {
+    expect(formatCedis(priceOf(PaidDocumentKind.LETTER).pesewas)).toBe("GH₵10.00");
   });
 });
