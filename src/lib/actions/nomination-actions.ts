@@ -1,6 +1,6 @@
 "use server";
 
-import { withVoidActionErrorHandling } from "./with-error-handling";
+import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-error-handling";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { PaidDocumentKind } from "@/generated/prisma/client";
 import { getCurrentAcademicYear, hasPaidDuesForYear } from "@/lib/services/dues-service";
 import { recordCashDocumentPayment, startDocumentPurchase } from "@/lib/services/document-purchase-service";
+import type { ActionState } from "./types";
 
 /**
  * Buying the form to stand for a post.
@@ -46,13 +47,33 @@ async function buyNominationFormActionImpl(positionId: string): Promise<void> {
   redirect(result.authorizationUrl);
 }
 
-/** An officer taking the fee at the desk, as they can for dues and a CV. */
-async function recordCashNominationFormActionImpl(memberId: string, positionId: string): Promise<void> {
+/**
+ * An officer taking the fee at the desk, as they can for dues and a CV.
+ *
+ * Found by index number, because that is what the member will say at the
+ * counter — nobody knows their own record's id.
+ */
+async function recordCashNominationFormActionImpl(
+  positionId: string,
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const admin = await requireCapability("elections.nominations");
-  const position = await db.electionPosition.findUniqueOrThrow({ where: { id: positionId } });
+  const indexNumber = String(formData.get("indexNumber") ?? "").trim().toUpperCase();
+  if (!indexNumber) return { fieldErrors: { indexNumber: ["Which member paid?"] } };
+
+  const [position, member] = await Promise.all([
+    db.electionPosition.findUniqueOrThrow({ where: { id: positionId } }),
+    db.member.findUnique({ where: { indexNumber }, select: { id: true, firstName: true, lastName: true } }),
+  ]);
+  if (!member) return { fieldErrors: { indexNumber: ["No member has that index number"] } };
+
+  if (!(await hasPaidDuesForYear(member.id, getCurrentAcademicYear()))) {
+    return { error: `${member.firstName} hasn't paid dues this year, so they can't stand for office yet.` };
+  }
 
   const result = await recordCashDocumentPayment({
-    owner: { kind: "member", id: memberId, email: "" },
+    owner: { kind: "member", id: member.id, email: "" },
     kind: PaidDocumentKind.NOMINATION_FORM,
     admin,
     position: {
@@ -61,16 +82,20 @@ async function recordCashNominationFormActionImpl(memberId: string, positionId: 
       nominationFeePesewas: position.nominationFeePesewas,
     },
   });
-  if (!result.ok) throw new Error(result.error);
+  if (!result.ok) return { error: result.error };
 
   revalidatePath(`/admin/elections/${position.electionId}`);
+  return {
+    success: true,
+    message: `${member.firstName} ${member.lastName} can now put their name forward for ${position.title}.`,
+  };
 }
 
 export const buyNominationFormAction = withVoidActionErrorHandling(
   "buyNominationFormAction",
   buyNominationFormActionImpl,
 );
-export const recordCashNominationFormAction = withVoidActionErrorHandling(
+export const recordCashNominationFormAction = withActionErrorHandling(
   "recordCashNominationFormAction",
   recordCashNominationFormActionImpl,
 );

@@ -5,6 +5,7 @@ import { Coins, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { FieldError, FormAlert, Label, SavedNotice, inputClasses } from "@/components/ui/Common";
 import { setDuesRatesAction, setNominationFeeAction } from "@/lib/actions/ballot-actions";
+import { recordCashNominationFormAction } from "@/lib/actions/nomination-actions";
 import { initialActionState } from "@/lib/actions/types";
 
 /**
@@ -145,6 +146,41 @@ export function NominationFeeForm({
         {isPending ? "Saving…" : "Save"}
       </Button>
       <SavedNotice state={state} isPending={isPending} />
+    </form>
+  );
+}
+
+/**
+ * Taking a nomination fee at the desk.
+ *
+ * Online payment is not switched on yet, so without this nobody could
+ * stand for a post that carries a fee at all. Found by index number,
+ * because that is what a member says at the counter.
+ */
+export function CashNominationFormEntry({ positionId, title }: { positionId: string; title: string }) {
+  const [state, formAction, isPending] = useActionState(
+    recordCashNominationFormAction.bind(null, positionId),
+    initialActionState,
+  );
+
+  return (
+    <form action={formAction} className="flex flex-wrap items-end gap-2">
+      <div className="w-44">
+        <Label htmlFor={`cash-${positionId}`}>Record cash for</Label>
+        <input
+          id={`cash-${positionId}`}
+          name="indexNumber"
+          placeholder="Index number"
+          className={`${inputClasses} font-data uppercase`}
+        />
+        <FieldError messages={state.fieldErrors?.indexNumber} />
+      </div>
+      <Button type="submit" size="sm" variant="outline" disabled={isPending}>
+        {isPending ? <Loader2 size={15} aria-hidden="true" className="animate-spin" /> : <Coins size={15} aria-hidden="true" />}
+        {isPending ? "Recording…" : `Paid for ${title}`}
+      </Button>
+      <SavedNotice state={state} isPending={isPending} />
+      <FormAlert message={state.error} />
     </form>
   );
 }

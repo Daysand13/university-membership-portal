@@ -18,7 +18,7 @@ import { deleteCandidateAction, deletePositionAction } from "@/lib/actions/ballo
 import { getElectionForCommission, tallyElection } from "@/lib/services/election-service";
 import { PHASE_LABELS, effectivePhase } from "@/lib/election-status";
 import { CandidateStatus, ElectionPhase } from "@/generated/prisma/client";
-import { NominationFeeForm } from "@/components/admin/forms/PriceForms";
+import { CashNominationFormEntry, NominationFeeForm } from "@/components/admin/forms/PriceForms";
 import { formatCedis } from "@/lib/services/document-purchase-service";
 
 export const metadata = { title: "Election" };
@@ -246,6 +246,9 @@ export default async function AdminElectionPage({ params }: { params: Promise<{ 
                           ` · ${position.candidates.filter((c) => c.status === CandidateStatus.PENDING).length} waiting`}
                       </p>
                     </div>
+                    {canReview && position.nominationFeePesewas > 0 && (
+                      <CashNominationFormEntry positionId={position.id} title={position.title} />
+                    )}
                     {canCommission && (
                       <NominationFeeForm
                         positionId={position.id}
