@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Download, FileText, Lock, Trash2 } from "lucide-react";
-import { requireMember } from "@/lib/auth/member";
+import { requireAlumni } from "@/lib/auth/alumni";
 import { PaidDocumentKind } from "@/generated/prisma/client";
 import { getLetter, letterToInput } from "@/lib/services/letter-service";
 import { formatCedis, hasPaidFor, priceOf } from "@/lib/services/document-purchase-service";
@@ -16,24 +16,24 @@ export const metadata = { title: "Letter" };
 export const dynamic = "force-dynamic";
 
 /**
- * One letter: write it, pay for it, download it.
+ * One of a graduate's letters: write it, pay for it, download it.
  *
  * "new" is the same page with nothing in it, so there is one form to
  * learn rather than two.
  */
-export default async function LetterPage({
+export default async function AlumniLetterPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ payment?: string; saved?: string }>;
 }) {
-  const member = await requireMember();
+  const alumnus = await requireAlumni();
   const { id } = await params;
   const { payment, saved } = await searchParams;
 
   const isNew = id === "new";
-  const row = isNew ? null : await getLetter({ kind: "member", id: member.id }, id);
+  const row = isNew ? null : await getLetter({ kind: "alumni", id: alumnus.id }, id);
   if (!isNew && !row) notFound();
 
   const letter = row
@@ -42,13 +42,13 @@ export default async function LetterPage({
         ...EMPTY_LETTER,
         // Their own details are already on file; nobody should have to
         // type their own name to write a letter.
-        senderName: [member.firstName, member.middleName, member.lastName].filter(Boolean).join(" "),
-        senderPhone: member.phone,
-        senderEmail: member.email,
+        senderName: alumnus.fullName,
+        senderPhone: alumnus.phone,
+        senderEmail: alumnus.email,
       };
 
   const paid = row
-    ? await hasPaidFor({ kind: "member", id: member.id, email: member.email }, PaidDocumentKind.LETTER, {
+    ? await hasPaidFor({ kind: "alumni", id: alumnus.id, email: alumnus.email }, PaidDocumentKind.LETTER, {
         letterId: row.id,
       })
     : false;
@@ -56,10 +56,7 @@ export default async function LetterPage({
 
   return (
     <>
-      <Link
-        href="/membership/dashboard/letters"
-        className="inline-flex items-center gap-1 text-sm text-slate hover:text-primary-800 mb-4"
-      >
+      <Link href="/alumni/letters" className="inline-flex items-center gap-1 text-sm text-slate hover:text-primary-800 mb-4">
         <ChevronLeft size={16} aria-hidden="true" /> My Letters
       </Link>
 
@@ -99,7 +96,7 @@ export default async function LetterPage({
                 pay for this one.
               </p>
               <p className="mt-4">
-                <a href={`/api/membership/letters/${row.id}`} className={buttonClasses("primary", "md")}>
+                <a href={`/api/alumni/letters/${row.id}`} className={buttonClasses("primary", "md")}>
                   <Download size={16} aria-hidden="true" /> Download (Word)
                 </a>
               </p>
@@ -111,7 +108,7 @@ export default async function LetterPage({
                 Word copy.
               </p>
               <div className="mt-4">
-                <PayForLetterButton letterId={row.id} amount={price} portal="member" />
+                <PayForLetterButton letterId={row.id} amount={price} portal="alumni" />
               </div>
               <p className="mt-3 text-sm text-slate">
                 You can also pay at the association office and ask them to record it.
@@ -121,11 +118,11 @@ export default async function LetterPage({
         </section>
       )}
 
-      <LetterForm letter={letter} letterId={row?.id ?? null} portal="member" />
+      <LetterForm letter={letter} letterId={row?.id ?? null} portal="alumni" />
 
       {row && !paid && (
         <div className="mt-6">
-          <DeleteLetterButton letterId={row.id} title={row.title} portal="member" />
+          <DeleteLetterButton letterId={row.id} title={row.title} portal="alumni" />
         </div>
       )}
       {row && paid && (

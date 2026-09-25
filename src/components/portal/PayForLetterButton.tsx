@@ -6,11 +6,19 @@ import { Button } from "@/components/ui/Button";
 import { payForLetterAction } from "@/lib/actions/letter-actions";
 
 /** Off to Paystack's own checkout, the same way dues and a CV are paid. */
-export function PayForLetterButton({ letterId, amount }: { letterId: string; amount: string }) {
+export function PayForLetterButton({
+  letterId,
+  amount,
+  portal,
+}: {
+  letterId: string;
+  amount: string;
+  portal: "member" | "alumni";
+}) {
   const [isPending, startTransition] = useTransition();
 
   return (
-    <Button type="button" disabled={isPending} onClick={() => startTransition(() => payForLetterAction(letterId))}>
+    <Button type="button" disabled={isPending} onClick={() => startTransition(() => payForLetterAction(portal, letterId))}>
       {isPending ? (
         <Loader2 size={16} aria-hidden="true" className="animate-spin" />
       ) : (

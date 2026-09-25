@@ -5,7 +5,15 @@ import { Loader2, Trash2 } from "lucide-react";
 import { deleteLetterAction } from "@/lib/actions/letter-actions";
 
 /** Throwing away a draft. A letter that was paid for cannot be deleted. */
-export function DeleteLetterButton({ letterId, title }: { letterId: string; title: string }) {
+export function DeleteLetterButton({
+  letterId,
+  title,
+  portal,
+}: {
+  letterId: string;
+  title: string;
+  portal: "member" | "alumni";
+}) {
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -14,7 +22,7 @@ export function DeleteLetterButton({ letterId, title }: { letterId: string; titl
       disabled={isPending}
       onClick={() => {
         if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
-        startTransition(() => deleteLetterAction(letterId));
+        startTransition(() => deleteLetterAction(portal, letterId));
       }}
       className="inline-flex items-center gap-1.5 rounded-md border border-danger/30 px-3 py-2 text-sm font-semibold text-danger hover:bg-danger-light disabled:opacity-50"
     >

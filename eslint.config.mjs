@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The ballot terminal is an Electron app, not part of the Next.js
+    // build: its main and preload processes must be CommonJS, so the
+    // rules here flag correct code as twenty errors.
+    "ballot/**",
   ]),
   {
     // Server actions must not be exported directly — every one has to go

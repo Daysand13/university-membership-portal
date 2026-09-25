@@ -9,6 +9,7 @@ import { listPriorProgrammes } from "@/lib/services/alumni-prior-programme-servi
 import { getMentorMetrics } from "@/lib/services/mentorship-service";
 import { getGivingSummary } from "@/lib/services/alumni-giving-service";
 import { formatCedis } from "@/lib/patron-portal-options";
+import { PaidDocumentsPanel } from "@/components/admin/PaidDocumentsPanel";
 
 export const metadata = { title: "Alumni Record" };
 export const dynamic = "force-dynamic";
@@ -135,6 +136,13 @@ export default async function AdminAlumniRecordPage({ params }: { params: Promis
             </ul>
           )}
         </section>
+      </div>
+
+      <div className="mt-6">
+        <PaidDocumentsPanel
+          owner={{ kind: "alumni", id: alumni.id, email: alumni.email }}
+          name={alumni.fullName}
+        />
       </div>
 
       {mentoring.totalMentees > 0 && (

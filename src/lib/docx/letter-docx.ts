@@ -15,10 +15,11 @@ import { addressLines, letterDateLabel, paragraphsOf, type LetterInput } from "@
 /**
  * A letter, laid out.
  *
- * Block format, which is what an office in Ghana expects: everything
- * flush left, the writer's address at the top, the date under it, the
- * recipient below that, a subject line in bold, then the body, then the
- * sign-off with room left for a signature.
+ * Semi-block, which is the format taught in Ghanaian schools and expected
+ * by offices here: the writer's own address and the date ranged right at
+ * the top, the recipient's address on the left below it, then the
+ * salutation, a subject line in bold, the body, and the sign-off with
+ * room left for a signature.
  *
  * Word rather than PDF because the person receiving it often wants to
  * quote from it, and because the writer may want to hand it to somebody
@@ -34,6 +35,15 @@ function line(text: string, options: IParagraphOptions = {}): Paragraph {
     spacing: { line: LINE },
     children: [new TextRun({ text, font: FONT, size: SIZE })],
     ...options,
+  });
+}
+
+/** The writer's own block, and the date: ranged right, as the form expects. */
+function rightLine(text: string, bold = false): Paragraph {
+  return new Paragraph({
+    spacing: { line: LINE },
+    alignment: AlignmentType.RIGHT,
+    children: [new TextRun({ text, font: FONT, size: SIZE, bold })],
   });
 }
 
@@ -64,17 +74,20 @@ function signatureImage(dataUri: string): Paragraph | null {
 export async function renderLetterDocx(letter: LetterInput): Promise<Buffer> {
   const children: Paragraph[] = [];
 
-  // Who it is from, at the top.
-  children.push(line(letter.senderName, { spacing: { line: LINE }, children: [new TextRun({ text: letter.senderName, font: FONT, size: SIZE, bold: true })] }));
-  for (const address of addressLines(letter.senderAddress)) children.push(line(address));
-  if (letter.senderPhone) children.push(line(letter.senderPhone));
-  if (letter.senderEmail) children.push(line(letter.senderEmail));
+  // The writer's own block and the date sit top right; the recipient's
+  // address goes on the left beneath them. That is the arrangement a
+  // Ghanaian office reads as a properly written letter, and getting it
+  // the wrong way round is exactly what this exists to prevent.
+  children.push(rightLine(letter.senderName, true));
+  for (const address of addressLines(letter.senderAddress)) children.push(rightLine(address));
+  if (letter.senderPhone) children.push(rightLine(letter.senderPhone));
+  if (letter.senderEmail) children.push(rightLine(letter.senderEmail));
 
   children.push(...blank());
-  children.push(line(letterDateLabel(letter.letterDate)));
+  children.push(rightLine(letterDateLabel(letter.letterDate)));
   children.push(...blank());
 
-  // Who it is to.
+  // Who it is to, on the left.
   const recipientTop = [letter.recipientName, letter.recipientTitle, letter.recipientOrganisation].filter(Boolean);
   for (const part of recipientTop) children.push(line(part as string));
   for (const address of addressLines(letter.recipientAddress)) children.push(line(address));
@@ -160,5 +173,3 @@ export function letterFilename(letter: Pick<LetterInput, "title">): string {
   return `${stem}.docx`;
 }
 
-/** Deliberately re-exported so routes align on one alignment constant. */
-export { AlignmentType };

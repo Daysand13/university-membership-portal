@@ -87,9 +87,17 @@ function Card({ title, description, children }: { title: string; description: st
   );
 }
 
-export function LetterForm({ letter, letterId }: { letter: LetterInput; letterId: string | null }) {
+export function LetterForm({
+  letter,
+  letterId,
+  portal,
+}: {
+  letter: LetterInput;
+  letterId: string | null;
+  portal: "member" | "alumni";
+}) {
   const [state, formAction, isPending] = useActionState(
-    saveLetterAction.bind(null, letterId),
+    saveLetterAction.bind(null, portal, letterId),
     initialActionState,
   );
   const [signature, setSignature] = useState({

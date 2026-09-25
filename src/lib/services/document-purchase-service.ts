@@ -67,10 +67,41 @@ function ownerWhere(owner: PurchaseOwner) {
   return owner.kind === "member" ? { memberId: owner.id } : { alumniProfileId: owner.id };
 }
 
+/**
+ * Every identity the same person holds.
+ *
+ * A graduate who is back doing a master's is both a member and an
+ * alumnus, with a row apiece — and would otherwise be asked to pay twice
+ * for the one service. What they bought under either name counts under
+ * both. The association is not selling the same thing to the same person
+ * because our tables happen to hold them twice.
+ */
+async function everyIdentityOf(owner: PurchaseOwner): Promise<Array<{ memberId?: string; alumniProfileId?: string }>> {
+  const identities: Array<{ memberId?: string; alumniProfileId?: string }> = [ownerWhere(owner)];
+
+  if (owner.kind === "member") {
+    const alumnus = await db.alumniProfile.findFirst({
+      where: { sourceMemberId: owner.id },
+      select: { id: true },
+    });
+    if (alumnus) identities.push({ alumniProfileId: alumnus.id });
+  } else {
+    const alumnus = await db.alumniProfile.findUnique({
+      where: { id: owner.id },
+      select: { sourceMemberId: true },
+    });
+    if (alumnus?.sourceMemberId) identities.push({ memberId: alumnus.sourceMemberId });
+  }
+
+  return identities;
+}
+
 export const ALUMNI_CV_MONTHS = 12;
 
 /** When a purchase stops counting. Null means never. */
 export function validUntilFor(owner: PurchaseOwner, kind: PaidDocumentKind, from: Date = new Date()): Date | null {
+  // A student's CV is theirs for good; only a graduate buying one afresh
+  // renews it yearly.
   if (owner.kind !== "alumni" || kind !== PaidDocumentKind.CV) return null;
   const expires = new Date(from);
   expires.setMonth(expires.getMonth() + ALUMNI_CV_MONTHS);
@@ -101,14 +132,21 @@ export async function hasPaidFor(
   kind: PaidDocumentKind,
   about?: PurchaseAbout,
 ): Promise<boolean> {
+  // A letter is bought one at a time and belongs to whichever side of a
+  // dual membership wrote it, so it is looked up under that identity
+  // alone. Everything else — the CV especially — is a service the person
+  // has paid for, not a row in a table.
+  const identities =
+    kind === PaidDocumentKind.LETTER ? [ownerWhere(owner)] : await everyIdentityOf(owner);
+
   const paid = await db.documentPurchase.findFirst({
     where: {
-      ...ownerWhere(owner),
+      OR: identities,
       kind,
       ...(about?.positionId ? { positionId: about.positionId } : {}),
       ...(about?.letterId ? { letterId: about.letterId } : {}),
       status: "SUCCESS",
-      OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }],
+      AND: [{ OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }] }],
     },
     select: { id: true },
   });
@@ -118,7 +156,7 @@ export async function hasPaidFor(
 /** When the current purchase runs out, where it does. */
 export async function paidUntil(owner: PurchaseOwner, kind: PaidDocumentKind): Promise<Date | null> {
   const paid = await db.documentPurchase.findFirst({
-    where: { ...ownerWhere(owner), kind, status: "SUCCESS", validUntil: { gt: new Date() } },
+    where: { OR: await everyIdentityOf(owner), kind, status: "SUCCESS", validUntil: { gt: new Date() } },
     orderBy: { validUntil: "desc" },
     select: { validUntil: true },
   });

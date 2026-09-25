@@ -5,12 +5,18 @@ import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-err
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireMember } from "@/lib/auth/member";
+import { requireAlumni } from "@/lib/auth/alumni";
 import { requireCapability } from "@/lib/auth/admin";
 import { db } from "@/lib/db";
 import { PaidDocumentKind } from "@/generated/prisma/client";
 import { letterSchema } from "@/lib/validations/letter";
 import { createLetter, deleteLetter, updateLetter } from "@/lib/services/letter-service";
-import { recordCashDocumentPayment, startDocumentPurchase } from "@/lib/services/document-purchase-service";
+import {
+  recordCashDocumentPayment,
+  startDocumentPurchase,
+  type PurchaseOwner,
+} from "@/lib/services/document-purchase-service";
+import type { CvOwner } from "@/lib/services/cv-service";
 import type { ActionState } from "./types";
 
 /**
@@ -21,7 +27,27 @@ import type { ActionState } from "./types";
  * are free — it is the finished document that costs.
  */
 
-const LETTERS_PATH = "/membership/dashboard/letters";
+export type LetterPortal = "member" | "alumni";
+
+/** Which portal the request came from decides whose letters these are. */
+async function ownerFor(
+  portal: LetterPortal,
+): Promise<{ letter: CvOwner; purchase: PurchaseOwner; path: string }> {
+  if (portal === "alumni") {
+    const alumnus = await requireAlumni();
+    return {
+      letter: { kind: "alumni", id: alumnus.id },
+      purchase: { kind: "alumni", id: alumnus.id, email: alumnus.email },
+      path: "/alumni/letters",
+    };
+  }
+  const member = await requireMember();
+  return {
+    letter: { kind: "member", id: member.id },
+    purchase: { kind: "member", id: member.id, email: member.email },
+    path: "/membership/dashboard/letters",
+  };
+}
 
 function parse(formData: FormData) {
   const value = (key: string) => {
@@ -49,12 +75,12 @@ function parse(formData: FormData) {
 }
 
 async function saveLetterActionImpl(
+  portal: LetterPortal,
   letterId: string | null,
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const member = await requireMember();
-  const owner = { kind: "member" as const, id: member.id };
+  const { letter: owner, path } = await ownerFor(portal);
 
   const parsed = parse(formData);
   if (!parsed.success) {
@@ -68,45 +94,54 @@ async function saveLetterActionImpl(
   if (letterId) {
     const updated = await updateLetter(owner, letterId, parsed.data);
     if (!updated) return { error: "That letter is not yours, or no longer exists." };
-    revalidatePath(`${LETTERS_PATH}/${letterId}`);
-    revalidatePath(LETTERS_PATH);
+    revalidatePath(`${path}/${letterId}`);
+    revalidatePath(path);
     return { success: true, message: "Saved. The letter is up to date." };
   }
 
   const created = await createLetter(owner, parsed.data);
-  revalidatePath(LETTERS_PATH);
-  redirect(`${LETTERS_PATH}/${created.id}?saved=1`);
+  revalidatePath(path);
+  redirect(`${path}/${created.id}?saved=1`);
 }
 
-async function payForLetterActionImpl(letterId: string): Promise<void> {
-  const member = await requireMember();
+async function payForLetterActionImpl(portal: LetterPortal, letterId: string): Promise<void> {
+  const { letter: owner, purchase, path } = await ownerFor(portal);
   const letter = await db.memberLetter.findFirst({
-    where: { id: letterId, memberId: member.id },
+    where: {
+      id: letterId,
+      ...(owner.kind === "member" ? { memberId: owner.id } : { alumniProfileId: owner.id }),
+    },
     select: { id: true },
   });
-  if (!letter) redirect(`${LETTERS_PATH}?letter=${encodeURIComponent("That letter is not yours.")}`);
+  if (!letter) redirect(`${path}?letter=${encodeURIComponent("That letter is not yours.")}`);
 
   const result = await startDocumentPurchase({
-    owner: { kind: "member", id: member.id, email: member.email },
+    owner: purchase,
     kind: PaidDocumentKind.LETTER,
-    callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}${LETTERS_PATH}/${letterId}/paid`,
+    callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}${path}/${letterId}/paid`,
     letterId,
   });
 
-  if (!result.ok) redirect(`${LETTERS_PATH}/${letterId}?payment=${encodeURIComponent(result.error)}`);
+  if (!result.ok) redirect(`${path}/${letterId}?payment=${encodeURIComponent(result.error)}`);
   redirect(result.authorizationUrl);
 }
 
-async function deleteLetterActionImpl(letterId: string): Promise<void> {
-  const member = await requireMember();
-  const result = await deleteLetter({ kind: "member", id: member.id }, letterId);
+async function deleteLetterActionImpl(portal: LetterPortal, letterId: string): Promise<void> {
+  const { letter: owner, path } = await ownerFor(portal);
+  const result = await deleteLetter(owner, letterId);
   if (!result.ok) throw new Error(result.error);
-  revalidatePath(LETTERS_PATH);
-  redirect(LETTERS_PATH);
+  revalidatePath(path);
+  redirect(path);
 }
 
-/** An officer taking the ten cedis at the desk, as for a CV. */
-async function recordCashLetterPaymentActionImpl(letterId: string, memberId: string): Promise<void> {
+/**
+ * An officer taking the ten cedis at the desk, as for a CV.
+ *
+ * This is the path that actually gets used: most people here pay over the
+ * counter, and it is the only way to pay at all while the online account
+ * is still being set up.
+ */
+async function recordCashLetterPaymentActionImpl(memberId: string, letterId: string): Promise<void> {
   const admin = await requireCapability("finance.dues");
   const result = await recordCashDocumentPayment({
     owner: { kind: "member", id: memberId, email: "" },
@@ -118,10 +153,26 @@ async function recordCashLetterPaymentActionImpl(letterId: string, memberId: str
   revalidatePath(`/admin/members/${memberId}`);
 }
 
+async function recordCashAlumniLetterPaymentActionImpl(alumniId: string, letterId: string): Promise<void> {
+  const admin = await requireCapability("finance.dues");
+  const result = await recordCashDocumentPayment({
+    owner: { kind: "alumni", id: alumniId, email: "" },
+    kind: PaidDocumentKind.LETTER,
+    admin,
+    letterId,
+  });
+  if (!result.ok) throw new Error(result.error);
+  revalidatePath(`/admin/alumni/${alumniId}`);
+}
+
 export const saveLetterAction = withActionErrorHandling("saveLetterAction", saveLetterActionImpl);
 export const payForLetterAction = withVoidActionErrorHandling("payForLetterAction", payForLetterActionImpl);
 export const deleteLetterAction = withVoidActionErrorHandling("deleteLetterAction", deleteLetterActionImpl);
 export const recordCashLetterPaymentAction = withVoidActionErrorHandling(
   "recordCashLetterPaymentAction",
   recordCashLetterPaymentActionImpl,
+);
+export const recordCashAlumniLetterPaymentAction = withVoidActionErrorHandling(
+  "recordCashAlumniLetterPaymentAction",
+  recordCashAlumniLetterPaymentActionImpl,
 );
