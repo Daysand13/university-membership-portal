@@ -45,8 +45,16 @@ export default async function LibraryPage({
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           <form className="flex-1 relative" action="/library">
             {params.category && <input type="hidden" name="category" value={params.category} />}
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-light" />
+            <label htmlFor="library-search" className="sr-only">
+              Search the library
+            </label>
+            <Search
+              size={16}
+              aria-hidden="true"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-light"
+            />
             <input
+              id="library-search"
               type="search"
               name="q"
               defaultValue={params.q}

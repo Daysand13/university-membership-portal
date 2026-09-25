@@ -136,6 +136,7 @@ export default async function AlumniGivingPage({
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
+                <caption className="sr-only">Your gifts to the association</caption>
                 <thead className="text-xs text-slate uppercase tracking-wide">
                   <tr className="border-b border-line">
                     <th scope="col" className="text-left py-2 pr-3 font-semibold">Date</th>

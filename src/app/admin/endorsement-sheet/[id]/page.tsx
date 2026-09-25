@@ -24,6 +24,9 @@ function SignatureTable({
 }) {
   return (
     <table className="mt-4 w-full text-sm border-collapse">
+      {/* A sheet meant for paper, but the page it is printed from is read
+          on screen first. */}
+      <caption className="sr-only">{` — `}</caption>
       <thead>
         <tr className="text-left border-b border-[#c3c9d2]">
           <th scope="col" className="py-2 pr-3 w-8">#</th>

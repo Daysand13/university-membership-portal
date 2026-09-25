@@ -78,7 +78,7 @@ export function ColumnChart({
   const labelEvery = categories.length > 8 ? 2 : 1;
 
   return (
-    <ChartFrame legend={legend} table={<ChartTable headers={headers} rows={rows} />} minWidth={minWidth}>
+    <ChartFrame legend={legend} table={<ChartTable headers={headers} rows={rows} caption={label} />} minWidth={minWidth}>
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-auto" role="group" aria-label={label}>
         {scale.ticks.map((tick) => (
           <g key={tick}>

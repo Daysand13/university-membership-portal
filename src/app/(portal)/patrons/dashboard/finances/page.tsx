@@ -225,6 +225,7 @@ export default async function PatronFinancesPage({
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
+              <caption className="sr-only">Your donations</caption>
               <thead>
                 <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-slate">
                   <th scope="col" className="py-2 pr-4 font-semibold">Date</th>

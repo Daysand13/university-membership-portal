@@ -39,8 +39,16 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-14">
           <SectionHeading kicker="Search" title="Search the Portal" description="Find news, events, and library documents." />
           <form action="/search" className="mt-6 relative">
-            <SearchIcon size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-light" />
+            <label htmlFor="site-search" className="sr-only">
+              Search news, events and documents
+            </label>
+            <SearchIcon
+              size={17}
+              aria-hidden="true"
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-light"
+            />
             <input
+              id="site-search"
               type="search"
               name="q"
               defaultValue={query}

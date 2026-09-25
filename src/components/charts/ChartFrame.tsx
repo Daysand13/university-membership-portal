@@ -136,10 +136,25 @@ export function ChartFrame({
   );
 }
 
-/** A plain table for the "Show the numbers" view. */
-export function ChartTable({ headers, rows }: { headers: string[]; rows: (string | number)[][] }) {
+/**
+ * A plain table for the "Show the numbers" view.
+ *
+ * The chart itself is a picture; this is the same figures for anybody
+ * reading by ear, so it says what it is a table of rather than starting
+ * straight in on column headings.
+ */
+export function ChartTable({
+  headers,
+  rows,
+  caption,
+}: {
+  headers: string[];
+  rows: (string | number)[][];
+  caption?: string;
+}) {
   return (
     <table className="w-full text-sm">
+      {caption && <caption className="sr-only">{caption}</caption>}
       <thead>
         <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-slate">
           {headers.map((header, i) => (

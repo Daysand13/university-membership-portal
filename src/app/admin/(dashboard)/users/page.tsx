@@ -68,8 +68,16 @@ export default async function UserMatrixPage({
 
       <form className="mb-5 flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[240px] max-w-md">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-light" />
+          <label htmlFor="users-search" className="sr-only">
+            Search accounts
+          </label>
+          <Search
+            size={15}
+            aria-hidden="true"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-light"
+          />
           <input
+            id="users-search"
             type="search"
             name="q"
             defaultValue={sp.q}

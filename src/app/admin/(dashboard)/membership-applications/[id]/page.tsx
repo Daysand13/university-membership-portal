@@ -45,6 +45,11 @@ export default async function ReviewApplicationPage({ params }: { params: Promis
             target="_blank"
             rel="noopener noreferrer"
             aria-disabled={!application.profileImageUrl}
+            aria-label={
+              application.profileImageUrl
+                ? `Open the passport picture of ${formatFullName(application.firstName, application.middleName, application.lastName)}`
+                : "No passport picture on file"
+            }
             className={`w-16 h-16 rounded-full bg-primary-50 border border-line overflow-hidden flex items-center justify-center text-primary-300 shrink-0 ${application.profileImageUrl ? "hover:opacity-80 cursor-zoom-in" : "pointer-events-none"}`}
           >
             {application.profileImageUrl ? (

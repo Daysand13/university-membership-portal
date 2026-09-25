@@ -58,6 +58,11 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
             target="_blank"
             rel="noopener noreferrer"
             aria-disabled={!member.profileImageUrl}
+            aria-label={
+              member.profileImageUrl
+                ? `Open the passport picture of ${formatFullName(member.firstName, member.middleName, member.lastName)}`
+                : "No passport picture on file"
+            }
             className={`w-16 h-16 rounded-full bg-primary-50 border border-line overflow-hidden flex items-center justify-center text-primary-300 shrink-0 ${member.profileImageUrl ? "hover:opacity-80 cursor-zoom-in" : "pointer-events-none"}`}
           >
             {member.profileImageUrl ? (

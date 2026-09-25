@@ -56,7 +56,7 @@ export function LineChart({
   return (
     <ChartFrame
       legend={legend}
-      table={<ChartTable headers={["Year", ...series.map((s) => s.label)]} rows={rows} />}
+      table={<ChartTable headers={["Year", ...series.map((s) => s.label)]} rows={rows} caption={label} />}
       minWidth={minWidth}
     >
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-auto" role="group" aria-label={label}>

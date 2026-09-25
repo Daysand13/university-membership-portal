@@ -39,10 +39,14 @@ export function MarkGraduatedControl({ memberId, defaultYear }: { memberId: stri
         cannot be undone from here.
       </p>
       {error && <p className="text-sm text-danger mb-3">{error}</p>}
-      <label className="block text-xs font-semibold uppercase tracking-wide text-slate-light mb-1">
+      <label
+        htmlFor="graduation-year"
+        className="block text-xs font-semibold uppercase tracking-wide text-slate-light mb-1"
+      >
         Graduation Year
       </label>
       <input
+        id="graduation-year"
         type="number"
         value={year}
         onChange={(e) => setYear(Number(e.target.value))}
