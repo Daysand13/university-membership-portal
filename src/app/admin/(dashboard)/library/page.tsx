@@ -5,6 +5,8 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
 import { DocumentRowActions } from "@/components/admin/DocumentRowActions";
+import { DataTable, type Column } from "@/components/admin/DataTable";
+import { filterControlClasses } from "@/components/admin/FilterBar";
 import { listDocumentsForAdmin } from "@/lib/services/document-service";
 
 export const metadata = { title: "Library" };
@@ -29,9 +31,37 @@ export default async function AdminLibraryPage({
       active ? "border-primary-800 text-primary-950" : "border-transparent text-slate hover:text-primary-800"
     }`;
 
+  const columns: Column<(typeof documents)[number]>[] = [
+    {
+      header: "Title",
+      cell: (doc) => (
+        <>
+          <p className="font-medium text-primary-950">{doc.title}</p>
+          <span className="flex flex-wrap gap-x-2">
+            {doc.audience === "PATRONS" ? (
+              <span className="text-[11px] text-primary-800 font-semibold">Patrons only</span>
+            ) : (
+              !doc.isPublic && <span className="text-[11px] text-warning font-semibold">Private</span>
+            )}
+            {doc.uploadedByPatron && (
+              <span className="text-[11px] text-slate">
+                From patron {[doc.uploadedByPatron.title, doc.uploadedByPatron.fullName].filter(Boolean).join(" ")}
+              </span>
+            )}
+          </span>
+        </>
+      ),
+    },
+    { header: "Category", cell: (doc) => doc.category?.name ?? "—" },
+    { header: "Size", cell: (doc) => <span className="font-data text-xs">{formatFileSize(doc.fileSize)}</span> },
+    { header: "Downloads", cell: (doc) => <span className="font-data text-xs">{doc.downloadCount}</span> },
+    { header: "Status", cell: (doc) => <StatusBadge status={doc.status} /> },
+    { header: "Actions", actions: true, cell: (doc) => <DocumentRowActions id={doc.id} /> },
+  ];
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="font-display font-bold text-2xl text-primary-950">Library</h1>
           <p className="text-sm text-slate mt-1">{documents.length} document{documents.length === 1 ? "" : "s"}</p>
@@ -56,64 +86,25 @@ export default async function AdminLibraryPage({
         </Link>
       </nav>
 
-      <form className="mb-5">
+      <form className="mb-5 w-full sm:w-80">
         {fromPatrons && <input type="hidden" name="source" value="patrons" />}
+        <label htmlFor="library-q" className="block text-xs font-semibold uppercase tracking-wide text-slate mb-1">
+          Search documents
+        </label>
         <input
+          id="library-q"
           type="search"
           name="q"
           defaultValue={q}
-          placeholder="Search documents…"
-          className="w-full sm:w-80 rounded-md border border-line bg-white px-3.5 py-2 text-sm focus:border-primary-600 focus:ring-1 focus:ring-primary-600 outline-none"
+          placeholder="Title or category…"
+          className={filterControlClasses}
         />
       </form>
 
       {documents.length === 0 ? (
         <EmptyState icon={<BookOpen size={28} />} title="No documents yet" description="Upload your first document to the resource library." />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th className="text-left px-5 py-3 font-semibold">Title</th>
-                <th className="text-left px-5 py-3 font-semibold">Category</th>
-                <th className="text-left px-5 py-3 font-semibold">Size</th>
-                <th className="text-left px-5 py-3 font-semibold">Downloads</th>
-                <th className="text-left px-5 py-3 font-semibold">Status</th>
-                <th className="px-5 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {documents.map((doc) => (
-                <tr key={doc.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3.5 max-w-xs">
-                    <p className="font-medium text-primary-950 truncate">{doc.title}</p>
-                    <div className="flex flex-wrap gap-x-2">
-                      {doc.audience === "PATRONS" ? (
-                        <span className="text-[11px] text-primary-800 font-semibold">Patrons only</span>
-                      ) : (
-                        !doc.isPublic && <span className="text-[11px] text-warning font-semibold">Private</span>
-                      )}
-                      {doc.uploadedByPatron && (
-                        <span className="text-[11px] text-slate">
-                          From patron {[doc.uploadedByPatron.title, doc.uploadedByPatron.fullName].filter(Boolean).join(" ")}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate">{doc.category?.name ?? "—"}</td>
-                  <td className="px-5 py-3.5 text-slate font-data text-xs">{formatFileSize(doc.fileSize)}</td>
-                  <td className="px-5 py-3.5 text-slate font-data text-xs">{doc.downloadCount}</td>
-                  <td className="px-5 py-3.5">
-                    <StatusBadge status={doc.status} />
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <DocumentRowActions id={doc.id} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption="Library documents" rows={documents} rowKey={(doc) => doc.id} columns={columns} />
       )}
     </div>
   );

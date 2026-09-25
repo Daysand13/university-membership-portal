@@ -2,6 +2,8 @@ import Link from "next/link";
 import { GraduationCap, Trash2, FileDown, Users, UserCheck, Heart, Star } from "lucide-react";
 import { EmptyState } from "@/components/ui/Common";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { DataTable, type Column } from "@/components/admin/DataTable";
+import { FilterActions, FilterBar, FilterField, FilterSearch, filterControlClasses } from "@/components/admin/FilterBar";
 import { listAlumniForAdmin, ALUMNI_SORT_FIELDS, describeAlumniSource, type AlumniSortField } from "@/lib/services/alumni-service";
 import { setAlumniStatusAction, deleteAlumniAction } from "@/lib/actions/alumni-actions";
 import { getCurrentAdmin, requireCapability } from "@/lib/auth/admin";
@@ -53,6 +55,89 @@ export default async function AdminAlumniPage({
   if (q) exportParams.set("q", q);
   if (sort) exportParams.set("sort", sort);
 
+  const columns: Column<(typeof alumni)[number]>[] = [
+    {
+      header: "Name",
+      cell: (a) => (
+        <>
+          <Link href={`/admin/alumni/${a.id}`} className="font-medium text-primary-950 hover:text-accent-600">
+            {a.fullName}
+          </Link>
+          <p className="text-xs text-slate-light break-words">{a.email}</p>
+        </>
+      ),
+    },
+    { header: "Programme", cell: (a) => a.programme },
+    { header: "Class of", cell: (a) => a.graduationYear },
+    {
+      header: "Source",
+      cell: (a) =>
+        ({
+          "graduated-member": "Graduated member",
+          "currently-enrolled": "Currently a member too",
+          "self-registered": "Self-registered",
+        })[describeAlumniSource(a)],
+    },
+    {
+      header: "Public site",
+      // Three distinct states, not two: private, public, and
+      // public-and-featured. Showing them apart is what stops "public"
+      // and "featured" being conflated.
+      cell: (a) =>
+        a.spotlight?.published ? (
+          <span className="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-2.5 py-1 bg-accent-100 text-accent-700">
+            <Star size={11} aria-hidden="true" /> Featured
+          </span>
+        ) : a.publicProfile ? (
+          <span className="text-xs font-semibold rounded-full px-2.5 py-1 bg-primary-50 text-primary-800">Public</span>
+        ) : (
+          <span className="text-xs text-slate-light">Private</span>
+        ),
+    },
+    {
+      header: "Status",
+      cell: (a) => (
+        <form action={setAlumniStatusAction.bind(null, a.id, a.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE")}>
+          <button
+            type="submit"
+            className={`text-xs font-semibold rounded-full px-2.5 py-1 ${
+              a.status === "ACTIVE" ? "bg-success-light text-success" : "bg-danger-light text-danger"
+            }`}
+          >
+            {a.status === "ACTIVE" ? "Active" : "Suspended"}
+            <span className="sr-only"> — press to {a.status === "ACTIVE" ? "suspend" : "reactivate"} {a.fullName}</span>
+          </button>
+        </form>
+      ),
+    },
+    { header: "Joined", cell: (a) => formatDate(a.createdAt) },
+    {
+      header: "Actions",
+      actions: true,
+      cell: (a) => (
+        <>
+          <Link
+            href={`/admin/alumni/${a.id}/feature`}
+            className="text-sm font-semibold text-primary-800 hover:text-accent-600 mr-3"
+          >
+            {a.spotlight ? "Edit spotlight" : "Feature"}
+            <span className="sr-only"> — {a.fullName}</span>
+          </Link>
+          {canDelete && (
+            <ConfirmButton
+              action={deleteAlumniAction.bind(null, a.id)}
+              confirmMessage={`Permanently delete the alumni account for ${a.fullName}?`}
+              className="inline-flex items-center text-danger hover:text-danger align-middle"
+            >
+              <Trash2 size={15} aria-hidden="true" />
+              <span className="sr-only">Delete {a.fullName}</span>
+            </ConfirmButton>
+          )}
+        </>
+      ),
+    },
+  ];
+
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -74,27 +159,17 @@ export default async function AdminAlumniPage({
         <StatTile icon={Heart} label="Willing to Mentor" value={mentorCount} />
       </div>
 
-      <form className="mb-6 flex flex-wrap gap-3">
-        <input
-          type="search"
-          name="q"
-          defaultValue={q}
-          placeholder="Search by name, email, programme…"
-          className="flex-1 min-w-[200px] max-w-md rounded-md border border-line bg-white px-3.5 py-2 text-sm focus:border-primary-600 focus:ring-1 focus:ring-primary-600 outline-none"
-        />
-        <select
-          name="sort"
-          defaultValue={sort ?? "joined"}
-          className="rounded-md border border-line bg-white px-3 py-2 text-sm focus:border-primary-600 focus:ring-1 focus:ring-primary-600 outline-none"
-        >
-          {ALUMNI_SORT_FIELDS.map((field) => (
-            <option key={field} value={field}>{SORT_LABELS[field]}</option>
-          ))}
-        </select>
-        <button type="submit" className="rounded-md bg-primary-800 text-white px-4 py-2 text-sm font-semibold hover:bg-primary-900">
-          Apply
-        </button>
-      </form>
+      <FilterBar>
+        <FilterSearch id="alumni-q" label="Search alumni" defaultValue={q} placeholder="Name, email, programme…" />
+        <FilterField id="alumni-sort" label="Order">
+          <select id="alumni-sort" name="sort" defaultValue={sort ?? "joined"} className={filterControlClasses}>
+            {ALUMNI_SORT_FIELDS.map((field) => (
+              <option key={field} value={field}>{SORT_LABELS[field]}</option>
+            ))}
+          </select>
+        </FilterField>
+        <FilterActions clearHref="/admin/alumni" />
+      </FilterBar>
 
       {alumni.length === 0 ? (
         <EmptyState
@@ -103,89 +178,7 @@ export default async function AdminAlumniPage({
           description="Alumni appear here once they self-register, or once a member is marked as graduated."
         />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th className="text-left px-5 py-3 font-semibold">Name</th>
-                <th className="text-left px-5 py-3 font-semibold">Programme</th>
-                <th className="text-left px-5 py-3 font-semibold">Class of</th>
-                <th className="text-left px-5 py-3 font-semibold">Source</th>
-                <th className="text-left px-5 py-3 font-semibold">Public site</th>
-                <th className="text-left px-5 py-3 font-semibold">Status</th>
-                <th className="text-left px-5 py-3 font-semibold">Joined</th>
-                <th className="px-5 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {alumni.map((a) => (
-                <tr key={a.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3.5">
-                    <Link href={`/admin/alumni/${a.id}`} className="font-medium text-primary-950 hover:text-accent-600">
-                      {a.fullName}
-                    </Link>
-                    <p className="text-xs text-slate-light">{a.email}</p>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate">{a.programme}</td>
-                  <td className="px-5 py-3.5 text-slate">{a.graduationYear}</td>
-                  <td className="px-5 py-3.5 text-xs text-slate-light">
-                    {
-                      { "graduated-member": "Graduated member", "currently-enrolled": "Currently a member too", "self-registered": "Self-registered" }[
-                        describeAlumniSource(a)
-                      ]
-                    }
-                  </td>
-                  <td className="px-5 py-3.5">
-                    {/* Three distinct states, not two: private, public, and
-                        public-and-featured. Showing them apart here is what
-                        stops "public" and "featured" being conflated. */}
-                    {a.spotlight?.published ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-2.5 py-1 bg-accent-100 text-accent-700">
-                        <Star size={11} /> Featured
-                      </span>
-                    ) : a.publicProfile ? (
-                      <span className="text-xs font-semibold rounded-full px-2.5 py-1 bg-primary-50 text-primary-800">
-                        Public
-                      </span>
-                    ) : (
-                      <span className="text-xs text-slate-light">Private</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <form action={setAlumniStatusAction.bind(null, a.id, a.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE")}>
-                      <button
-                        type="submit"
-                        className={`text-xs font-semibold rounded-full px-2.5 py-1 ${
-                          a.status === "ACTIVE" ? "bg-success-light text-success" : "bg-danger-light text-danger"
-                        }`}
-                      >
-                        {a.status === "ACTIVE" ? "Active" : "Suspended"}
-                      </button>
-                    </form>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate-light text-xs">{formatDate(a.createdAt)}</td>
-                  <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                    <Link
-                      href={`/admin/alumni/${a.id}/feature`}
-                      className="text-sm font-semibold text-primary-800 hover:text-accent-600 mr-3"
-                    >
-                      {a.spotlight ? "Edit spotlight" : "Feature"}
-                    </Link>
-                    {canDelete && (
-                      <ConfirmButton
-                        action={deleteAlumniAction.bind(null, a.id)}
-                        confirmMessage={`Permanently delete the alumni account for ${a.fullName}?`}
-                        className="inline-flex items-center text-danger hover:text-danger align-middle"
-                      >
-                        <Trash2 size={15} />
-                      </ConfirmButton>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption="Alumni accounts" rows={alumni} rowKey={(a) => a.id} columns={columns} />
       )}
     </div>
   );

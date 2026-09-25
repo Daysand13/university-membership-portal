@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/Common";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { HeroSlideRowActions } from "@/components/admin/HeroSlideRowActions";
 import { listHeroSlidesForAdmin } from "@/lib/services/content-service";
+import { DataTable, type Column } from "@/components/admin/DataTable";
 
 export const metadata = { title: "Hero Slides" };
 export const dynamic = "force-dynamic";
@@ -13,6 +14,46 @@ export const dynamic = "force-dynamic";
 export default async function AdminHeroSlidesPage() {
   await requireCapability("content.hero");
   const slides = await listHeroSlidesForAdmin();
+
+  const columns: Column<(typeof slides)[number]>[] = [
+    {
+      header: "Slide",
+      cell: (slide) => (
+        <span className="flex items-center gap-3">
+          <span
+            aria-hidden="true"
+            className="w-14 h-9 rounded-md border border-line shrink-0 bg-cover bg-center"
+            style={{
+              backgroundColor: slide.backgroundColor ?? "#14153D",
+              backgroundImage: slide.imageUrl ? `url(${slide.imageUrl})` : undefined,
+            }}
+          />
+          <span className="min-w-0">
+            <Link
+              href={`/admin/hero-slides/${slide.id}`}
+              className="font-medium text-primary-950 hover:text-accent-600"
+            >
+              {slide.title}
+            </Link>
+            {slide.subtitle && <span className="block text-xs text-slate">{slide.subtitle}</span>}
+          </span>
+        </span>
+      ),
+    },
+    { header: "Button", cell: (slide) => slide.ctaText || "—" },
+    { header: "Order", cell: (slide) => <span className="font-data text-xs">{slide.order}</span> },
+    {
+      header: "Status",
+      cell: (slide) => (
+        <StatusBadge status={slide.isActive ? "ACTIVE" : "INACTIVE"} label={slide.isActive ? "Showing" : "Hidden"} />
+      ),
+    },
+    {
+      header: "Actions",
+      actions: true,
+      cell: (slide) => <HeroSlideRowActions id={slide.id} title={slide.title} isActive={slide.isActive} />,
+    },
+  ];
 
   return (
     <div>
@@ -37,53 +78,7 @@ export default async function AdminHeroSlidesPage() {
           description="Add your first slide to fill the homepage banner."
         />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Slide</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Button</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Order</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Status</th>
-                <th className="px-5 py-3">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {slides.map((slide) => (
-                <tr key={slide.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-3 max-w-md">
-                      <span
-                        aria-hidden="true"
-                        className="w-14 h-9 rounded-md border border-line shrink-0 bg-cover bg-center"
-                        style={{
-                          backgroundColor: slide.backgroundColor ?? "#14153D",
-                          backgroundImage: slide.imageUrl ? `url(${slide.imageUrl})` : undefined,
-                        }}
-                      />
-                      <div className="min-w-0">
-                        <Link href={`/admin/hero-slides/${slide.id}`} className="font-medium text-primary-950 hover:text-accent-600">
-                          {slide.title}
-                        </Link>
-                        {slide.subtitle && <p className="text-xs text-slate truncate">{slide.subtitle}</p>}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate">{slide.ctaText || "—"}</td>
-                  <td className="px-5 py-3.5 text-slate font-data text-xs">{slide.order}</td>
-                  <td className="px-5 py-3.5">
-                    <StatusBadge status={slide.isActive ? "ACTIVE" : "INACTIVE"} label={slide.isActive ? "Showing" : "Hidden"} />
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <HeroSlideRowActions id={slide.id} title={slide.title} isActive={slide.isActive} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption="Hero slides" rows={slides} rowKey={(slide) => slide.id} columns={columns} />
       )}
 
       <p className="mt-5 text-sm text-slate max-w-2xl">

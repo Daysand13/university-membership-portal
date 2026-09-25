@@ -3,6 +3,8 @@ import { Users, Trash2, FileDown } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/Common";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { DataTable, type Column } from "@/components/admin/DataTable";
+import { FilterActions, FilterBar, FilterField, FilterSearch, filterControlClasses } from "@/components/admin/FilterBar";
 import { listMembers, getMemberFilterOptions, MEMBER_SORT_OPTIONS, type MemberSort } from "@/lib/services/membership-service";
 import { deleteMemberAction } from "@/lib/actions/membership-actions";
 import { getCurrentAdmin, requireCapability } from "@/lib/auth/admin";
@@ -69,8 +71,53 @@ export default async function AdminMembersPage({ searchParams }: { searchParams:
     if (value) exportParams.set(key, value);
   }
 
-  const selectClasses =
-    "rounded-md border border-line bg-white px-3 py-2 text-sm focus:border-primary-600 focus:ring-1 focus:ring-primary-600 outline-none";
+  const columns: Column<(typeof members)[number]>[] = [
+    {
+      header: "Name",
+      cell: (member) => (
+        <>
+          <p className="font-medium text-primary-950">
+            {formatFullName(member.firstName, member.middleName, member.lastName)}
+          </p>
+          <p className="text-xs text-slate-light break-words">{member.email}</p>
+        </>
+      ),
+    },
+    { header: "Index Number", cell: (member) => <span className="font-data text-xs text-ink">{member.indexNumber}</span> },
+    { header: "Programme", cell: (member) => member.programme },
+    {
+      header: "Membership Type",
+      cell: (member) => (member.membershipType ? MEMBERSHIP_TYPE_LABELS[member.membershipType] : "—"),
+    },
+    { header: "Joined", cell: (member) => formatDate(member.createdAt) },
+    { header: "Status", cell: (member) => <StatusBadge status={member.status} /> },
+    {
+      header: "Actions",
+      actions: true,
+      cell: (member) => (
+        <>
+          <Link
+            href={`/admin/members/${member.id}`}
+            className="text-sm font-semibold text-primary-800 hover:text-accent-600 mr-3"
+          >
+            View
+          </Link>
+          {canDelete && (
+            <ConfirmButton
+              action={deleteMemberAction.bind(null, member.id)}
+              confirmMessage={`Permanently delete ${formatFullName(member.firstName, member.middleName, member.lastName)}? This cannot be undone.`}
+              className="inline-flex items-center text-danger hover:text-danger align-middle"
+            >
+              <Trash2 size={15} aria-hidden="true" />
+              <span className="sr-only">
+                Delete {formatFullName(member.firstName, member.middleName, member.lastName)}
+              </span>
+            </ConfirmButton>
+          )}
+        </>
+      ),
+    },
+  ];
 
   return (
     <div>
@@ -87,130 +134,87 @@ export default async function AdminMembersPage({ searchParams }: { searchParams:
         </a>
       </div>
 
-      <form className="mb-6 bg-white rounded-lg border border-line p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <input
-          type="search"
-          name="q"
+      <FilterBar>
+        <FilterSearch
+          id="members-q"
+          label="Search members"
           defaultValue={sp.q}
-          placeholder="Search by name, index number, email…"
-          className={`${selectClasses} lg:col-span-2`}
+          placeholder="Name, index number, email…"
         />
-        <select name="department" defaultValue={sp.department ?? ""} className={selectClasses}>
-          <option value="">All Departments</option>
-          {filterOptions.departments.map((d) => (
-            <option key={d} value={d}>{d}</option>
-          ))}
-        </select>
-        <select name="programme" defaultValue={sp.programme ?? ""} className={selectClasses}>
-          <option value="">All Programmes</option>
-          {filterOptions.programmes.map((p) => (
-            <option key={p} value={p}>{p}</option>
-          ))}
-        </select>
-        <select name="membershipType" defaultValue={sp.membershipType ?? ""} className={selectClasses}>
-          <option value="">All Membership Types</option>
-          {Object.entries(MEMBERSHIP_TYPE_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-        </select>
-        <select name="gender" defaultValue={sp.gender ?? ""} className={selectClasses}>
-          <option value="">All Genders</option>
-          <option value="MALE">Male</option>
-          <option value="FEMALE">Female</option>
-        </select>
-        <select name="track" defaultValue={sp.track ?? ""} className={selectClasses}>
-          <option value="">Undergraduate & Postgraduate</option>
-          <option value="UNDERGRADUATE">Undergraduate</option>
-          <option value="POSTGRADUATE">Postgraduate</option>
-        </select>
-        <select name="campus" defaultValue={sp.campus ?? ""} className={selectClasses}>
-          <option value="">All Campuses</option>
-          {filterOptions.campuses.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-        <select name="status" defaultValue={sp.status ?? ""} className={selectClasses}>
-          <option value="">All Statuses</option>
-          <option value="ACTIVE">Active</option>
-          <option value="SUSPENDED">Suspended</option>
-          <option value="INACTIVE">Inactive</option>
-        </select>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-slate-light shrink-0">Joined from</label>
-          <input type="date" name="from" defaultValue={sp.from} className={`${selectClasses} w-full`} />
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-slate-light shrink-0">to</label>
-          <input type="date" name="to" defaultValue={sp.to} className={`${selectClasses} w-full`} />
-        </div>
-        <select name="sort" defaultValue={sort} className={selectClasses}>
-          {MEMBER_SORT_OPTIONS.map((s) => (
-            <option key={s} value={s}>{SORT_LABELS[s]}</option>
-          ))}
-        </select>
-        <div className="flex items-center gap-2 lg:col-span-2">
-          <button type="submit" className="rounded-md bg-primary-800 text-white px-4 py-2 text-sm font-semibold hover:bg-primary-900">
-            Apply Filters
-          </button>
-          <Link href="/admin/members" className="text-sm text-slate hover:text-primary-800">
-            Clear
-          </Link>
-        </div>
-      </form>
+        <FilterField id="members-department" label="Department">
+          <select id="members-department" name="department" defaultValue={sp.department ?? ""} className={filterControlClasses}>
+            <option value="">All departments</option>
+            {filterOptions.departments.map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </FilterField>
+        <FilterField id="members-programme" label="Programme">
+          <select id="members-programme" name="programme" defaultValue={sp.programme ?? ""} className={filterControlClasses}>
+            <option value="">All programmes</option>
+            {filterOptions.programmes.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        </FilterField>
+        <FilterField id="members-type" label="Membership type">
+          <select id="members-type" name="membershipType" defaultValue={sp.membershipType ?? ""} className={filterControlClasses}>
+            <option value="">All membership types</option>
+            {Object.entries(MEMBERSHIP_TYPE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </FilterField>
+        <FilterField id="members-gender" label="Gender">
+          <select id="members-gender" name="gender" defaultValue={sp.gender ?? ""} className={filterControlClasses}>
+            <option value="">All genders</option>
+            <option value="MALE">Male</option>
+            <option value="FEMALE">Female</option>
+          </select>
+        </FilterField>
+        <FilterField id="members-track" label="Track">
+          <select id="members-track" name="track" defaultValue={sp.track ?? ""} className={filterControlClasses}>
+            <option value="">Undergraduate &amp; postgraduate</option>
+            <option value="UNDERGRADUATE">Undergraduate</option>
+            <option value="POSTGRADUATE">Postgraduate</option>
+          </select>
+        </FilterField>
+        <FilterField id="members-campus" label="Campus">
+          <select id="members-campus" name="campus" defaultValue={sp.campus ?? ""} className={filterControlClasses}>
+            <option value="">All campuses</option>
+            {filterOptions.campuses.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </FilterField>
+        <FilterField id="members-status" label="Status">
+          <select id="members-status" name="status" defaultValue={sp.status ?? ""} className={filterControlClasses}>
+            <option value="">All statuses</option>
+            <option value="ACTIVE">Active</option>
+            <option value="SUSPENDED">Suspended</option>
+            <option value="INACTIVE">Inactive</option>
+          </select>
+        </FilterField>
+        <FilterField id="members-from" label="Joined from">
+          <input id="members-from" type="date" name="from" defaultValue={sp.from} className={filterControlClasses} />
+        </FilterField>
+        <FilterField id="members-to" label="Joined up to">
+          <input id="members-to" type="date" name="to" defaultValue={sp.to} className={filterControlClasses} />
+        </FilterField>
+        <FilterField id="members-sort" label="Order">
+          <select id="members-sort" name="sort" defaultValue={sort} className={filterControlClasses}>
+            {MEMBER_SORT_OPTIONS.map((s) => (
+              <option key={s} value={s}>{SORT_LABELS[s]}</option>
+            ))}
+          </select>
+        </FilterField>
+        <FilterActions clearHref="/admin/members" />
+      </FilterBar>
 
       {members.length === 0 ? (
         <EmptyState icon={<Users size={28} />} title="No members match these filters" />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th className="text-left px-5 py-3 font-semibold">Name</th>
-                <th className="text-left px-5 py-3 font-semibold">Index Number</th>
-                <th className="text-left px-5 py-3 font-semibold">Programme</th>
-                <th className="text-left px-5 py-3 font-semibold">Membership Type</th>
-                <th className="text-left px-5 py-3 font-semibold">Joined</th>
-                <th className="text-left px-5 py-3 font-semibold">Status</th>
-                <th className="px-5 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {members.map((member) => (
-                <tr key={member.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3.5">
-                    <p className="font-medium text-primary-950">
-                      {formatFullName(member.firstName, member.middleName, member.lastName)}
-                    </p>
-                    <p className="text-xs text-slate-light">{member.email}</p>
-                  </td>
-                  <td className="px-5 py-3.5 font-data text-xs text-ink">{member.indexNumber}</td>
-                  <td className="px-5 py-3.5 text-slate">{member.programme}</td>
-                  <td className="px-5 py-3.5 text-slate">
-                    {member.membershipType ? MEMBERSHIP_TYPE_LABELS[member.membershipType] : "—"}
-                  </td>
-                  <td className="px-5 py-3.5 text-slate-light text-xs">{formatDate(member.createdAt)}</td>
-                  <td className="px-5 py-3.5">
-                    <StatusBadge status={member.status} />
-                  </td>
-                  <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                    <Link href={`/admin/members/${member.id}`} className="text-sm font-semibold text-primary-800 hover:text-accent-600 mr-3">
-                      View
-                    </Link>
-                    {canDelete && (
-                      <ConfirmButton
-                        action={deleteMemberAction.bind(null, member.id)}
-                        confirmMessage={`Permanently delete ${formatFullName(member.firstName, member.middleName, member.lastName)}? This cannot be undone.`}
-                        className="inline-flex items-center text-danger hover:text-danger align-middle"
-                      >
-                        <Trash2 size={15} />
-                      </ConfirmButton>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption="Members" rows={members} rowKey={(member) => member.id} columns={columns} />
       )}
     </div>
   );

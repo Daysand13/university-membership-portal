@@ -2,6 +2,7 @@ import { requireCapability } from "@/lib/auth/admin";
 import { ScrollText } from "lucide-react";
 import { EmptyState } from "@/components/ui/Common";
 import { listAuditLog } from "@/lib/services/notification-service";
+import { DataTable, type Column } from "@/components/admin/DataTable";
 
 export const metadata = { title: "Audit Log" };
 export const dynamic = "force-dynamic";
@@ -24,6 +25,22 @@ export default async function AuditLogPage() {
   await requireCapability("site.audit");
   const logs = await listAuditLog(200);
 
+  const columns: Column<(typeof logs)[number]>[] = [
+    { header: "Admin", cell: (log) => <span className="text-ink">{log.admin?.name ?? "System"}</span> },
+    { header: "Action", cell: (log) => <span className="text-ink">{describeAction(log.action)}</span> },
+    {
+      header: "Entity",
+      cell: (log) => (
+        <>
+          {log.entityType}
+          {log.entityId && <span className="font-data text-xs text-slate-light"> · {log.entityId.slice(0, 8)}</span>}
+        </>
+      ),
+    },
+    { header: "Note", cell: (log) => log.note ?? "—" },
+    { header: "When", cell: (log) => <span className="font-data text-xs">{formatDateTime(log.createdAt)}</span> },
+  ];
+
   return (
     <div>
       <div className="mb-6">
@@ -34,33 +51,7 @@ export default async function AuditLogPage() {
       {logs.length === 0 ? (
         <EmptyState icon={<ScrollText size={28} />} title="No activity recorded yet" />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th className="text-left px-5 py-3 font-semibold">Admin</th>
-                <th className="text-left px-5 py-3 font-semibold">Action</th>
-                <th className="text-left px-5 py-3 font-semibold">Entity</th>
-                <th className="text-left px-5 py-3 font-semibold">Note</th>
-                <th className="text-left px-5 py-3 font-semibold">When</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {logs.map((log) => (
-                <tr key={log.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3 text-ink">{log.admin?.name ?? "System"}</td>
-                  <td className="px-5 py-3 text-ink">{describeAction(log.action)}</td>
-                  <td className="px-5 py-3 text-slate">
-                    {log.entityType}
-                    {log.entityId && <span className="font-data text-xs text-slate-light"> · {log.entityId.slice(0, 8)}</span>}
-                  </td>
-                  <td className="px-5 py-3 text-slate max-w-xs truncate">{log.note ?? "—"}</td>
-                  <td className="px-5 py-3 text-slate-light font-data text-xs whitespace-nowrap">{formatDateTime(log.createdAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption="Admin actions" rows={logs} rowKey={(log) => log.id} columns={columns} />
       )}
     </div>
   );

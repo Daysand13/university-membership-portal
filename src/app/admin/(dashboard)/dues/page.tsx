@@ -12,6 +12,8 @@ import { getDuesRates } from "@/lib/services/dues-rates-service";
 import { DuesRatesForm } from "@/components/admin/forms/PriceForms";
 import { recordCashDuesPaymentAction, removeCashDuesPaymentAction } from "@/lib/actions/admin-dues-actions";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { DataTable, type Column } from "@/components/admin/DataTable";
+import { filterControlClasses } from "@/components/admin/FilterBar";
 import { EmptyState } from "@/components/ui/Common";
 
 export const metadata = { title: "Membership Dues" };
@@ -46,8 +48,77 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
   // What was actually paid (online or cash), not today's fee, which can differ if a tier changed since.
   const totalCollectedPesewas = allRows.reduce((sum, r) => sum + (r.payment?.amountPesewas ?? 0), 0);
 
-  const selectClasses =
-    "rounded-md border border-line bg-white px-3 py-2 text-sm focus:border-primary-600 focus:ring-1 focus:ring-primary-600 outline-none";
+  const columns: Column<(typeof rows)[number]>[] = [
+    { header: "Name", cell: (row) => <span className="font-medium text-primary-950">{row.fullName}</span> },
+    { header: "Index Number", cell: (row) => <span className="font-data text-xs text-ink">{row.indexNumber}</span> },
+    { header: "Tier", cell: (row) => row.fee.tierLabel },
+    { header: "Fee", cell: (row) => formatPesewasAsCedis(row.fee.amountPesewas) },
+    {
+      header: "Status",
+      cell: (row) =>
+        row.paid ? (
+          <span className="inline-flex items-center gap-1 text-success text-xs font-semibold">
+            <CheckCircle2 size={13} aria-hidden="true" /> Paid
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-slate-light text-xs font-semibold">
+            <XCircle size={13} aria-hidden="true" /> Unpaid
+          </span>
+        ),
+    },
+    { header: "Paid On", cell: (row) => (row.paidAt ? formatDate(row.paidAt) : "—") },
+    {
+      header: "Method",
+      cell: (row) =>
+        row.payment ? (
+          <span className="inline-flex items-center gap-1 text-ink font-medium text-xs">
+            {row.payment.method === "cash" ? (
+              <Banknote size={13} aria-hidden="true" />
+            ) : (
+              <CreditCard size={13} aria-hidden="true" />
+            )}
+            {row.payment.method === "cash" ? "Cash" : "Online"}
+          </span>
+        ) : (
+          <span className="text-slate-light">—</span>
+        ),
+    },
+    {
+      header: "Actions",
+      actions: true,
+      cell: (row) =>
+        !row.payment ? (
+          <ConfirmButton
+            action={recordCashDuesPaymentAction.bind(null, row.memberId)}
+            confirmMessage={`Record ${row.fullName}'s ${academicYear} dues of ${formatPesewasAsCedis(row.fee.amountPesewas)} as paid in cash?\n\nOnly do this once the cash is in hand. ${row.fullName} will be emailed a receipt.`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-primary-800 hover:bg-surface-muted hover:text-accent-600 disabled:opacity-60"
+          >
+            <Banknote size={13} aria-hidden="true" /> Mark paid (cash)
+            <span className="sr-only"> for {row.fullName}</span>
+          </ConfirmButton>
+        ) : (
+          <span className="inline-flex items-center gap-1">
+            <a
+              href={`/api/dues/receipt/${row.payment.id}`}
+              aria-label={`Download ${row.fullName}'s receipt`}
+              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-primary-800 hover:bg-surface-muted hover:text-accent-600"
+            >
+              <FileDown size={13} aria-hidden="true" /> Receipt
+            </a>
+            {row.payment.method === "cash" && (
+              <ConfirmButton
+                action={removeCashDuesPaymentAction.bind(null, row.payment.id)}
+                confirmMessage={`Remove the cash payment recorded for ${row.fullName}?\n\nTheir ${academicYear} dues will show as unpaid again, and they'll be emailed that it was removed.`}
+                className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-slate hover:bg-surface-muted hover:text-danger disabled:opacity-60"
+              >
+                <Undo2 size={13} aria-hidden="true" /> Undo
+                <span className="sr-only"> the cash payment for {row.fullName}</span>
+              </ConfirmButton>
+            )}
+          </span>
+        ),
+    },
+  ];
 
   return (
     <div>
@@ -83,9 +154,9 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
         <DuesRatesForm rates={rates} />
       </section>
 
-      <form className="mb-6 bg-white rounded-lg border border-line p-4 flex flex-wrap items-end gap-3">
-        <div className="flex-1 min-w-[15rem]">
-          <label htmlFor="dues-search" className="block text-xs font-semibold uppercase tracking-wide text-slate mb-1.5">
+      <form className="mb-6 bg-white rounded-lg border border-line p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
+        <div className="lg:col-span-2">
+          <label htmlFor="dues-search" className="block text-xs font-semibold uppercase tracking-wide text-slate mb-1">
             Find a member
           </label>
           <input
@@ -93,31 +164,38 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
             name="q"
             defaultValue={search}
             placeholder="Name or index number"
-            className={`${selectClasses} w-full`}
+            className={filterControlClasses}
           />
         </div>
-        <select name="status" defaultValue={sp.status ?? ""} className={selectClasses} aria-label="Payment status">
+        <div>
+          <label htmlFor="dues-status" className="block text-xs font-semibold uppercase tracking-wide text-slate mb-1">
+            Payment status
+          </label>
+        <select id="dues-status" name="status" defaultValue={sp.status ?? ""} className={filterControlClasses}>
           <option value="">All Members</option>
           <option value="paid">Paid Only</option>
           <option value="unpaid">Unpaid Only</option>
         </select>
-        <button
-          type="submit"
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary-800 text-white px-4 py-2 text-sm font-semibold hover:bg-primary-900"
-        >
-          <Search size={15} aria-hidden="true" /> Apply
-        </button>
-        {(search || sp.status) && (
-          <Link href="/admin/dues" className="text-sm font-semibold text-slate hover:text-primary-800 px-2 py-2">
-            Clear
-          </Link>
-        )}
-        <a
-          href={`/api/admin/dues/export?${exportQuery.toString()}`}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-line px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-surface-muted"
-        >
-          <FileDown size={15} aria-hidden="true" /> Download ledger (PDF)
-        </a>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 sm:col-span-2 lg:col-span-4">
+          <button
+            type="submit"
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary-800 text-white px-4 py-2 text-sm font-semibold hover:bg-primary-900"
+          >
+            <Search size={15} aria-hidden="true" /> Apply
+          </button>
+          {(search || sp.status) && (
+            <Link href="/admin/dues" className="text-sm font-semibold text-slate hover:text-primary-800 px-2 py-2">
+              Clear
+            </Link>
+          )}
+          <a
+            href={`/api/admin/dues/export?${exportQuery.toString()}`}
+            className="sm:ml-auto inline-flex items-center gap-1.5 rounded-md border border-line px-4 py-2 text-sm font-semibold text-primary-950 hover:bg-surface-muted"
+          >
+            <FileDown size={15} aria-hidden="true" /> Download ledger (PDF)
+          </a>
+        </div>
       </form>
 
       {(search || sp.status) && (
@@ -136,86 +214,7 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
           description={search ? "Try part of the name, or the index number on its own." : undefined}
         />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th className="text-left px-5 py-3 font-semibold">Name</th>
-                <th className="text-left px-5 py-3 font-semibold">Index Number</th>
-                <th className="text-left px-5 py-3 font-semibold">Tier</th>
-                <th className="text-left px-5 py-3 font-semibold">Fee</th>
-                <th className="text-left px-5 py-3 font-semibold">Status</th>
-                <th className="text-left px-5 py-3 font-semibold">Paid On</th>
-                <th className="text-left px-5 py-3 font-semibold">Method</th>
-                <th className="text-right px-5 py-3 font-semibold">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {rows.map((row) => (
-                <tr key={row.memberId} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3.5 font-medium text-primary-950">{row.fullName}</td>
-                  <td className="px-5 py-3.5 font-data text-xs text-ink">{row.indexNumber}</td>
-                  <td className="px-5 py-3.5 text-slate">{row.fee.tierLabel}</td>
-                  <td className="px-5 py-3.5 text-slate">{formatPesewasAsCedis(row.fee.amountPesewas)}</td>
-                  <td className="px-5 py-3.5">
-                    {row.paid ? (
-                      <span className="inline-flex items-center gap-1 text-success text-xs font-semibold">
-                        <CheckCircle2 size={13} /> Paid
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-slate-light text-xs font-semibold">
-                        <XCircle size={13} /> Unpaid
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3.5 text-slate-light text-xs">{row.paidAt ? formatDate(row.paidAt) : "—"}</td>
-                  <td className="px-5 py-3.5 text-xs">
-                    {row.payment ? (
-                      <span className="inline-flex items-center gap-1 text-ink font-medium">
-                        {row.payment.method === "cash" ? <Banknote size={13} /> : <CreditCard size={13} />}
-                        {row.payment.method === "cash" ? "Cash" : "Online"}
-                      </span>
-                    ) : (
-                      <span className="text-slate-light">—</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                    {!row.payment ? (
-                      <ConfirmButton
-                        action={recordCashDuesPaymentAction.bind(null, row.memberId)}
-                        confirmMessage={`Record ${row.fullName}'s ${academicYear} dues of ${formatPesewasAsCedis(row.fee.amountPesewas)} as paid in cash?\n\nOnly do this once the cash is in hand. ${row.fullName} will be emailed a receipt.`}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-primary-800 hover:bg-surface-muted hover:text-accent-600 disabled:opacity-60"
-                      >
-                        <Banknote size={13} /> Mark paid (cash)
-                      </ConfirmButton>
-                    ) : (
-                      <div className="inline-flex items-center gap-1">
-                        <a
-                          href={`/api/dues/receipt/${row.payment.id}`}
-                          aria-label={`Download ${row.fullName}'s receipt`}
-                          className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-primary-800 hover:bg-surface-muted hover:text-accent-600"
-                        >
-                          <FileDown size={13} /> Receipt
-                        </a>
-                        {row.payment.method === "cash" && (
-                      <ConfirmButton
-                        action={removeCashDuesPaymentAction.bind(null, row.payment.id)}
-                        confirmMessage={`Remove the cash payment recorded for ${row.fullName}?\n\nTheir ${academicYear} dues will show as unpaid again, and they'll be emailed that it was removed.`}
-                        className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-slate hover:bg-surface-muted hover:text-danger disabled:opacity-60"
-                      >
-                        <Undo2 size={13} /> Undo
-                      </ConfirmButton>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption={`Dues for ${academicYear}`} rows={rows} rowKey={(row) => row.memberId} columns={columns} />
       )}
     </div>
   );

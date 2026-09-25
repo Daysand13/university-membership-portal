@@ -9,6 +9,7 @@ import { describeListingAccess, listAdminAccountsWithoutListing } from "@/lib/se
 import { getAdminCapabilities } from "@/lib/auth/admin";
 import { roleLabel } from "@/lib/auth/role-labels";
 import { formatFullName } from "@/lib/format";
+import { DataTable, type Column } from "@/components/admin/DataTable";
 
 export const metadata = { title: "Leadership" };
 export const dynamic = "force-dynamic";
@@ -34,9 +35,76 @@ async function TeamSection({
   const members = await listTeamMembersForAdmin(type);
   const access = showAccess ? await describeListingAccess(members) : null;
 
+  const columns: Column<(typeof members)[number]>[] = [
+    {
+      header: "Name",
+      cell: (teamMember) => (
+        <span className="flex items-center gap-3">
+          <span className="w-9 h-9 rounded-full bg-surface-muted border border-line overflow-hidden shrink-0 flex items-center justify-center text-slate-light">
+            {teamMember.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={teamMember.photoUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <Users size={14} aria-hidden="true" />
+            )}
+          </span>
+          <span className="font-medium text-primary-950">{teamMember.name}</span>
+        </span>
+      ),
+    },
+    { header: "Position", cell: (teamMember) => teamMember.position },
+    ...(type === "LEADERSHIP"
+      ? [
+          {
+            header: "Linked Member",
+            cell: (teamMember: (typeof members)[number]) =>
+              teamMember.member
+                ? `${formatFullName(teamMember.member.firstName, teamMember.member.middleName, teamMember.member.lastName)} — ${teamMember.member.indexNumber}`
+                : "—",
+          },
+        ]
+      : []),
+    ...(showAccess
+      ? [
+          {
+            header: "Portal Access",
+            cell: (teamMember: (typeof members)[number]) => {
+              const state = access?.get(teamMember.id) ?? null;
+              if (!state) return <span className="text-xs text-slate">No account</span>;
+              const tone = ACCESS_LABEL[state.status];
+              return (
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${tone.classes}`}>
+                    {tone.label}
+                  </span>
+                  <span className="text-xs text-slate">{roleLabel(state.role)}</span>
+                </span>
+              );
+            },
+          },
+        ]
+      : []),
+    {
+      header: "Status",
+      cell: (teamMember) =>
+        teamMember.isActive ? (
+          <span className="text-xs font-semibold text-success">Active</span>
+        ) : (
+          <span className="text-xs font-semibold text-slate-light">Inactive</span>
+        ),
+    },
+    {
+      header: "Actions",
+      actions: true,
+      cell: (teamMember) => (
+        <TeamRowActions id={teamMember.id} isActive={teamMember.isActive} name={teamMember.name} />
+      ),
+    },
+  ];
+
   return (
     <div className="mb-10">
-      <div className="flex items-start justify-between gap-4 mb-4">
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
         <div>
           <h2 className="font-display font-bold text-lg text-primary-950">{title}</h2>
           <p className="text-sm text-slate mt-0.5">{blurb}</p>
@@ -55,76 +123,7 @@ async function TeamSection({
           description="Add the first one to get started."
         />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th className="text-left px-5 py-3 font-semibold">Name</th>
-                <th className="text-left px-5 py-3 font-semibold">Position</th>
-                {type === "LEADERSHIP" && (
-                  <th className="text-left px-5 py-3 font-semibold">Linked Member</th>
-                )}
-                {showAccess && <th className="text-left px-5 py-3 font-semibold">Portal Access</th>}
-                <th className="text-left px-5 py-3 font-semibold">Status</th>
-                <th className="px-5 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {members.map((teamMember) => (
-                <tr key={teamMember.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-surface-muted border border-line overflow-hidden shrink-0 flex items-center justify-center text-slate-light">
-                        {teamMember.photoUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={teamMember.photoUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <Users size={14} />
-                        )}
-                      </div>
-                      <span className="font-medium text-primary-950">{teamMember.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate">{teamMember.position}</td>
-                  {type === "LEADERSHIP" && (
-                    <td className="px-5 py-3.5 text-slate">
-                      {teamMember.member
-                        ? `${formatFullName(teamMember.member.firstName, teamMember.member.middleName, teamMember.member.lastName)} — ${teamMember.member.indexNumber}`
-                        : "—"}
-                    </td>
-                  )}
-                  {showAccess && (
-                    <td className="px-5 py-3.5">
-                      {(() => {
-                        const state = access?.get(teamMember.id) ?? null;
-                        if (!state) return <span className="text-xs text-slate">No account</span>;
-                        const tone = ACCESS_LABEL[state.status];
-                        return (
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${tone.classes}`}>
-                              {tone.label}
-                            </span>
-                            <span className="text-xs text-slate">{roleLabel(state.role)}</span>
-                          </span>
-                        );
-                      })()}
-                    </td>
-                  )}
-                  <td className="px-5 py-3.5">
-                    {teamMember.isActive ? (
-                      <span className="text-xs font-semibold text-success">Active</span>
-                    ) : (
-                      <span className="text-xs font-semibold text-slate-light">Inactive</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <TeamRowActions id={teamMember.id} isActive={teamMember.isActive} name={teamMember.name} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption={title} rows={members} rowKey={(teamMember) => teamMember.id} columns={columns} />
       )}
     </div>
   );
