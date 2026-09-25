@@ -8,6 +8,11 @@ import { saveCvAction } from "@/lib/actions/cv-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { SignatureKind } from "@/generated/prisma/enums";
 import { SignaturePad } from "@/components/portal/SignaturePad";
+import {
+  OTHER_QUALIFICATION,
+  QUALIFICATION_GROUPS,
+  isListedQualification,
+} from "@/lib/ghana-qualifications";
 import type { CvInput } from "@/lib/validations/cv";
 
 /**
@@ -137,6 +142,77 @@ function DateRange({
         </label>
       </div>
     </>
+  );
+}
+
+/**
+ * Which qualification, picked from the ones awarded in Ghana.
+ *
+ * A list rather than a box because an employer scanning a CV looks for the
+ * qualification by name, and four spellings of WASSCE read as four
+ * different things. "Other" is always there: the list is long, but nobody
+ * is going to be told their certificate does not exist.
+ *
+ * Anything already saved that is not on the list — typed in before this
+ * existed — stays in the box as it was, rather than being quietly
+ * replaced by the nearest option.
+ */
+function QualificationField({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [typingOwn, setTypingOwn] = useState(value !== "" && !isListedQualification(value));
+  const selected = typingOwn ? OTHER_QUALIFICATION : value;
+
+  return (
+    <div>
+      <Label htmlFor={id}>Qualification</Label>
+      <select
+        id={id}
+        value={selected}
+        onChange={(e) => {
+          const picked = e.target.value;
+          if (picked === OTHER_QUALIFICATION) {
+            setTypingOwn(true);
+            onChange("");
+            return;
+          }
+          setTypingOwn(false);
+          onChange(picked);
+        }}
+        className={inputClasses}
+      >
+        <option value="">Choose a qualification</option>
+        {QUALIFICATION_GROUPS.map((group) => (
+          <optgroup key={group.label} label={group.label}>
+            {group.options.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+        <option value={OTHER_QUALIFICATION}>Other — I&apos;ll type it in</option>
+      </select>
+
+      {typingOwn && (
+        <div className="mt-2">
+          <Label htmlFor={`${id}-other`}>Type the qualification</Label>
+          <input
+            id={`${id}-other`}
+            value={value}
+            placeholder="As it is written on the certificate"
+            onChange={(e) => onChange(e.target.value)}
+            className={inputClasses}
+          />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -280,12 +356,10 @@ export function CvForm({ cv, portal }: { cv: CvInput; portal: "member" | "alumni
               value={String(row.institution ?? "")}
               onChange={(v) => education.set(i, "institution", v)}
             />
-            <Field
+            <QualificationField
               id={`edu-qualification-${i}`}
-              label="Qualification"
               value={String(row.qualification ?? "")}
               onChange={(v) => education.set(i, "qualification", v)}
-              placeholder="WASSCE, Diploma in Education"
             />
             <DateRange
               idPrefix={`edu-${i}`}
