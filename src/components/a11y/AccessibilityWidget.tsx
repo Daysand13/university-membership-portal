@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { ALargeSmall, Moon, Sun, Volume2, VolumeX } from "lucide-react";
 import { DisplaySettingsPanel, isTextSize, type TextSize } from "./DisplaySettingsPanel";
+import { chunkForSpeech, readingOf } from "@/lib/a11y/page-speech";
 
 const THEME_STORAGE_KEY = "a11y-theme";
 const TEXT_SIZE_STORAGE_KEY = "a11y-text-size";
@@ -211,13 +212,16 @@ export function AccessibilityWidget() {
     }
 
     const root = document.querySelector("main") ?? document.body;
-    const text = root.textContent?.trim() ?? "";
+    // Not root.textContent: that leaves out every tick box, dropdown and
+    // text box, and reads whatever CSS is hiding. See lib/a11y/page-speech.
+    const text = readingOf(root);
     if (!text) return;
 
     window.speechSynthesis.cancel();
     // Some browsers silently cut off a single very long utterance, so a
     // full page is read in sentence-sized chunks spoken back to back.
-    const chunks = text.match(/[^.!?\n]+[.!?\n]*/g) ?? [text];
+    const chunks = chunkForSpeech(text);
+    if (chunks.length === 0) return;
     let index = 0;
     const speakNext = () => {
       if (index >= chunks.length) {
