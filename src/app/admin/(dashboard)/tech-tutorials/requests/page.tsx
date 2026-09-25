@@ -5,6 +5,7 @@ import { AdminRole, type SoftwareRequestStatus } from "@/generated/prisma/client
 import { countSoftwareRequestsByStatus, listTechRequests } from "@/lib/services/assistive-software-service";
 import { TechTutorialsSectionNav } from "@/components/admin/OutreachSectionNav";
 import { EmptyState } from "@/components/ui/Common";
+import { DataTable, type Column } from "@/components/admin/DataTable";
 import { SOFTWARE_REQUEST_STATUS_LABELS, softwareCategoryLabel } from "@/lib/outreach-options";
 
 export const metadata = { title: "Software Requests" };
@@ -53,6 +54,51 @@ export default async function TechRequestsPage({
   ]);
   const total = counts.NEW + counts.IN_PROGRESS + counts.FULFILLED + counts.DECLINED;
 
+  const columns: Column<(typeof requests)[number]>[] = [
+    {
+      header: "Asked for",
+      cell: (request) => (
+        <>
+          <Link
+            href={`/admin/tech-tutorials/requests/${request.id}`}
+            className="font-medium text-primary-950 hover:text-accent-600"
+          >
+            {request.topic}
+          </Link>
+          <span className="block text-xs text-slate">
+            <span
+              className={`inline-flex rounded-full px-2 py-0.5 font-semibold ${
+                request.kind === "TUTORIAL" ? "bg-accent-100 text-primary-950" : "bg-primary-50 text-primary-800"
+              }`}
+            >
+              {request.kind === "TUTORIAL" ? "Tutorial" : "Software"}
+            </span>
+            {request.operatingSystem && <span className="ml-2">{request.operatingSystem}</span>}
+          </span>
+        </>
+      ),
+    },
+    { header: "From", cell: (request) => request.fullName },
+    {
+      header: "Email",
+      cell: (request) => (
+        <a href={`mailto:${request.email}`} className="hover:text-accent-600 break-all">
+          {request.email}
+        </a>
+      ),
+    },
+    { header: "For", cell: (request) => softwareCategoryLabel(request.category) },
+    { header: "Asked", cell: (request) => dateFormat.format(request.createdAt) },
+    {
+      header: "Status",
+      cell: (request) => (
+        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_TONE[request.status]}`}>
+          {SOFTWARE_REQUEST_STATUS_LABELS[request.status]}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <div>
       <h1 className="font-display font-bold text-2xl text-primary-950 mb-4">Tech &amp; Tutorials</h1>
@@ -62,7 +108,7 @@ export default async function TechRequestsPage({
         recorded. Paid software can be bought from the Assistive Technology fund — record the purchase under Finance.
       </p>
 
-      <div className="flex flex-wrap gap-1.5 mb-5">
+      <nav aria-label="Filter by status" className="flex flex-wrap gap-1.5 mb-5">
         {TABS.map((t) => (
           <Link
             key={t.value}
@@ -75,9 +121,9 @@ export default async function TechRequestsPage({
             {t.label} ({t.value === "ALL" ? total : counts[t.value]})
           </Link>
         ))}
-      </div>
+      </nav>
 
-      <div className="flex flex-wrap items-center gap-1.5 mb-5">
+      <nav aria-label="Filter by what was asked for" className="flex flex-wrap items-center gap-1.5 mb-5">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate mr-1">Asked for</span>
         {KINDS.map((k) => (
           <Link
@@ -91,62 +137,12 @@ export default async function TechRequestsPage({
             {k.label}
           </Link>
         ))}
-      </div>
+      </nav>
 
       {requests.length === 0 ? (
         <EmptyState icon={<Inbox size={28} />} title="Nothing here" description="Requests from the Tech & Tutorials page appear here." />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Asked for</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">From</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Email</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">For</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Asked</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {requests.map((request) => (
-                <tr key={request.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3.5">
-                    <Link
-                      href={`/admin/tech-tutorials/requests/${request.id}`}
-                      className="font-medium text-primary-950 hover:text-accent-600"
-                    >
-                      {request.topic}
-                    </Link>
-                    <p className="text-xs text-slate">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-0.5 font-semibold ${
-                          request.kind === "TUTORIAL" ? "bg-accent-100 text-primary-950" : "bg-primary-50 text-primary-800"
-                        }`}
-                      >
-                        {request.kind === "TUTORIAL" ? "Tutorial" : "Software"}
-                      </span>
-                      {request.operatingSystem && <span className="ml-2">{request.operatingSystem}</span>}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate">{request.fullName}</td>
-                  <td className="px-5 py-3.5 text-slate">
-                    <a href={`mailto:${request.email}`} className="hover:text-accent-600 break-all">
-                      {request.email}
-                    </a>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate">{softwareCategoryLabel(request.category)}</td>
-                  <td className="px-5 py-3.5 text-slate whitespace-nowrap">{dateFormat.format(request.createdAt)}</td>
-                  <td className="px-5 py-3.5">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_TONE[request.status]}`}>
-                      {SOFTWARE_REQUEST_STATUS_LABELS[request.status]}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption="Software and tutorial requests" rows={requests} rowKey={(request) => request.id} columns={columns} />
       )}
     </div>
   );

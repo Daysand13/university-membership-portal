@@ -7,6 +7,7 @@ import { FinanceSectionNav } from "@/components/admin/FinanceSectionNav";
 import { ExpenseRowActions } from "@/components/admin/FinanceRowActions";
 import { EmptyState } from "@/components/ui/Common";
 import { expenseCategoryLabel, formatCedis } from "@/lib/patron-portal-options";
+import { DataTable, type Column } from "@/components/admin/DataTable";
 
 export const metadata = { title: "Expenses" };
 export const dynamic = "force-dynamic";
@@ -18,6 +19,19 @@ export default async function AdminExpensesPage({ searchParams }: { searchParams
   const { saved } = await searchParams;
   const expenses = await listExpenses();
   const total = expenses.reduce((sum, e) => sum + e.amountPesewas, 0);
+
+  const columns: Column<(typeof expenses)[number]>[] = [
+    { header: "Date", cell: (e) => dateFormat.format(e.spentOn) },
+    { header: "Description", cell: (e) => <span className="text-primary-950">{e.description}</span> },
+    { header: "Area", cell: (e) => expenseCategoryLabel(e.category) },
+    {
+      header: "Amount",
+      align: "right",
+      cell: (e) => <span className="font-data tabular-nums">{formatCedis(e.amountPesewas)}</span>,
+    },
+    { header: "Recorded by", cell: (e) => e.recordedBy?.name ?? "—" },
+    { header: "Actions", actions: true, cell: (e) => <ExpenseRowActions id={e.id} /> },
+  ];
 
   return (
     <div>
@@ -42,45 +56,13 @@ export default async function AdminExpensesPage({ searchParams }: { searchParams
       {expenses.length === 0 ? (
         <EmptyState icon={<Receipt size={28} />} title="No expenses yet" description="Record spending so patrons can see where the money goes." />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Date</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Description</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Area</th>
-                <th scope="col" className="text-right px-5 py-3 font-semibold">Amount</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Recorded by</th>
-                <th scope="col" className="px-5 py-3">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {expenses.map((e) => (
-                <tr key={e.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3 whitespace-nowrap text-slate">{dateFormat.format(e.spentOn)}</td>
-                  <td className="px-5 py-3 text-primary-950">{e.description}</td>
-                  <td className="px-5 py-3 text-slate">{expenseCategoryLabel(e.category)}</td>
-                  <td className="px-5 py-3 text-right font-data tabular-nums">{formatCedis(e.amountPesewas)}</td>
-                  <td className="px-5 py-3 text-slate">{e.recordedBy?.name ?? "—"}</td>
-                  <td className="px-5 py-3">
-                    <ExpenseRowActions id={e.id} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-line font-semibold">
-                <td className="px-5 py-3" colSpan={3}>
-                  Total
-                </td>
-                <td className="px-5 py-3 text-right font-data tabular-nums">{formatCedis(total)}</td>
-                <td colSpan={2} />
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        <DataTable
+          caption="Expenses"
+          rows={expenses}
+          rowKey={(e) => e.id}
+          columns={columns}
+          total={{ label: "Total", value: formatCedis(total) }}
+        />
       )}
     </div>
   );

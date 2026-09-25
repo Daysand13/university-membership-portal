@@ -8,6 +8,7 @@ import { RecordedDonationDeleteButton } from "@/components/admin/FinanceRowActio
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/Common";
 import { donationFundLabel, formatCedis } from "@/lib/patron-portal-options";
+import { DataTable, type Column } from "@/components/admin/DataTable";
 
 export const metadata = { title: "Donations" };
 export const dynamic = "force-dynamic";
@@ -23,6 +24,51 @@ export default async function AdminDonationsPage({
   const { recorded, all } = await searchParams;
   const includePending = all === "1";
   const donations = await listDonationsForAdmin({ includePending });
+
+  const columns: Column<(typeof donations)[number]>[] = [
+    { header: "Date", cell: (d) => dateFormat.format(d.paidAt ?? d.createdAt) },
+    {
+      header: "From",
+      cell: (d) => (
+        <>
+          {d.patronId ? (
+            <Link href={`/admin/patrons/${d.patronId}`} className="font-medium text-primary-950 hover:text-accent-600">
+              {d.donorName}
+            </Link>
+          ) : (
+            <span className="font-medium text-primary-950">{d.donorName}</span>
+          )}
+          {d.anonymous && <span className="block text-xs text-slate">Anonymous on the Honor Roll</span>}
+          {d.note && <span className="block text-xs text-slate">{d.note}</span>}
+        </>
+      ),
+    },
+    { header: "Cause", cell: (d) => donationFundLabel(d.fund) },
+    {
+      header: "Amount",
+      align: "right",
+      cell: (d) => <span className="font-data tabular-nums">{formatCedis(d.amountPesewas)}</span>,
+    },
+    {
+      header: "How",
+      cell: (d) =>
+        d.source === "ONLINE" ? "Online (Paystack)" : `Recorded${d.recordedBy ? ` by ${d.recordedBy.name}` : ""}`,
+    },
+    {
+      header: "Status",
+      cell: (d) => (
+        <StatusBadge
+          status={d.status}
+          label={d.status === "SUCCESS" ? "Received" : d.status === "PENDING" ? "Unfinished" : "Failed"}
+        />
+      ),
+    },
+    {
+      header: "Actions",
+      actions: true,
+      cell: (d) => (d.source === "RECORDED" ? <RecordedDonationDeleteButton id={d.id} /> : null),
+    },
+  ];
 
   return (
     <div>
@@ -58,53 +104,7 @@ export default async function AdminDonationsPage({
       {donations.length === 0 ? (
         <EmptyState icon={<HandHeart size={28} />} title="No donations yet" description="Donations will be listed here." />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Date</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">From</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Cause</th>
-                <th scope="col" className="text-right px-5 py-3 font-semibold">Amount</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">How</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Status</th>
-                <th scope="col" className="px-5 py-3">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {donations.map((d) => (
-                <tr key={d.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3 whitespace-nowrap text-slate">{dateFormat.format(d.paidAt ?? d.createdAt)}</td>
-                  <td className="px-5 py-3">
-                    {d.patronId ? (
-                      <Link href={`/admin/patrons/${d.patronId}`} className="font-medium text-primary-950 hover:text-accent-600">
-                        {d.donorName}
-                      </Link>
-                    ) : (
-                      <span className="font-medium text-primary-950">{d.donorName}</span>
-                    )}
-                    {d.anonymous && <span className="block text-xs text-slate">Anonymous on the Honor Roll</span>}
-                    {d.note && <span className="block text-xs text-slate">{d.note}</span>}
-                  </td>
-                  <td className="px-5 py-3 text-slate">{donationFundLabel(d.fund)}</td>
-                  <td className="px-5 py-3 text-right font-data tabular-nums">{formatCedis(d.amountPesewas)}</td>
-                  <td className="px-5 py-3 text-slate">
-                    {d.source === "ONLINE" ? "Online (Paystack)" : `Recorded${d.recordedBy ? ` by ${d.recordedBy.name}` : ""}`}
-                  </td>
-                  <td className="px-5 py-3">
-                    <StatusBadge
-                      status={d.status}
-                      label={d.status === "SUCCESS" ? "Received" : d.status === "PENDING" ? "Unfinished" : "Failed"}
-                    />
-                  </td>
-                  <td className="px-5 py-3 text-right">{d.source === "RECORDED" && <RecordedDonationDeleteButton id={d.id} />}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption="Donations" rows={donations} rowKey={(d) => d.id} columns={columns} />
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import { countBroadcastsByStatus, listBroadcastsForAdmin } from "@/lib/services/
 import { PatronsSectionNav } from "@/components/admin/PatronsSectionNav";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/Common";
+import { DataTable, type Column } from "@/components/admin/DataTable";
 import { BROADCAST_STATUS_LABELS, broadcastAudienceLabel } from "@/lib/patron-portal-options";
 
 export const metadata = { title: "Patron Broadcasts" };
@@ -29,6 +30,30 @@ export default async function AdminBroadcastsPage({ searchParams }: { searchPara
     countBroadcastsByStatus(),
   ]);
   const total = counts.PENDING + counts.APPROVED + counts.REJECTED;
+
+  const columns: Column<(typeof broadcasts)[number]>[] = [
+    {
+      header: "Subject",
+      cell: (b) => (
+        <>
+          <Link
+            href={`/admin/patrons/broadcasts/${b.id}`}
+            className="font-medium text-primary-950 hover:text-accent-600"
+          >
+            {b.subject}
+          </Link>
+          <span className="block text-xs text-slate">
+            {[b.postToPortal && "Portal", b.sendEmail && "Email"].filter(Boolean).join(" + ")}
+            {b.attachmentName && " · attachment"}
+          </span>
+        </>
+      ),
+    },
+    { header: "From", cell: (b) => b.authorName },
+    { header: "To", cell: (b) => broadcastAudienceLabel(b.audience) },
+    { header: "Written", cell: (b) => dateFormat.format(b.createdAt) },
+    { header: "Status", cell: (b) => <StatusBadge status={b.status} label={BROADCAST_STATUS_LABELS[b.status]} /> },
+  ];
 
   return (
     <div>
@@ -57,40 +82,7 @@ export default async function AdminBroadcastsPage({ searchParams }: { searchPara
       {broadcasts.length === 0 ? (
         <EmptyState icon={<Radio size={28} />} title="Nothing here" description="Broadcasts from patrons will appear here." />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Subject</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">From</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">To</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Written</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {broadcasts.map((b) => (
-                <tr key={b.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3.5 max-w-xs">
-                    <Link href={`/admin/patrons/broadcasts/${b.id}`} className="font-medium text-primary-950 hover:text-accent-600">
-                      {b.subject}
-                    </Link>
-                    <p className="text-xs text-slate">
-                      {[b.postToPortal && "Portal", b.sendEmail && "Email"].filter(Boolean).join(" + ")}
-                      {b.attachmentName && " · attachment"}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate">{b.authorName}</td>
-                  <td className="px-5 py-3.5 text-slate">{broadcastAudienceLabel(b.audience)}</td>
-                  <td className="px-5 py-3.5 text-slate whitespace-nowrap">{dateFormat.format(b.createdAt)}</td>
-                  <td className="px-5 py-3.5">
-                    <StatusBadge status={b.status} label={BROADCAST_STATUS_LABELS[b.status]} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption="Broadcasts" rows={broadcasts} rowKey={(b) => b.id} columns={columns} />
       )}
     </div>
   );

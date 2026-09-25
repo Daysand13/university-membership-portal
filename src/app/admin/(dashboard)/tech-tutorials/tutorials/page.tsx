@@ -5,6 +5,7 @@ import { listTutorialsForAdmin } from "@/lib/services/tutorial-service";
 import { TechTutorialsSectionNav } from "@/components/admin/OutreachSectionNav";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/Common";
+import { DataTable, type Column } from "@/components/admin/DataTable";
 import { Button } from "@/components/ui/Button";
 import { softwareCategoryLabel, tutorialSourceLabel } from "@/lib/outreach-options";
 
@@ -14,6 +15,35 @@ export const dynamic = "force-dynamic";
 export default async function AdminTutorialsPage() {
   await requireCapability("outreach.software");
   const tutorials = await listTutorialsForAdmin();
+
+  const columns: Column<(typeof tutorials)[number]>[] = [
+    {
+      header: "Tutorial",
+      cell: (tutorial) => (
+        <>
+          <Link
+            href={`/admin/tech-tutorials/tutorials/${tutorial.id}`}
+            className="font-medium text-primary-950 hover:text-accent-600"
+          >
+            {tutorial.title}
+          </Link>
+          <span className="block text-xs text-slate line-clamp-2">{tutorial.description}</span>
+        </>
+      ),
+    },
+    { header: "Where", cell: (tutorial) => tutorialSourceLabel(tutorial.source) },
+    { header: "Helps with", cell: (tutorial) => (tutorial.category ? softwareCategoryLabel(tutorial.category) : "—") },
+    { header: "Length", cell: (tutorial) => tutorial.durationLabel ?? "—" },
+    {
+      header: "Status",
+      cell: (tutorial) => (
+        <StatusBadge
+          status={tutorial.isActive ? "ACTIVE" : "INACTIVE"}
+          label={tutorial.isActive ? "Showing" : "Hidden"}
+        />
+      ),
+    },
+  ];
 
   return (
     <div>
@@ -43,45 +73,7 @@ export default async function AdminTutorialsPage() {
           description="Add a YouTube or TikTok video and it appears on the page, alongside the software."
         />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Tutorial</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Where</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Helps with</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Length</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {tutorials.map((tutorial) => (
-                <tr key={tutorial.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3.5">
-                    <Link
-                      href={`/admin/tech-tutorials/tutorials/${tutorial.id}`}
-                      className="font-medium text-primary-950 hover:text-accent-600"
-                    >
-                      {tutorial.title}
-                    </Link>
-                    <p className="text-xs text-slate line-clamp-1 max-w-xs">{tutorial.description}</p>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate">{tutorialSourceLabel(tutorial.source)}</td>
-                  <td className="px-5 py-3.5 text-slate">
-                    {tutorial.category ? softwareCategoryLabel(tutorial.category) : "—"}
-                  </td>
-                  <td className="px-5 py-3.5 text-slate">{tutorial.durationLabel ?? "—"}</td>
-                  <td className="px-5 py-3.5">
-                    <StatusBadge
-                      status={tutorial.isActive ? "ACTIVE" : "INACTIVE"}
-                      label={tutorial.isActive ? "Showing" : "Hidden"}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption="Tutorials" rows={tutorials} rowKey={(tutorial) => tutorial.id} columns={columns} />
       )}
     </div>
   );

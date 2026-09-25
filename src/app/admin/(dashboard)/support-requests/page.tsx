@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/Common";
 import { formatCedis } from "@/lib/patron-portal-options";
 import { supportRequestTypeLabel, supportStatusLabel } from "@/lib/portal-options";
+import { DataTable, type Column } from "@/components/admin/DataTable";
 
 export const metadata = { title: "Support Requests" };
 export const dynamic = "force-dynamic";
@@ -52,6 +53,51 @@ export default async function AdminSupportRequestsPage({
   const tabCount = (value: (typeof TABS)[number]["value"]) =>
     value === "ALL" ? all : value === "OPEN" ? open : counts[value];
 
+  const columns: Column<(typeof requests)[number]>[] = [
+    {
+      header: "Request",
+      cell: (request) => (
+        <>
+          <Link
+            href={`/admin/support-requests/${request.id}`}
+            className="font-medium text-primary-950 hover:text-accent-600"
+          >
+            {supportRequestTypeLabel(request.type)}
+          </Link>
+          <span className="block text-xs text-slate line-clamp-2">{request.details}</span>
+        </>
+      ),
+    },
+    {
+      header: "Student",
+      cell: (request) => (
+        <>
+          {request.member.firstName} {request.member.lastName}
+          <span className="block text-xs font-data">{request.member.indexNumber}</span>
+        </>
+      ),
+    },
+    {
+      header: "Amount",
+      cell: (request) =>
+        request.approvedAmountPesewas
+          ? formatCedis(request.approvedAmountPesewas)
+          : request.amountRequestedPesewas
+            ? formatCedis(request.amountRequestedPesewas)
+            : "—",
+    },
+    { header: "Asked", cell: (request) => dateFormat.format(request.createdAt) },
+    {
+      header: "Status",
+      cell: (request) => (
+        <StatusBadge
+          status={request.status === "FULFILLED" ? "APPROVED" : request.status}
+          label={supportStatusLabel(request.status)}
+        />
+      ),
+    },
+  ];
+
   return (
     <div>
       <h1 className="font-display font-bold text-2xl text-primary-950 mb-1">Support Requests</h1>
@@ -66,7 +112,7 @@ export default async function AdminSupportRequestsPage({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-1.5 mb-5">
+      <nav aria-label="Filter by status" className="flex flex-wrap gap-1.5 mb-5">
         {TABS.map((t) => (
           <Link
             key={t.value}
@@ -79,7 +125,7 @@ export default async function AdminSupportRequestsPage({
             {t.label} ({tabCount(t.value)})
           </Link>
         ))}
-      </div>
+      </nav>
 
       {requests.length === 0 ? (
         <EmptyState
@@ -88,52 +134,7 @@ export default async function AdminSupportRequestsPage({
           description="Requests students make from their portal appear here."
         />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Request</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Student</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Amount</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Asked</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {requests.map((request) => (
-                <tr key={request.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3.5 max-w-sm">
-                    <Link
-                      href={`/admin/support-requests/${request.id}`}
-                      className="font-medium text-primary-950 hover:text-accent-600"
-                    >
-                      {supportRequestTypeLabel(request.type)}
-                    </Link>
-                    <p className="text-xs text-slate line-clamp-1">{request.details}</p>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate">
-                    {request.member.firstName} {request.member.lastName}
-                    <span className="block text-xs font-data">{request.member.indexNumber}</span>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate whitespace-nowrap">
-                    {request.approvedAmountPesewas
-                      ? formatCedis(request.approvedAmountPesewas)
-                      : request.amountRequestedPesewas
-                        ? formatCedis(request.amountRequestedPesewas)
-                        : "—"}
-                  </td>
-                  <td className="px-5 py-3.5 text-slate whitespace-nowrap">{dateFormat.format(request.createdAt)}</td>
-                  <td className="px-5 py-3.5">
-                    <StatusBadge
-                      status={request.status === "FULFILLED" ? "APPROVED" : request.status}
-                      label={supportStatusLabel(request.status)}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption="Support requests" rows={requests} rowKey={(request) => request.id} columns={columns} />
       )}
     </div>
   );

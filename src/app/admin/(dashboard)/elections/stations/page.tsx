@@ -7,6 +7,7 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { RegisterStationForm, ReissueKeyForm } from "@/components/admin/forms/BallotForms";
 import { setStationActiveAction } from "@/lib/actions/ballot-actions";
 import { listStations } from "@/lib/services/polling-station-service";
+import { DataTable, type Column } from "@/components/admin/DataTable";
 
 export const metadata = { title: "Polling Terminals" };
 export const dynamic = "force-dynamic";
@@ -29,6 +30,35 @@ const dateTime = new Intl.DateTimeFormat("en-GH", {
 export default async function PollingStationsPage() {
   await requireCapability("elections.stations");
   const stations = await listStations();
+
+  const columns: Column<(typeof stations)[number]>[] = [
+    { header: "Code", cell: (station) => <span className="font-data font-semibold text-primary-950">{station.code}</span> },
+    { header: "Where it stands", cell: (station) => station.name },
+    { header: "Ballots", cell: (station) => station._count.ballots },
+    { header: "Last heard from", cell: (station) => (station.lastSeenAt ? dateTime.format(station.lastSeenAt) : "Never") },
+    {
+      header: "Actions",
+      actions: true,
+      cell: (station) => (
+        <span className="inline-flex flex-wrap items-center justify-end gap-3">
+          <StatusBadge status={station.isActive ? "ACTIVE" : "INACTIVE"} />
+          <ReissueKeyForm stationId={station.id} code={station.code} />
+          <ConfirmButton
+            action={setStationActiveAction.bind(null, station.id, !station.isActive)}
+            confirmMessage={
+              station.isActive
+                ? `Stop ${station.code} taking votes? It will be refused at once, mid-session or not.`
+                : `Let ${station.code} take votes again?`
+            }
+            className="text-xs font-semibold text-slate hover:text-primary-800"
+          >
+            {station.isActive ? "Suspend" : "Allow"}
+            <span className="sr-only"> {station.code}</span>
+          </ConfirmButton>
+        </span>
+      ),
+    },
+  ];
 
   return (
     <div className="max-w-4xl">
@@ -54,48 +84,7 @@ export default async function PollingStationsPage() {
           description="Register one for each workstation that will be taking votes."
         />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Code</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Where it stands</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Ballots</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Last heard from</th>
-                <th scope="col" className="px-5 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {stations.map((station) => (
-                <tr key={station.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3.5 font-data font-semibold text-primary-950">{station.code}</td>
-                  <td className="px-5 py-3.5 text-slate">{station.name}</td>
-                  <td className="px-5 py-3.5 text-slate">{station._count.ballots}</td>
-                  <td className="px-5 py-3.5 text-slate">
-                    {station.lastSeenAt ? dateTime.format(station.lastSeenAt) : "Never"}
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center justify-end gap-3">
-                      <StatusBadge status={station.isActive ? "ACTIVE" : "INACTIVE"} />
-                      <ReissueKeyForm stationId={station.id} code={station.code} />
-                      <ConfirmButton
-                        action={setStationActiveAction.bind(null, station.id, !station.isActive)}
-                        confirmMessage={
-                          station.isActive
-                            ? `Stop ${station.code} taking votes? It will be refused at once, mid-session or not.`
-                            : `Let ${station.code} take votes again?`
-                        }
-                        className="text-xs font-semibold text-slate hover:text-primary-800"
-                      >
-                        {station.isActive ? "Suspend" : "Allow"}
-                      </ConfirmButton>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption="Polling terminals" rows={stations} rowKey={(station) => station.id} columns={columns} />
       )}
     </div>
   );

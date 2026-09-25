@@ -34,12 +34,15 @@ export function DataTable<T>({
   columns,
   rows,
   rowKey,
+  total,
 }: {
   /** What this table is a list of — read out before the table itself. */
   caption: string;
   columns: Column<T>[];
   rows: T[];
   rowKey: (row: T) => string;
+  /** A figure the whole list adds up to, shown under it either way. */
+  total?: { label: string; value: React.ReactNode };
 }) {
   const [first, ...rest] = columns;
   const details = rest.filter((column) => !column.actions && !column.tableOnly);
@@ -74,6 +77,13 @@ export function DataTable<T>({
           </li>
         ))}
       </ul>
+
+      {total && (
+        <p className="md:hidden mt-3 flex items-center justify-between rounded-lg border border-line bg-white px-4 py-3 font-semibold text-primary-950">
+          <span>{total.label}</span>
+          <span className="font-data tabular-nums">{total.value}</span>
+        </p>
+      )}
 
       {/* On a wider screen: the table, still scrollable if it has to be,
           but reachable from the keyboard when it is. */}
@@ -122,6 +132,17 @@ export function DataTable<T>({
               </tr>
             ))}
           </tbody>
+          {total && (
+            <tfoot>
+              <tr className="border-t border-line font-semibold">
+                <td className="px-4 py-3" colSpan={Math.max(1, columns.length - 2)}>
+                  {total.label}
+                </td>
+                <td className="px-4 py-3 text-right font-data tabular-nums">{total.value}</td>
+                <td className="px-4 py-3" />
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
     </>

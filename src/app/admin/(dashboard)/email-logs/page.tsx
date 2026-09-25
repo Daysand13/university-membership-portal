@@ -4,6 +4,7 @@ import { Mail, Search } from "lucide-react";
 import { EmptyState, inputClasses } from "@/components/ui/Common";
 import { Button } from "@/components/ui/Button";
 import { listEmailLogs } from "@/lib/services/notification-service";
+import { DataTable, type Column } from "@/components/admin/DataTable";
 
 export const metadata = { title: "Email Logs" };
 export const dynamic = "force-dynamic";
@@ -47,6 +48,25 @@ export default async function AdminEmailLogsPage({
   const logs = await listEmailLogs(200, term || undefined);
   const failedCount = logs.filter((l) => l.status === "FAILED").length;
 
+  const columns: Column<(typeof logs)[number]>[] = [
+    { header: "Status", cell: (log) => <StatusBadge status={log.status} /> },
+    {
+      header: "To",
+      cell: (log) => (
+        <>
+          <span className="text-ink break-words">{log.to}</span>
+          {log.status === "FAILED" && log.errorMessage && (
+            <span className="block text-xs text-danger mt-0.5">{log.errorMessage}</span>
+          )}
+        </>
+      ),
+    },
+    { header: "Subject", cell: (log) => log.subject },
+    { header: "Template", cell: (log) => <span className="font-data text-xs">{log.template}</span> },
+    { header: "Attempts", cell: (log) => log.attempts },
+    { header: "When", cell: (log) => <span className="font-data text-xs">{formatDateTime(log.createdAt)}</span> },
+  ];
+
   return (
     <div>
       <div className="mb-6">
@@ -66,8 +86,8 @@ export default async function AdminEmailLogsPage({
       {/* "They say they never received it" is answered by typing their
           address in here: whether anything was ever attempted, and what
           the provider said if it refused. */}
-      <form className="flex flex-wrap items-end gap-3 mb-5">
-        <div className="flex-1 min-w-[16rem]">
+      <form className="flex flex-col gap-3 mb-5 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="sm:flex-1 sm:min-w-[16rem]">
           <label htmlFor="q" className="block text-sm font-medium text-primary-950 mb-1.5">
             Find by address, subject or template
           </label>
@@ -79,14 +99,16 @@ export default async function AdminEmailLogsPage({
             className={inputClasses}
           />
         </div>
-        <Button type="submit">
-          <Search size={16} aria-hidden="true" /> Search
-        </Button>
-        {term && (
-          <Link href="/admin/email-logs" className="text-sm font-semibold text-slate hover:text-primary-800 pb-2.5">
-            Clear
-          </Link>
-        )}
+        <div className="flex items-center gap-3">
+          <Button type="submit">
+            <Search size={16} aria-hidden="true" /> Search
+          </Button>
+          {term && (
+            <Link href="/admin/email-logs" className="text-sm font-semibold text-slate hover:text-primary-800">
+              Clear
+            </Link>
+          )}
+        </div>
       </form>
 
       {term && (
@@ -104,43 +126,7 @@ export default async function AdminEmailLogsPage({
           title={term ? "Nothing matching that" : "No emails logged yet"}
         />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th className="text-left px-5 py-3 font-semibold">Status</th>
-                <th className="text-left px-5 py-3 font-semibold">To</th>
-                <th className="text-left px-5 py-3 font-semibold">Subject</th>
-                <th className="text-left px-5 py-3 font-semibold">Template</th>
-                <th className="text-left px-5 py-3 font-semibold">Attempts</th>
-                <th className="text-left px-5 py-3 font-semibold">When</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {logs.map((log) => (
-                <tr key={log.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3">
-                    <StatusBadge status={log.status} />
-                  </td>
-                  <td className="px-5 py-3 text-ink">
-                    {log.to}
-                    {log.status === "FAILED" && log.errorMessage && (
-                      <p className="text-xs text-danger mt-0.5">{log.errorMessage}</p>
-                    )}
-                  </td>
-                  <td className="px-5 py-3 text-slate max-w-xs truncate" title={log.subject}>
-                    {log.subject}
-                  </td>
-                  <td className="px-5 py-3 text-slate-light font-data text-xs">{log.template}</td>
-                  <td className="px-5 py-3 text-slate-light text-xs">{log.attempts}</td>
-                  <td className="px-5 py-3 text-slate-light font-data text-xs whitespace-nowrap">
-                    {formatDateTime(log.createdAt)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption="Emails the system has sent" rows={logs} rowKey={(log) => log.id} columns={columns} />
       )}
     </div>
   );

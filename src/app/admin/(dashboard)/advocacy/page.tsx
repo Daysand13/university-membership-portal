@@ -6,6 +6,7 @@ import { countBarrierReportsByStatus, listBarrierReports } from "@/lib/services/
 import { EmptyState } from "@/components/ui/Common";
 import { barrierStatusLabel } from "@/lib/portal-options";
 import { issueCategoryLabel } from "@/lib/patron-portal-options";
+import { DataTable, type Column } from "@/components/admin/DataTable";
 
 export const metadata = { title: "Escalation Desk" };
 export const dynamic = "force-dynamic";
@@ -52,6 +53,46 @@ export default async function AdminAdvocacyDeskPage({ searchParams }: { searchPa
   const tabCount = (value: (typeof TABS)[number]["value"]) =>
     value === "ALL" ? all : value === "OPEN" ? open : counts[value];
 
+  const columns: Column<(typeof reports)[number]>[] = [
+    {
+      header: "Report",
+      cell: (report) => (
+        <>
+          <Link href={`/admin/advocacy/${report.id}`} className="font-medium text-primary-950 hover:text-accent-600">
+            {report.title}
+          </Link>
+          <span className="block text-xs text-slate">
+            {issueCategoryLabel(report.category)}
+            {report.location && ` · ${report.location}`}
+            {report._count.attachments > 0 &&
+              ` · ${report._count.attachments} attachment${report._count.attachments === 1 ? "" : "s"}`}
+          </span>
+        </>
+      ),
+    },
+    {
+      header: "Student",
+      cell: (report) => (
+        <>
+          {report.member.firstName} {report.member.lastName}
+          <span className="block text-xs font-data">{report.member.indexNumber}</span>
+        </>
+      ),
+    },
+    { header: "Filed", cell: (report) => dateFormat.format(report.createdAt) },
+    { header: "Handled by", cell: (report) => report.assignedTo?.name ?? "—" },
+    {
+      header: "Status",
+      cell: (report) => (
+        <span
+          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusTone(report.status)}`}
+        >
+          {barrierStatusLabel(report.status)}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <div>
       <h1 className="font-display font-bold text-2xl text-primary-950 mb-1">Escalation Desk</h1>
@@ -60,7 +101,7 @@ export default async function AdminAdvocacyDeskPage({ searchParams }: { searchPa
         weight behind it. Every note you write is read by the student who filed the report.
       </p>
 
-      <div className="flex flex-wrap gap-1.5 mb-5">
+      <nav aria-label="Filter by status" className="flex flex-wrap gap-1.5 mb-5">
         {TABS.map((t) => (
           <Link
             key={t.value}
@@ -73,7 +114,7 @@ export default async function AdminAdvocacyDeskPage({ searchParams }: { searchPa
             {t.label} ({tabCount(t.value)})
           </Link>
         ))}
-      </div>
+      </nav>
 
       {reports.length === 0 ? (
         <EmptyState
@@ -82,52 +123,7 @@ export default async function AdminAdvocacyDeskPage({ searchParams }: { searchPa
           description="Barriers students report from their portal land here."
         />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Report</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Student</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Filed</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Handled by</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {reports.map((report) => (
-                <tr key={report.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3.5 max-w-sm">
-                    <Link
-                      href={`/admin/advocacy/${report.id}`}
-                      className="font-medium text-primary-950 hover:text-accent-600"
-                    >
-                      {report.title}
-                    </Link>
-                    <p className="text-xs text-slate">
-                      {issueCategoryLabel(report.category)}
-                      {report.location && ` · ${report.location}`}
-                      {report._count.attachments > 0 &&
-                        ` · ${report._count.attachments} attachment${report._count.attachments === 1 ? "" : "s"}`}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate">
-                    {report.member.firstName} {report.member.lastName}
-                    <span className="block text-xs font-data">{report.member.indexNumber}</span>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate whitespace-nowrap">{dateFormat.format(report.createdAt)}</td>
-                  <td className="px-5 py-3.5 text-slate">{report.assignedTo?.name ?? "—"}</td>
-                  <td className="px-5 py-3.5">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusTone(report.status)}`}
-                    >
-                      {barrierStatusLabel(report.status)}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption="Barrier reports" rows={reports} rowKey={(report) => report.id} columns={columns} />
       )}
     </div>
   );

@@ -7,6 +7,7 @@ import { TechTutorialsSectionNav } from "@/components/admin/OutreachSectionNav";
 import { AssistiveSettingsForm } from "@/components/admin/forms/OutreachForms";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/Common";
+import { DataTable, type Column } from "@/components/admin/DataTable";
 import { Button } from "@/components/ui/Button";
 import { softwareCategoryLabel, softwarePlatformLabel } from "@/lib/outreach-options";
 
@@ -16,6 +17,32 @@ export const dynamic = "force-dynamic";
 export default async function AdminTechTutorialsPage() {
   await requireCapability("outreach.software");
   const [software, settings] = await Promise.all([listSoftwareForAdmin(), getAssistiveTechSettings()]);
+
+  const columns: Column<(typeof software)[number]>[] = [
+    {
+      header: "Software",
+      cell: (tool) => (
+        <>
+          <Link
+            href={`/admin/tech-tutorials/${tool.id}`}
+            className="font-medium text-primary-950 hover:text-accent-600"
+          >
+            {tool.name}
+          </Link>
+          <span className="block text-xs text-slate line-clamp-2">{tool.description}</span>
+        </>
+      ),
+    },
+    { header: "Category", cell: (tool) => softwareCategoryLabel(tool.category) },
+    { header: "Platforms", cell: (tool) => tool.platforms.map(softwarePlatformLabel).join(", ") || "—" },
+    { header: "Licence", cell: (tool) => (tool.isFree ? "Free" : "Funded") },
+    {
+      header: "Status",
+      cell: (tool) => (
+        <StatusBadge status={tool.isActive ? "ACTIVE" : "INACTIVE"} label={tool.isActive ? "Showing" : "Hidden"} />
+      ),
+    },
+  ];
 
   return (
     <div>
@@ -52,37 +79,7 @@ export default async function AdminTechTutorialsPage() {
           description="Add the tools in the Telegram library so students can find them by need and platform."
         />
       ) : (
-        <div className="bg-white rounded-lg border border-line overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-muted text-xs text-slate uppercase tracking-wide">
-              <tr>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Software</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Category</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Platforms</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Licence</th>
-                <th scope="col" className="text-left px-5 py-3 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {software.map((tool) => (
-                <tr key={tool.id} className="hover:bg-surface-muted/60">
-                  <td className="px-5 py-3.5">
-                    <Link href={`/admin/tech-tutorials/${tool.id}`} className="font-medium text-primary-950 hover:text-accent-600">
-                      {tool.name}
-                    </Link>
-                    <p className="text-xs text-slate line-clamp-1 max-w-xs">{tool.description}</p>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate">{softwareCategoryLabel(tool.category)}</td>
-                  <td className="px-5 py-3.5 text-slate">{tool.platforms.map(softwarePlatformLabel).join(", ") || "—"}</td>
-                  <td className="px-5 py-3.5 text-slate">{tool.isFree ? "Free" : "Funded"}</td>
-                  <td className="px-5 py-3.5">
-                    <StatusBadge status={tool.isActive ? "ACTIVE" : "INACTIVE"} label={tool.isActive ? "Showing" : "Hidden"} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable caption="Assistive software" rows={software} rowKey={(tool) => tool.id} columns={columns} />
       )}
 
       <section className="mt-8 max-w-2xl bg-white rounded-lg border border-line p-6">
