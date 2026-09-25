@@ -1,5 +1,5 @@
 import { renderToBuffer } from "@react-pdf/renderer";
-import { getCurrentMember } from "@/lib/auth/member";
+import { getCurrentAlumni } from "@/lib/auth/alumni";
 import { PaidDocumentKind } from "@/generated/prisma/client";
 import { loadCvDocument } from "@/lib/services/cv-service";
 import { hasPaidFor } from "@/lib/services/document-purchase-service";
@@ -13,23 +13,26 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 /**
- * A member's own CV, as a PDF.
+ * A graduate's own CV, as a PDF.
  *
- * The paywall is here rather than on the button: a link somebody kept from
- * a friend must not hand out a document that was never paid for. It reads
- * the session itself and will only ever produce the CV of whoever is
- * signed in.
+ * The paywall is here rather than on the button, so a link somebody kept
+ * cannot hand out a document that was never paid for — and because a
+ * graduate's payment runs out, the check is "is it still good", not "was
+ * it ever made".
  */
 export async function GET() {
-  const member = await getCurrentMember();
-  if (!member) return new Response("Please sign in to your dashboard first.", { status: 401 });
+  const alumnus = await getCurrentAlumni();
+  if (!alumnus) return new Response("Please sign in to the alumni portal first.", { status: 401 });
 
-  const owner = { kind: "member" as const, id: member.id, email: member.email };
+  const owner = { kind: "alumni" as const, id: alumnus.id, email: alumnus.email };
   if (!(await hasPaidFor(owner, PaidDocumentKind.CV))) {
-    return new Response("This CV hasn't been paid for yet. Open your dashboard to pay for it.", { status: 402 });
+    return new Response("Your CV isn't paid up. Open the alumni portal to renew it.", { status: 402 });
   }
 
-  const [document, brand] = await Promise.all([loadCvDocument({ kind: "member", id: member.id }), getEmailBrand()]);
+  const [document, brand] = await Promise.all([
+    loadCvDocument({ kind: "alumni", id: alumnus.id }),
+    getEmailBrand(),
+  ]);
   if (!document) return new Response("We couldn't find your record.", { status: 404 });
 
   if (!cvHasSubstance(document.cv)) {

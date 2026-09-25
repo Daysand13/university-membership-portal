@@ -31,7 +31,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
   ]);
   if (!member) notFound();
 
-  const cvPaid = await hasPaidFor(member.id, PaidDocumentKind.CV);
+  const cvPaid = await hasPaidFor({ kind: "member", id: member.id, email: member.email }, PaidDocumentKind.CV);
   const cvPrice = priceOf(PaidDocumentKind.CV);
 
   // Anything that would make a printed ID card incomplete, said before printing.

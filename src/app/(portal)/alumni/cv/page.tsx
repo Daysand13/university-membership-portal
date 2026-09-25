@@ -1,8 +1,8 @@
 import { Download, FileText, Lock } from "lucide-react";
-import { requireMember } from "@/lib/auth/member";
+import { requireAlumni } from "@/lib/auth/alumni";
 import { PaidDocumentKind } from "@/generated/prisma/client";
 import { getCv } from "@/lib/services/cv-service";
-import { priceDescription, hasPaidFor } from "@/lib/services/document-purchase-service";
+import { hasPaidFor, paidUntil, priceDescription } from "@/lib/services/document-purchase-service";
 import { cvHasSubstance } from "@/lib/validations/cv";
 import { PortalPageHeader } from "@/components/portal/PortalPageHeader";
 import { CvForm } from "@/components/portal/CvForm";
@@ -12,31 +12,38 @@ import { buttonClasses } from "@/components/ui/Button";
 export const metadata = { title: "My CV" };
 export const dynamic = "force-dynamic";
 
+const dateFormat = new Intl.DateTimeFormat("en-GH", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "Africa/Accra",
+});
+
 /**
- * A member's CV: fill it in here, pay once, download it as often as you
- * like afterwards.
+ * A graduate's CV.
  *
- * The form is open to everybody — somebody should be able to see what they
- * are buying, and write it, before being asked for money. It is the
- * finished PDF that is paid for.
+ * The same document as a student's, renewed yearly rather than bought
+ * once: a graduate is no longer paying dues, and the association goes on
+ * preparing this for them long after they have left.
  */
-export default async function MemberCvPage({ searchParams }: { searchParams: Promise<{ payment?: string }> }) {
-  const member = await requireMember();
+export default async function AlumniCvPage({ searchParams }: { searchParams: Promise<{ payment?: string }> }) {
+  const alumnus = await requireAlumni();
   const { payment } = await searchParams;
 
-  const owner = { kind: "member" as const, id: member.id, email: member.email };
-  const [cv, paid] = await Promise.all([
-    getCv({ kind: "member", id: member.id }),
+  const owner = { kind: "alumni" as const, id: alumnus.id, email: alumnus.email };
+  const [cv, paid, until] = await Promise.all([
+    getCv({ kind: "alumni", id: alumnus.id }),
     hasPaidFor(owner, PaidDocumentKind.CV),
+    paidUntil(owner, PaidDocumentKind.CV),
   ]);
-  const price = priceDescription("member", PaidDocumentKind.CV);
+  const price = priceDescription("alumni", PaidDocumentKind.CV);
   const ready = cvHasSubstance(cv);
 
   return (
     <>
       <PortalPageHeader
         title="My CV"
-        description="Write it once here and the association turns it into a properly laid-out PDF you can send to employers."
+        description="Write it here and the association turns it into a properly laid-out PDF you can send to employers."
       />
 
       {payment && (
@@ -57,11 +64,12 @@ export default async function MemberCvPage({ searchParams }: { searchParams: Pro
         {paid ? (
           <>
             <p className="text-ink mt-2">
-              Paid for. Change anything below and download it again whenever you like — there is nothing more to pay.
+              Paid up{until ? ` until ${dateFormat.format(until)}` : ""}. Change anything below and download it again
+              as often as you like until then.
             </p>
             {ready ? (
               <p className="mt-4">
-                <a href="/api/membership/cv" className={buttonClasses("primary", "md")}>
+                <a href="/api/alumni/cv" className={buttonClasses("primary", "md")}>
                   <Download size={16} aria-hidden="true" /> Download my CV (PDF)
                 </a>
               </p>
@@ -74,11 +82,11 @@ export default async function MemberCvPage({ searchParams }: { searchParams: Pro
         ) : (
           <>
             <p className="text-ink mt-2">
-              One payment of {price}, and you can download your CV as many times as you need — every time you
-              change it, for as long as you are a member.
+              {price}. Graduates renew each year — you are no longer paying dues, and the association goes on keeping
+              this for you. Download it as often as you need in between.
             </p>
             <div className="mt-4">
-              <PayForCvButton amount={price} portal="member" />
+              <PayForCvButton amount={price} portal="alumni" />
             </div>
             <p className="mt-3 text-sm text-slate">
               You can also pay at the association office and ask them to record it against your name.
@@ -87,7 +95,7 @@ export default async function MemberCvPage({ searchParams }: { searchParams: Pro
         )}
       </section>
 
-      <CvForm cv={cv} portal="member" />
+      <CvForm cv={cv} portal="alumni" />
     </>
   );
 }

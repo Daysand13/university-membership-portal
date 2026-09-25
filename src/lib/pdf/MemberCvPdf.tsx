@@ -1,5 +1,7 @@
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
 import type { CvDocument } from "@/lib/services/cv-service";
+import { SignatureKind } from "@/generated/prisma/enums";
+import { periodLabel } from "@/lib/validations/cv";
 
 /**
  * A member's CV, as something they would actually hand to an employer.
@@ -52,6 +54,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
 
+  signature: { marginTop: 2, marginBottom: 10 },
+  signatureImage: { width: 120, height: 38, objectFit: "contain" },
+  signatureTyped: { fontSize: 16, fontFamily: "Times-Italic", marginTop: 1 },
+  signatureRule: { borderTopWidth: 0.75, borderTopColor: INK, width: 170, marginTop: 3, paddingTop: 3 },
+  signatureCaption: { fontSize: 8, color: MUTED },
+
   refereeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 14 },
   referee: { width: "46%", marginBottom: 8 },
 
@@ -103,16 +111,18 @@ export function MemberCvPdf({ document, associationName }: { document: CvDocumen
           <View style={styles.entry}>
             <View style={styles.entryHead}>
               <Text style={styles.entryTitle}>{document.programme}</Text>
-              <Text style={styles.entryPeriod}>Level {document.level}</Text>
+              <Text style={styles.entryPeriod}>{document.standing}</Text>
             </View>
-            <Text style={styles.entrySub}>University of Education, Winneba · {document.indexNumber}</Text>
+            <Text style={styles.entrySub}>
+              University of Education, Winneba{document.identifier ? ` · ${document.identifier}` : ""}
+            </Text>
           </View>
 
           {cv.education.map((entry, i) => (
             <View key={`edu-${i}`} style={styles.entry}>
               <View style={styles.entryHead}>
                 <Text style={styles.entryTitle}>{entry.qualification || entry.institution}</Text>
-                {entry.period ? <Text style={styles.entryPeriod}>{entry.period}</Text> : null}
+                {periodLabel(entry) ? <Text style={styles.entryPeriod}>{periodLabel(entry)}</Text> : null}
               </View>
               {entry.qualification ? <Text style={styles.entrySub}>{entry.institution}</Text> : null}
               {entry.grade ? <Text style={styles.entrySub}>{entry.grade}</Text> : null}
@@ -127,7 +137,7 @@ export function MemberCvPdf({ document, associationName }: { document: CvDocumen
               <View key={`exp-${i}`} style={styles.entry}>
                 <View style={styles.entryHead}>
                   <Text style={styles.entryTitle}>{entry.role}</Text>
-                  {entry.period ? <Text style={styles.entryPeriod}>{entry.period}</Text> : null}
+                  {periodLabel(entry) ? <Text style={styles.entryPeriod}>{periodLabel(entry)}</Text> : null}
                 </View>
                 {entry.organisation ? <Text style={styles.entrySub}>{entry.organisation}</Text> : null}
                 {entry.details ? <Text style={styles.entryBody}>{entry.details}</Text> : null}
@@ -187,8 +197,23 @@ export function MemberCvPdf({ document, associationName }: { document: CvDocumen
           </Section>
         )}
 
+        {cv.signatureKind !== SignatureKind.NONE && cv.signatureData ? (
+          <View style={styles.signature} wrap={false} minPresenceAhead={70}>
+            <Text style={styles.sectionTitle}>Signature</Text>
+            {cv.signatureKind === SignatureKind.DRAWN ? (
+              // eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf's Image takes no alt
+              <Image style={styles.signatureImage} src={cv.signatureData} />
+            ) : (
+              <Text style={styles.signatureTyped}>{cv.signatureData}</Text>
+            )}
+            <View style={styles.signatureRule}>
+              <Text style={styles.signatureCaption}>{document.fullName}</Text>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.footer} fixed>
-          <Text>Prepared through the {associationName} members' portal</Text>
+          <Text>{`Prepared through the ${associationName} members' portal`}</Text>
           <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
         </View>
       </Page>

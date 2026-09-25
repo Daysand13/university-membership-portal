@@ -86,6 +86,7 @@ export const PORTAL_NAV: Record<PortalMode, PortalNavItem[]> = {
     { href: "/alumni/advocacy", label: "Advocacy Backing", icon: "advocacy" },
     { href: "/alumni/directory", label: "Alumni Directory", icon: "directory" },
     { href: "/alumni/career", label: "Career Updates", icon: "career" },
+    { href: "/alumni/cv", label: "My CV", icon: "documents", alsoActiveOn: ["/alumni/cv/paid"] },
     { href: "/alumni/records", label: "Academic Records", icon: "records" },
     { href: "/alumni/further-studies", label: "Register for Further Studies", icon: "further" },
     { href: "/alumni/events", label: "Events & Reunions", icon: "events" },

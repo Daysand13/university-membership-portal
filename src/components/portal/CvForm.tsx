@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { FormAlert, Label, SavedNotice, inputClasses } from "@/components/ui/Common";
 import { saveCvAction } from "@/lib/actions/cv-actions";
 import { initialActionState } from "@/lib/actions/types";
+import { SignatureKind } from "@/generated/prisma/enums";
+import { SignaturePad } from "@/components/portal/SignaturePad";
 import type { CvInput } from "@/lib/validations/cv";
 
 /**
@@ -19,7 +21,7 @@ import type { CvInput } from "@/lib/validations/cv";
  * with a screen reader needs to know which "From – to" they are typing in.
  */
 
-type Row = Record<string, string>;
+type Row = Record<string, string | boolean>;
 
 function useRows(initial: Row[]) {
   const [rows, setRows] = useState<Row[]>(initial);
@@ -27,7 +29,7 @@ function useRows(initial: Row[]) {
     rows,
     add: (blank: Row) => setRows((current) => [...current, { ...blank }]),
     remove: (index: number) => setRows((current) => current.filter((_, i) => i !== index)),
-    set: (index: number, field: string, value: string) =>
+    set: (index: number, field: string, value: string | boolean) =>
       setRows((current) => current.map((row, i) => (i === index ? { ...row, [field]: value } : row))),
   };
 }
@@ -77,6 +79,65 @@ function RowShell({ legend, onRemove, children }: { legend: string; onRemove: ()
   );
 }
 
+/**
+ * When something started and finished.
+ *
+ * Picked rather than typed, so "Sept 2021" and "09/2021" cannot end up in
+ * the same list — and because the CV is sorted by these, a typed date
+ * would put somebody's newest job at the bottom. Anything still going on
+ * says so instead of needing an end date invented for it.
+ */
+function DateRange({
+  idPrefix,
+  start,
+  end,
+  current,
+  onChange,
+  currentLabel,
+}: {
+  idPrefix: string;
+  start: string;
+  end: string;
+  current: boolean;
+  onChange: (field: "startMonth" | "endMonth" | "current", value: string | boolean) => void;
+  currentLabel: string;
+}) {
+  return (
+    <>
+      <div>
+        <Label htmlFor={`${idPrefix}-start`}>From</Label>
+        <input
+          id={`${idPrefix}-start`}
+          type="month"
+          value={start}
+          onChange={(e) => onChange("startMonth", e.target.value)}
+          className={inputClasses}
+        />
+      </div>
+      <div>
+        <Label htmlFor={`${idPrefix}-end`}>To</Label>
+        <input
+          id={`${idPrefix}-end`}
+          type="month"
+          value={current ? "" : end}
+          disabled={current}
+          onChange={(e) => onChange("endMonth", e.target.value)}
+          className={`${inputClasses} disabled:bg-surface-muted disabled:text-slate-light`}
+        />
+        <label className="flex items-center gap-2 mt-2 text-sm text-ink cursor-pointer">
+          <input
+            type="checkbox"
+            checked={current}
+            onChange={(e) => onChange("current", e.target.checked)}
+            className="h-4 w-4 rounded border-line text-primary-800"
+          />
+          {currentLabel}
+        </label>
+      </div>
+    </>
+  );
+}
+
 function Field({
   id,
   label,
@@ -119,8 +180,8 @@ function Field({
   );
 }
 
-export function CvForm({ cv }: { cv: CvInput }) {
-  const [state, formAction, isPending] = useActionState(saveCvAction, initialActionState);
+export function CvForm({ cv, portal }: { cv: CvInput; portal: "member" | "alumni" }) {
+  const [state, formAction, isPending] = useActionState(saveCvAction.bind(null, portal), initialActionState);
 
   const [headline, setHeadline] = useState(cv.headline ?? "");
   const [summary, setSummary] = useState(cv.summary ?? "");
@@ -134,6 +195,10 @@ export function CvForm({ cv }: { cv: CvInput }) {
   const languages = useRows(cv.languages as unknown as Row[]);
   const activities = useRows(cv.activities as unknown as Row[]);
   const referees = useRows(cv.referees as unknown as Row[]);
+  const [signature, setSignature] = useState({
+    kind: cv.signatureKind ?? SignatureKind.NONE,
+    data: cv.signatureData ?? "",
+  });
 
   const sections = JSON.stringify({
     headline,
@@ -147,6 +212,8 @@ export function CvForm({ cv }: { cv: CvInput }) {
     languages: languages.rows,
     activities: activities.rows,
     referees: referees.rows,
+    signatureKind: signature.kind,
+    signatureData: signature.data,
   });
 
   return (
@@ -199,41 +266,44 @@ export function CvForm({ cv }: { cv: CvInput }) {
         title="Education"
         description="Anything before your current programme — senior high school, an earlier certificate."
         addLabel="Add a school"
-        onAdd={() => education.add({ institution: "", qualification: "", period: "", grade: "", details: "" })}
+        onAdd={() =>
+          education.add({ institution: "", qualification: "", startMonth: "", endMonth: "", current: "", grade: "", details: "" })
+        }
       >
         {education.rows.map((row, i) => (
           <RowShell key={`edu-${i}`} legend={`School ${i + 1}`} onRemove={() => education.remove(i)}>
             <Field
               id={`edu-institution-${i}`}
               label="School or university"
-              value={row.institution ?? ""}
+              value={String(row.institution ?? "")}
               onChange={(v) => education.set(i, "institution", v)}
             />
             <Field
               id={`edu-qualification-${i}`}
               label="Qualification"
-              value={row.qualification ?? ""}
+              value={String(row.qualification ?? "")}
               onChange={(v) => education.set(i, "qualification", v)}
               placeholder="WASSCE, Diploma in Education"
             />
-            <Field
-              id={`edu-period-${i}`}
-              label="From – to"
-              value={row.period ?? ""}
-              onChange={(v) => education.set(i, "period", v)}
-              placeholder="2018 – 2021"
+            <DateRange
+              idPrefix={`edu-${i}`}
+              start={String(row.startMonth ?? "")}
+              end={String(row.endMonth ?? "")}
+              current={Boolean(row.current)}
+              currentLabel="Still studying here"
+              onChange={(field, value) => education.set(i, field, value)}
             />
             <Field
               id={`edu-grade-${i}`}
               label="Result"
-              value={row.grade ?? ""}
+              value={String(row.grade ?? "")}
               onChange={(v) => education.set(i, "grade", v)}
               placeholder="Aggregate 12"
             />
             <Field
               id={`edu-details-${i}`}
               label="Anything worth adding"
-              value={row.details ?? ""}
+              value={String(row.details ?? "")}
               onChange={(v) => education.set(i, "details", v)}
               wide
             />
@@ -245,34 +315,35 @@ export function CvForm({ cv }: { cv: CvInput }) {
         title="Experience"
         description="Jobs, attachments, teaching practice, volunteering. Unpaid work counts."
         addLabel="Add a role"
-        onAdd={() => experience.add({ role: "", organisation: "", period: "", details: "" })}
+        onAdd={() => experience.add({ role: "", organisation: "", startMonth: "", endMonth: "", current: "", details: "" })}
       >
         {experience.rows.map((row, i) => (
           <RowShell key={`exp-${i}`} legend={`Role ${i + 1}`} onRemove={() => experience.remove(i)}>
             <Field
               id={`exp-role-${i}`}
               label="Role"
-              value={row.role ?? ""}
+              value={String(row.role ?? "")}
               onChange={(v) => experience.set(i, "role", v)}
               placeholder="Teaching assistant"
             />
             <Field
               id={`exp-organisation-${i}`}
               label="Where"
-              value={row.organisation ?? ""}
+              value={String(row.organisation ?? "")}
               onChange={(v) => experience.set(i, "organisation", v)}
             />
-            <Field
-              id={`exp-period-${i}`}
-              label="From – to"
-              value={row.period ?? ""}
-              onChange={(v) => experience.set(i, "period", v)}
-              placeholder="Jan 2025 – present"
+            <DateRange
+              idPrefix={`exp-${i}`}
+              start={String(row.startMonth ?? "")}
+              end={String(row.endMonth ?? "")}
+              current={Boolean(row.current)}
+              currentLabel="Still in this role"
+              onChange={(field, value) => experience.set(i, field, value)}
             />
             <Field
               id={`exp-details-${i}`}
               label="What you did"
-              value={row.details ?? ""}
+              value={String(row.details ?? "")}
               onChange={(v) => experience.set(i, "details", v)}
               placeholder="What you were responsible for, and anything that changed because of you."
               textarea
@@ -290,11 +361,11 @@ export function CvForm({ cv }: { cv: CvInput }) {
       >
         {skills.rows.map((row, i) => (
           <RowShell key={`skill-${i}`} legend={`Skill ${i + 1}`} onRemove={() => skills.remove(i)}>
-            <Field id={`skill-label-${i}`} label="Skill" value={row.label ?? ""} onChange={(v) => skills.set(i, "label", v)} />
+            <Field id={`skill-label-${i}`} label="Skill" value={String(row.label ?? "")} onChange={(v) => skills.set(i, "label", v)} />
             <Field
               id={`skill-note-${i}`}
               label="How well"
-              value={row.note ?? ""}
+              value={String(row.note ?? "")}
               onChange={(v) => skills.set(i, "note", v)}
               placeholder="Confident, three years"
             />
@@ -313,13 +384,13 @@ export function CvForm({ cv }: { cv: CvInput }) {
             <Field
               id={`lang-label-${i}`}
               label="Language"
-              value={row.label ?? ""}
+              value={String(row.label ?? "")}
               onChange={(v) => languages.set(i, "label", v)}
             />
             <Field
               id={`lang-note-${i}`}
               label="How well"
-              value={row.note ?? ""}
+              value={String(row.note ?? "")}
               onChange={(v) => languages.set(i, "note", v)}
               placeholder="Fluent"
             />
@@ -338,13 +409,13 @@ export function CvForm({ cv }: { cv: CvInput }) {
             <Field
               id={`act-label-${i}`}
               label="What"
-              value={row.label ?? ""}
+              value={String(row.label ?? "")}
               onChange={(v) => activities.set(i, "label", v)}
             />
             <Field
               id={`act-note-${i}`}
               label="Your part in it"
-              value={row.note ?? ""}
+              value={String(row.note ?? "")}
               onChange={(v) => activities.set(i, "note", v)}
               placeholder="Secretary, 2025"
             />
@@ -360,34 +431,36 @@ export function CvForm({ cv }: { cv: CvInput }) {
       >
         {referees.rows.map((row, i) => (
           <RowShell key={`ref-${i}`} legend={`Referee ${i + 1}`} onRemove={() => referees.remove(i)}>
-            <Field id={`ref-name-${i}`} label="Name" value={row.name ?? ""} onChange={(v) => referees.set(i, "name", v)} />
+            <Field id={`ref-name-${i}`} label="Name" value={String(row.name ?? "")} onChange={(v) => referees.set(i, "name", v)} />
             <Field
               id={`ref-position-${i}`}
               label="Their position"
-              value={row.position ?? ""}
+              value={String(row.position ?? "")}
               onChange={(v) => referees.set(i, "position", v)}
             />
             <Field
               id={`ref-organisation-${i}`}
               label="Where they work"
-              value={row.organisation ?? ""}
+              value={String(row.organisation ?? "")}
               onChange={(v) => referees.set(i, "organisation", v)}
             />
             <Field
               id={`ref-email-${i}`}
               label="Their email"
-              value={row.email ?? ""}
+              value={String(row.email ?? "")}
               onChange={(v) => referees.set(i, "email", v)}
             />
             <Field
               id={`ref-phone-${i}`}
               label="Their phone"
-              value={row.phone ?? ""}
+              value={String(row.phone ?? "")}
               onChange={(v) => referees.set(i, "phone", v)}
             />
           </RowShell>
         ))}
       </SectionCard>
+
+      <SignaturePad kind={signature.kind} data={signature.data} onChange={setSignature} />
 
       <div className="flex flex-wrap items-center gap-4 sticky bottom-4">
         <Button type="submit" disabled={isPending}>

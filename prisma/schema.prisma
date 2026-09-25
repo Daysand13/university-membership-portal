@@ -939,6 +939,8 @@ model AlumniProfile {
   @@index([directoryVisible])
   @@index([publicProfile])
   @@map("alumni_profiles")
+  cv                MemberCv?
+  documentPurchases DocumentPurchase[]
 }
 
 /// The showcase presentation of an alumnus — the editorial layer on top of
@@ -1168,6 +1170,14 @@ enum DocumentPurchaseStatus {
   FAILED
 }
 
+/// How a CV is signed. Drawing with a mouse is no use to somebody who
+/// cannot see the pad, so typed initials count as a signature here.
+enum SignatureKind {
+  NONE
+  DRAWN
+  TYPED
+}
+
 /**
  * One row per payment attempt, not per member-year — a failed or abandoned
  * attempt is kept rather than overwritten, so retrying after a declined
@@ -1314,9 +1324,14 @@ enum DonationSource {
 /// change one line rather than starting again, and so a fresh PDF can be
 /// made whenever they want one.
 model MemberCv {
-  id       String @id @default(cuid())
-  memberId String @unique
-  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  id String @id @default(cuid())
+
+  /// Exactly one of these. A CV belongs to a student or to a graduate,
+  /// and a graduate who was once a student keeps writing the same one.
+  memberId        String?        @unique
+  member          Member?        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  alumniProfileId String?        @unique
+  alumniProfile   AlumniProfile? @relation(fields: [alumniProfileId], references: [id], onDelete: Cascade)
 
   /// Under the name: "Final-year special education student seeking…".
   headline String?
@@ -1336,6 +1351,12 @@ model MemberCv {
   activities  Json @default("[]")
   referees    Json @default("[]")
 
+  /// Either a PNG of what they drew, or the letters they typed — see
+  /// SignatureKind. Kept with the CV because it is part of the document,
+  /// not part of the account.
+  signatureKind SignatureKind @default(NONE)
+  signatureData String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1348,9 +1369,13 @@ model MemberCv {
 /// transaction with a different word in it, and this is what it will use
 /// when it stops being an admin-only favour.
 model DocumentPurchase {
-  id       String @id @default(cuid())
-  memberId String
-  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  id String @id @default(cuid())
+
+  /// Exactly one of these, matching whoever is buying.
+  memberId        String?
+  member          Member?        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  alumniProfileId String?
+  alumniProfile   AlumniProfile? @relation(fields: [alumniProfileId], references: [id], onDelete: Cascade)
 
   kind PaidDocumentKind
 
@@ -1368,6 +1393,11 @@ model DocumentPurchase {
   paystackTransactionId String?
   paidAt                DateTime?
 
+  /// When this stops counting as paid. Null means never: a student pays
+  /// for their CV once and it is theirs. A graduate's is renewed yearly,
+  /// because the association keeps preparing it for them.
+  validUntil DateTime?
+
   /// Set when an officer took the money in cash and recorded it.
   recordedById String?
   recordedBy   AdminUser? @relation("DocumentPurchaseRecorder", fields: [recordedById], references: [id])
@@ -1376,6 +1406,7 @@ model DocumentPurchase {
   updatedAt DateTime @updatedAt
 
   @@index([memberId, kind, status])
+  @@index([alumniProfileId, kind, status])
   @@map("document_purchases")
 }
 

@@ -1,7 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
-import { PaidDocumentKind, type AdminUser, type Member } from "@/generated/prisma/client";
+import { PaidDocumentKind, type AdminUser } from "@/generated/prisma/client";
 import { initializeTransaction, isPaystackConfigured, verifyTransaction } from "@/lib/services/paystack-client";
 
 /**
@@ -44,26 +44,74 @@ export const DOCUMENT_PRICES: Record<PaidDocumentKind, { pesewas: number; label:
   [PaidDocumentKind.ID_CARD]: { pesewas: 30 * PESEWAS_PER_CEDI, label: "Membership ID card" },
 };
 
+/**
+ * Who is buying.
+ *
+ * A student pays for their CV once and it is theirs. A graduate renews
+ * yearly, because the association goes on preparing it for them long
+ * after they have stopped paying dues — so the same document costs the
+ * same money but lasts a different length of time.
+ */
+export type PurchaseOwner =
+  | { kind: "member"; id: string; email: string }
+  | { kind: "alumni"; id: string; email: string };
+
+function ownerWhere(owner: PurchaseOwner) {
+  return owner.kind === "member" ? { memberId: owner.id } : { alumniProfileId: owner.id };
+}
+
+export const ALUMNI_CV_MONTHS = 12;
+
+/** When a purchase stops counting. Null means never. */
+export function validUntilFor(owner: PurchaseOwner, kind: PaidDocumentKind, from: Date = new Date()): Date | null {
+  if (owner.kind !== "alumni" || kind !== PaidDocumentKind.CV) return null;
+  const expires = new Date(from);
+  expires.setMonth(expires.getMonth() + ALUMNI_CV_MONTHS);
+  return expires;
+}
+
 export function priceOf(kind: PaidDocumentKind) {
   return DOCUMENT_PRICES[kind];
+}
+
+/** "GH₵20.00, renewed every year" — what the buyer is actually agreeing to. */
+export function priceDescription(owner: PurchaseOwner["kind"], kind: PaidDocumentKind): string {
+  const price = formatCedis(priceOf(kind).pesewas);
+  if (owner === "alumni" && kind === PaidDocumentKind.CV) return `${price} a year`;
+  return `${price}, once`;
 }
 
 export function formatCedis(pesewas: number): string {
   return `GH₵${(pesewas / PESEWAS_PER_CEDI).toFixed(2)}`;
 }
 
-/** Has this member paid for this document? */
-export async function hasPaidFor(memberId: string, kind: PaidDocumentKind): Promise<boolean> {
+/** Has this person paid for this document, and is that payment still good? */
+export async function hasPaidFor(owner: PurchaseOwner, kind: PaidDocumentKind): Promise<boolean> {
   const paid = await db.documentPurchase.findFirst({
-    where: { memberId, kind, status: "SUCCESS" },
+    where: {
+      ...ownerWhere(owner),
+      kind,
+      status: "SUCCESS",
+      OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }],
+    },
     select: { id: true },
   });
   return paid !== null;
 }
 
-export async function listPurchases(memberId: string) {
+/** When the current purchase runs out, where it does. */
+export async function paidUntil(owner: PurchaseOwner, kind: PaidDocumentKind): Promise<Date | null> {
+  const paid = await db.documentPurchase.findFirst({
+    where: { ...ownerWhere(owner), kind, status: "SUCCESS", validUntil: { gt: new Date() } },
+    orderBy: { validUntil: "desc" },
+    select: { validUntil: true },
+  });
+  return paid?.validUntil ?? null;
+}
+
+export async function listPurchases(owner: PurchaseOwner) {
   return db.documentPurchase.findMany({
-    where: { memberId },
+    where: ownerWhere(owner),
     orderBy: { createdAt: "desc" },
     take: 20,
   });
@@ -72,13 +120,13 @@ export async function listPurchases(memberId: string) {
 export type StartPurchaseResult = { ok: true; authorizationUrl: string } | { ok: false; error: string };
 
 export async function startDocumentPurchase(params: {
-  member: Pick<Member, "id" | "email">;
+  owner: PurchaseOwner;
   kind: PaidDocumentKind;
   callbackUrl: string;
 }): Promise<StartPurchaseResult> {
-  const { member, kind, callbackUrl } = params;
+  const { owner, kind, callbackUrl } = params;
 
-  if (await hasPaidFor(member.id, kind)) {
+  if (await hasPaidFor(owner, kind)) {
     return { ok: false, error: "You have already paid for this — it is ready to download." };
   }
 
@@ -95,7 +143,7 @@ export async function startDocumentPurchase(params: {
 
   await db.documentPurchase.create({
     data: {
-      memberId: member.id,
+      ...ownerWhere(owner),
       kind,
       amountPesewas: price.pesewas,
       priceLabel: price.label,
@@ -106,11 +154,11 @@ export async function startDocumentPurchase(params: {
 
   try {
     const { authorizationUrl } = await initializeTransaction({
-      email: member.email,
+      email: owner.email,
       amountPesewas: price.pesewas,
       reference,
       callbackUrl,
-      metadata: { memberId: member.id, kind },
+      metadata: { ...ownerWhere(owner), kind },
     });
     return { ok: true, authorizationUrl };
   } catch (err) {
@@ -146,12 +194,22 @@ export async function verifyAndRecordPurchase(reference: string): Promise<Verify
   // What was actually charged, not what anybody says was charged.
   const settled = result.status === "success" && result.amountPesewas === purchase.amountPesewas;
 
+  const paidAt = new Date();
+  const owner: PurchaseOwner | null = purchase.memberId
+    ? { kind: "member", id: purchase.memberId, email: "" }
+    : purchase.alumniProfileId
+      ? { kind: "alumni", id: purchase.alumniProfileId, email: "" }
+      : null;
+
   await db.documentPurchase.update({
     where: { id: purchase.id },
     data: {
       status: settled ? "SUCCESS" : "FAILED",
       paystackTransactionId: result.transactionId ? String(result.transactionId) : null,
-      paidAt: settled ? new Date() : null,
+      paidAt: settled ? paidAt : null,
+      // Counted from when the money landed, not from when the checkout was
+      // opened — somebody who pays a day later gets their full year.
+      validUntil: settled && owner ? validUntilFor(owner, purchase.kind, paidAt) : null,
     },
   });
 
@@ -166,26 +224,28 @@ export async function verifyAndRecordPurchase(reference: string): Promise<Verify
  * wallet. Who recorded it is kept, and it goes in the audit log.
  */
 export async function recordCashDocumentPayment(params: {
-  memberId: string;
+  owner: PurchaseOwner;
   kind: PaidDocumentKind;
   admin: Pick<AdminUser, "id">;
 }): Promise<{ ok: true; summary: string } | { ok: false; error: string }> {
-  const { memberId, kind, admin } = params;
+  const { owner, kind, admin } = params;
 
-  if (await hasPaidFor(memberId, kind)) {
-    return { ok: false, error: "This member has already paid for that document." };
+  if (await hasPaidFor(owner, kind)) {
+    return { ok: false, error: "They have already paid for that document." };
   }
 
   const price = priceOf(kind);
+  const paidAt = new Date();
   const purchase = await db.documentPurchase.create({
     data: {
-      memberId,
+      ...ownerWhere(owner),
       kind,
       amountPesewas: price.pesewas,
       priceLabel: price.label,
       reference: `cash-doc-${kind.toLowerCase()}-${randomUUID()}`,
       status: "SUCCESS",
-      paidAt: new Date(),
+      paidAt,
+      validUntil: validUntilFor(owner, kind, paidAt),
       recordedById: admin.id,
     },
   });
@@ -196,7 +256,7 @@ export async function recordCashDocumentPayment(params: {
       action: "RECORD_CASH_DOCUMENT_PAYMENT",
       entityType: "DocumentPurchase",
       entityId: purchase.id,
-      newValue: { memberId, kind, amountPesewas: price.pesewas },
+      newValue: { ...ownerWhere(owner), kind, amountPesewas: price.pesewas },
     },
   });
 
