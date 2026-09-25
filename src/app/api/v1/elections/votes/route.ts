@@ -9,6 +9,8 @@ export const dynamic = "force-dynamic";
 interface IncomingChoice {
   positionId?: unknown;
   candidateId?: unknown;
+  /** Absent means yes: a contested post has nothing else it could mean. */
+  approve?: unknown;
 }
 
 /**
@@ -38,12 +40,16 @@ export async function POST(request: NextRequest) {
   const rawChoices = Array.isArray(body.choices) ? (body.choices as IncomingChoice[]) : [];
   if (rawChoices.length > 50) return jsonError("That is not a ballot paper.", 400);
 
-  const choices: { positionId: string; candidateId: string }[] = [];
+  const choices: { positionId: string; candidateId: string; approve: boolean }[] = [];
   for (const choice of rawChoices) {
     if (typeof choice?.positionId !== "string" || typeof choice?.candidateId !== "string") {
       return jsonError("A mark on that paper was unreadable.", 400);
     }
-    choices.push({ positionId: choice.positionId, candidateId: choice.candidateId });
+    choices.push({
+      positionId: choice.positionId,
+      candidateId: choice.candidateId,
+      approve: choice.approve !== false,
+    });
   }
 
   const election = await getCurrentBallotElection();

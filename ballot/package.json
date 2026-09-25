@@ -1,6 +1,6 @@
 {
   "name": "assn-ballot",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Polling terminal for the Association of Students with Special Needs, University of Education, Winneba.",
   "main": "src/main.js",

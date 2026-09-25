@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { CandidateStatus, ContentStatus, ElectionPhase } from "@/generated/prisma/client";
+import { CandidateStatus, ContentStatus, ElectionPhase, PaidDocumentKind } from "@/generated/prisma/client";
+import { hasPaidFor } from "@/lib/services/document-purchase-service";
 import type { AdminUser, Prisma } from "@/generated/prisma/client";
 import type { ElectionInput } from "@/lib/validations/content";
 import { formatFullName } from "@/lib/format";
@@ -268,17 +269,61 @@ export async function setResultsPublic(params: {
 
 // --- Portfolios ------------------------------------------------------------
 
-export async function addPosition(params: { electionId: string; title: string; order: number }) {
+export async function addPosition(params: {
+  electionId: string;
+  title: string;
+  order: number;
+  nominationFeePesewas: number;
+}) {
   return db.electionPosition.create({
-    data: { electionId: params.electionId, title: params.title.trim(), order: params.order },
+    data: {
+      electionId: params.electionId,
+      title: params.title.trim(),
+      order: params.order,
+      nominationFeePesewas: params.nominationFeePesewas,
+    },
   });
 }
 
-export async function updatePosition(params: { id: string; title: string; order: number }) {
+export async function updatePosition(params: {
+  id: string;
+  title: string;
+  order: number;
+  nominationFeePesewas: number;
+}) {
   return db.electionPosition.update({
     where: { id: params.id },
-    data: { title: params.title.trim(), order: params.order },
+    data: {
+      title: params.title.trim(),
+      order: params.order,
+      nominationFeePesewas: params.nominationFeePesewas,
+    },
   });
+}
+
+/** What the commission charges for the form to stand for each post. */
+export async function setNominationFee(params: {
+  positionId: string;
+  nominationFeePesewas: number;
+  actor: Pick<AdminUser, "id">;
+}) {
+  const before = await db.electionPosition.findUniqueOrThrow({ where: { id: params.positionId } });
+  const position = await db.electionPosition.update({
+    where: { id: params.positionId },
+    data: { nominationFeePesewas: params.nominationFeePesewas },
+  });
+
+  await db.auditLog.create({
+    data: {
+      adminId: params.actor.id,
+      action: "SET_NOMINATION_FEE",
+      entityType: "ElectionPosition",
+      entityId: position.id,
+      previousValue: { nominationFeePesewas: before.nominationFeePesewas },
+      newValue: { title: position.title, nominationFeePesewas: position.nominationFeePesewas },
+    },
+  });
+  return position;
 }
 
 export async function deletePosition(id: string) {
@@ -362,6 +407,8 @@ export async function nominateForElection(params: {
   memberId: string;
   positionId: string;
   manifesto: string;
+  /** What they put forward with it — their portal CV, or a file of their own. */
+  supporting: { url: string | null; name: string | null; usedPortalCv: boolean };
 }): Promise<NominationResult> {
   const [election, member, position] = await Promise.all([
     db.election.findUnique({ where: { id: params.electionId } }),
@@ -398,6 +445,17 @@ export async function nominateForElection(params: {
     return { ok: false, error: "You have already been nominated for this election." };
   }
 
+  // The form is paid for before anything is written down, so a
+  // nomination never sits in the commission's queue unpaid.
+  const paidForForm = await hasPaidFor(
+    { kind: "member", id: member.id, email: member.email },
+    PaidDocumentKind.NOMINATION_FORM,
+    position.id,
+  );
+  if (position.nominationFeePesewas > 0 && !paidForForm) {
+    return { ok: false, error: `Buy the nomination form for ${position.title} first.` };
+  }
+
   const candidate = await db.electionCandidate.create({
     data: {
       electionId: election.id,
@@ -408,6 +466,9 @@ export async function nominateForElection(params: {
       photoUrl: member.profileImageUrl,
       manifesto: params.manifesto.trim(),
       status: CandidateStatus.PENDING,
+      supportingUrl: params.supporting.url,
+      supportingName: params.supporting.name,
+      usedPortalCv: params.supporting.usedPortalCv,
     },
   });
   return { ok: true, candidateId: candidate.id };
@@ -428,6 +489,13 @@ export interface PositionResult {
   positionId: string;
   title: string;
   totalVotes: number;
+  /**
+   * A post with one candidate is a yes-or-no question, not a choice, so
+   * its result reads as approval rather than a share of the vote.
+   */
+  unopposed: boolean;
+  yesVotes: number;
+  noVotes: number;
   candidates: { id: string; name: string; photoUrl: string | null; votes: number; share: number }[];
 }
 
@@ -457,7 +525,7 @@ export async function tallyElection(electionId: string): Promise<ElectionResults
       },
     }),
     db.electionVoteChoice.groupBy({
-      by: ["candidateId"],
+      by: ["candidateId", "approve"],
       where: { ballot: { electionId } },
       _count: { _all: true },
     }),
@@ -466,19 +534,32 @@ export async function tallyElection(electionId: string): Promise<ElectionResults
     countEligibleVoters(),
   ]);
 
-  const byCandidate = new Map(counts.map((row) => [row.candidateId, row._count._all]));
+  const yesFor = new Map<string, number>();
+  const noFor = new Map<string, number>();
+  for (const row of counts) {
+    (row.approve ? yesFor : noFor).set(row.candidateId, row._count._all);
+  }
 
   return {
     positions: positions.map((position) => {
+      // One candidate means the ballot asked whether to have them, not
+      // which of them to have — so yes and no are counted apart.
+      const unopposed = position.candidates.length === 1;
       const tallied = position.candidates.map((candidate) => ({
         ...candidate,
-        votes: byCandidate.get(candidate.id) ?? 0,
+        votes: yesFor.get(candidate.id) ?? 0,
       }));
-      const totalVotes = tallied.reduce((sum, candidate) => sum + candidate.votes, 0);
+      const yesVotes = tallied.reduce((sum, candidate) => sum + candidate.votes, 0);
+      const noVotes = position.candidates.reduce((sum, candidate) => sum + (noFor.get(candidate.id) ?? 0), 0);
+      const totalVotes = yesVotes + noVotes;
+
       return {
         positionId: position.id,
         title: position.title,
         totalVotes,
+        unopposed,
+        yesVotes,
+        noVotes,
         candidates: tallied
           .map((candidate) => ({
             ...candidate,

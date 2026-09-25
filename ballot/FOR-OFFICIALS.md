@@ -5,13 +5,13 @@ about two minutes and needs nothing installed beforehand.
 
 ## 1. Install it
 
-Run **ASSN-Ballot-Setup-1.1.0.exe** and follow the wizard.
+Run **ASSN-Ballot-Setup-1.2.0.exe** and follow the wizard.
 
 Windows will probably say *"Windows protected your PC"*. That is because
 the installer is not signed with a paid certificate, not because anything
 is wrong with it. Click **More info**, then **Run anyway**.
 
-There is also **ASSN-Ballot-Portable-1.1.0.exe**, which is the whole
+There is also **ASSN-Ballot-Portable-1.2.0.exe**, which is the whole
 application in one file. Double-click it and it runs — nothing is
 installed. Use it on a machine you are not allowed to install software on.
 

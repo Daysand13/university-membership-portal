@@ -129,7 +129,11 @@ export async function castBallot(params: {
   token: string;
   clientRef: string;
   station: PollingStation | null;
-  choices: { positionId: string; candidateId: string }[];
+  /**
+   * A mark per post. Where only one person stands the question is whether
+   * to have them, not which of them — so the mark carries an answer.
+   */
+  choices: { positionId: string; candidateId: string; approve?: boolean }[];
 }): Promise<CastOutcome> {
   const slip = await readBallotToken(params.token);
   if (!slip || slip.electionId !== params.election.id) return { status: "EXPIRED" };
@@ -195,6 +199,8 @@ export async function castBallot(params: {
             ballotId: ballot.id,
             candidateId: choice.candidateId,
             positionId: choice.positionId,
+            // Anything with a real contest is always a yes for somebody.
+            approve: choice.approve !== false,
           })),
         });
       }

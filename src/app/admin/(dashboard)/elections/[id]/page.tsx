@@ -18,6 +18,8 @@ import { deleteCandidateAction, deletePositionAction } from "@/lib/actions/ballo
 import { getElectionForCommission, tallyElection } from "@/lib/services/election-service";
 import { PHASE_LABELS, effectivePhase } from "@/lib/election-status";
 import { CandidateStatus, ElectionPhase } from "@/generated/prisma/client";
+import { NominationFeeForm } from "@/components/admin/forms/PriceForms";
+import { formatCedis } from "@/lib/services/document-purchase-service";
 
 export const metadata = { title: "Election" };
 export const dynamic = "force-dynamic";
@@ -142,7 +144,13 @@ export default async function AdminElectionPage({ params }: { params: Promise<{ 
             {results.positions.map((position) => (
               <div key={position.positionId}>
                 <h3 className="text-sm font-semibold text-primary-950 mb-2">
-                  {position.title} <span className="font-normal text-slate">· {position.totalVotes} votes</span>
+                  {position.title}{" "}
+                  <span className="font-normal text-slate">
+                    ·{" "}
+                    {position.unopposed
+                      ? `unopposed — ${position.yesVotes} yes, ${position.noVotes} no`
+                      : `${position.totalVotes} votes`}
+                  </span>
                 </h3>
                 <ul className="space-y-2">
                   {position.candidates.map((candidate) => (
@@ -186,6 +194,22 @@ export default async function AdminElectionPage({ params }: { params: Promise<{ 
                 {candidate.manifesto && (
                   <p className="text-sm text-ink mt-2 whitespace-pre-line">{candidate.manifesto}</p>
                 )}
+                <p className="text-sm mt-2">
+                  {candidate.usedPortalCv ? (
+                    <span className="text-slate">Attached their portal CV.</span>
+                  ) : candidate.supportingUrl ? (
+                    <a
+                      href={candidate.supportingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-primary-800 hover:text-accent-600"
+                    >
+                      Open what they attached
+                    </a>
+                  ) : (
+                    <span className="text-slate">Nothing attached.</span>
+                  )}
+                </p>
                 <div className="mt-3">
                   <CandidateReviewForm
                     candidateId={candidate.id}
@@ -214,11 +238,22 @@ export default async function AdminElectionPage({ params }: { params: Promise<{ 
                     <div className="min-w-0">
                       <p className="font-semibold text-primary-950">{position.title}</p>
                       <p className="text-xs text-slate">
+                        {position.nominationFeePesewas > 0
+                          ? `Form: ${formatCedis(position.nominationFeePesewas)} · `
+                          : "No form fee · "}
                         {position.candidates.filter((c) => c.status === CandidateStatus.APPROVED).length} on the paper
                         {position.candidates.some((c) => c.status === CandidateStatus.PENDING) &&
                           ` · ${position.candidates.filter((c) => c.status === CandidateStatus.PENDING).length} waiting`}
                       </p>
                     </div>
+                    {canCommission && (
+                      <NominationFeeForm
+                        positionId={position.id}
+                        electionId={election.id}
+                        title={position.title}
+                        feePesewas={position.nominationFeePesewas}
+                      />
+                    )}
                     <ConfirmButton
                       action={deletePositionAction.bind(null, position.id, election.id)}
                       confirmMessage={`Take ${position.title} off the ballot? Anyone standing for it loses their place.`}

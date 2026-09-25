@@ -8,6 +8,8 @@ import {
   getMemberCandidacy,
 } from "@/lib/services/election-service";
 import { getCurrentAcademicYear, hasPaidDuesForYear } from "@/lib/services/dues-service";
+import { formatCedis, hasPaidFor } from "@/lib/services/document-purchase-service";
+import { PaidDocumentKind } from "@/generated/prisma/client";
 import { DashboardCard } from "@/components/portal/DashboardCard";
 import { PortalPageHeader } from "@/components/portal/PortalPageHeader";
 import { NominationForm } from "@/components/portal/NominationForm";
@@ -35,8 +37,13 @@ function formatDate(date: Date | null): string {
   return date ? dateFormat.format(date) : "To be announced";
 }
 
-export default async function MemberElectionsPage() {
+export default async function MemberElectionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ nomination?: string }>;
+}) {
   const member = await requireMember();
+  const { nomination } = await searchParams;
   const election = await getCurrentPublishedElection();
 
   if (!election) {
@@ -57,7 +64,8 @@ export default async function MemberElectionsPage() {
 
   // Standing for office and voting both turn on dues, so both are worked
   // out here rather than only discovered at a terminal on the day.
-  const [positions, candidacy, duesPaid, voted] = await Promise.all([
+  const owner = { kind: "member" as const, id: member.id, email: member.email };
+  const [positions, candidacy, duesPaid, voted, hasPortalCv, formsPaidFor] = await Promise.all([
     getBallotPaper(election.id),
     getMemberCandidacy(election.id, member.id),
     hasPaidDuesForYear(member.id, getCurrentAcademicYear()),
@@ -65,7 +73,27 @@ export default async function MemberElectionsPage() {
       where: { electionId_memberId: { electionId: election.id, memberId: member.id } },
       select: { votedAt: true },
     }),
+    hasPaidFor(owner, PaidDocumentKind.CV),
+    // Which posts this member has already bought the form for.
+    db.documentPurchase.findMany({
+      where: {
+        memberId: member.id,
+        kind: PaidDocumentKind.NOMINATION_FORM,
+        status: "SUCCESS",
+        positionId: { not: null },
+      },
+      select: { positionId: true },
+    }),
   ]);
+
+  const paidPositionIds = new Set(formsPaidFor.map((row) => row.positionId));
+  const nominatable = positions.map((position) => ({
+    id: position.id,
+    title: position.title,
+    feeLabel: formatCedis(position.nominationFeePesewas),
+    free: position.nominationFeePesewas === 0,
+    paid: paidPositionIds.has(position.id),
+  }));
 
   const now = new Date();
   const nominationsOpen =
@@ -81,6 +109,12 @@ export default async function MemberElectionsPage() {
       />
 
       <div className="space-y-6">
+        {nomination && (
+          <p role="status" className="rounded-lg border border-warning bg-warning-light px-4 py-3 text-sm text-ink">
+            {nomination}
+          </p>
+        )}
+
         <DashboardCard id="election" title={election.title} icon={<Vote size={20} />} readAloud>
           {election.description && <p className="text-ink whitespace-pre-line">{election.description}</p>}
           {election.noticeText && (
@@ -176,10 +210,7 @@ export default async function MemberElectionsPage() {
                 Nominations close {formatDate(election.nominationEnd)}. The Electoral Commission decides who goes on
                 the ballot paper.
               </p>
-              <NominationForm
-                electionId={election.id}
-                positions={positions.map((p) => ({ id: p.id, title: p.title }))}
-              />
+              <NominationForm electionId={election.id} positions={nominatable} hasPortalCv={hasPortalCv} />
             </div>
           )}
         </section>

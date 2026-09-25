@@ -528,9 +528,14 @@ model ElectionPosition {
   title      String
   /// Where it comes on the ballot: president first, and so on down.
   order      Int      @default(0)
+  /// What a member pays for the form to stand for this post. Zero means
+  /// no charge — some posts go uncontested, and the commission would
+  /// rather have a candidate than a fee.
+  nominationFeePesewas Int @default(0)
   createdAt  DateTime @default(now())
 
-  candidates ElectionCandidate[]
+  candidates    ElectionCandidate[]
+  formPurchases DocumentPurchase[]
 
   @@unique([electionId, title])
   @@map("election_positions")
@@ -566,6 +571,12 @@ model ElectionCandidate {
   reviewedById String?
   reviewedBy   AdminUser?      @relation("CandidateReviewer", fields: [reviewedById], references: [id])
   reviewedAt   DateTime?
+
+  /// What they put forward with their nomination: the CV the portal
+  /// prepared for them, or a document or picture of their own.
+  supportingUrl  String?
+  supportingName String?
+  usedPortalCv   Boolean @default(false)
 
   choices ElectionVoteChoice[]
 
@@ -641,6 +652,11 @@ model ElectionVoteChoice {
   candidateId String
   candidate   ElectionCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   positionId  String?
+
+  /// Where only one person stands, the question is not who but whether —
+  /// so a mark against the single candidate can be a no. Everything with
+  /// a real contest is always true.
+  approve     Boolean           @default(true)
 
   /// One mark per portfolio per paper, enforced here rather than trusted
   /// from the terminal.
@@ -1162,6 +1178,8 @@ enum DuesPaymentStatus {
 enum PaidDocumentKind {
   CV
   ID_CARD
+  /// The form a member buys in order to stand for a particular post.
+  NOMINATION_FORM
 }
 
 enum DocumentPurchaseStatus {
@@ -1378,6 +1396,10 @@ model DocumentPurchase {
   alumniProfile   AlumniProfile? @relation(fields: [alumniProfileId], references: [id], onDelete: Cascade)
 
   kind PaidDocumentKind
+
+  /// Which post the form was bought for, when it is a nomination form.
+  positionId String?
+  position   ElectionPosition? @relation(fields: [positionId], references: [id], onDelete: SetNull)
 
   /// Smallest currency unit (pesewas), as everywhere else money is stored.
   amountPesewas Int

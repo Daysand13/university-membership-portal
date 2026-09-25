@@ -9,18 +9,24 @@ import {
 import { revalidatePath } from "next/cache";
 import { requireCapability } from "@/lib/auth/admin";
 import { requireMember } from "@/lib/auth/member";
-import { CandidateStatus, ElectionPhase } from "@/generated/prisma/client";
+import { CandidateStatus, ElectionPhase, PaidDocumentKind } from "@/generated/prisma/client";
 import {
   candidateReviewSchema,
   candidateSchema,
+  duesRatesSchema,
   electionPhaseSchema,
   extendVotingSchema,
+  nominationFeeSchema,
   nominationSchema,
   positionSchema,
   stationSchema,
   accraInputToDate,
   votingWindowSchema,
 } from "@/lib/validations/elections";
+import { setDuesRates } from "@/lib/services/dues-rates-service";
+import { adoptBarrierEvidenceUpload, EnrollmentUploadError } from "@/lib/services/enrollment-upload-service";
+import { buildPublicUrl } from "@/lib/storage/r2";
+import { hasPaidFor } from "@/lib/services/document-purchase-service";
 import {
   addCandidate,
   addPosition,
@@ -30,6 +36,7 @@ import {
   nominateForElection,
   reviewCandidate,
   setElectionPhase,
+  setNominationFee,
   setResultsPublic,
   setVotingWindow,
 } from "@/lib/services/election-service";
@@ -144,11 +151,20 @@ async function addPositionActionImpl(
   formData: FormData,
 ): Promise<ActionState> {
   await requireCapability("elections.manage");
-  const parsed = positionSchema.safeParse({ title: text(formData, "title"), order: text(formData, "order") || 0 });
+  const parsed = positionSchema.safeParse({
+    title: text(formData, "title"),
+    order: text(formData, "order") || 0,
+    nominationFeePesewas: text(formData, "nominationFee") || 0,
+  });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
   try {
-    await addPosition({ electionId, title: parsed.data.title, order: parsed.data.order });
+    await addPosition({
+      electionId,
+      title: parsed.data.title,
+      order: parsed.data.order,
+      nominationFeePesewas: parsed.data.nominationFeePesewas,
+    });
   } catch {
     return { fieldErrors: { title: ["That post is already on this ballot"] } };
   }
@@ -257,6 +273,43 @@ async function setStationActiveActionImpl(stationId: string, isActive: boolean):
   revalidatePath("/admin/elections/stations");
 }
 
+// --- What things cost ------------------------------------------------------
+
+async function setNominationFeeActionImpl(
+  positionId: string,
+  electionId: string,
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireCapability("elections.commission");
+  const parsed = nominationFeeSchema.safeParse({ nominationFeePesewas: text(formData, "nominationFee") || 0 });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  await setNominationFee({ positionId, nominationFeePesewas: parsed.data.nominationFeePesewas, actor: admin });
+  revalidateElection(electionId);
+  return { success: true, message: "Saved. Anyone standing for this post pays the new figure." };
+}
+
+async function setDuesRatesActionImpl(_prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const admin = await requireCapability("finance.dues");
+  const parsed = duesRatesSchema.safeParse({
+    fresherOrPgFirstYear: text(formData, "fresherOrPgFirstYear"),
+    continuing: text(formData, "continuing"),
+    executive: text(formData, "executive"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  await setDuesRates({ rates: parsed.data, actor: admin });
+  revalidatePath("/admin/dues");
+  revalidatePath("/membership/dashboard/dues");
+  return {
+    success: true,
+    // Worth saying: an admin who thinks this re-bills everybody would be
+    // reluctant to touch it.
+    message: "Saved. Dues already paid keep the figure they were charged at.",
+  };
+}
+
 // --- Standing for office ---------------------------------------------------
 
 async function submitNominationActionImpl(
@@ -268,14 +321,50 @@ async function submitNominationActionImpl(
   const parsed = nominationSchema.safeParse({
     positionId: text(formData, "positionId"),
     manifesto: text(formData, "manifesto"),
+    supportingChoice: text(formData, "supportingChoice") || "none",
   });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  // The file itself went straight to storage; what arrives here is a
+  // signed ticket naming it, which is checked before anything is kept.
+  let supportingUrl: string | null = null;
+  let supportingName: string | null = null;
+  if (parsed.data.supportingChoice === "upload") {
+    try {
+      const upload = await adoptBarrierEvidenceUpload(text(formData, "supportingToken"));
+      if (upload) {
+        supportingUrl = buildPublicUrl(upload.objectKey);
+        supportingName = "Attachment";
+      }
+    } catch (err) {
+      if (err instanceof EnrollmentUploadError) return { fieldErrors: { supportingUrl: [err.message] } };
+      throw err;
+    }
+  }
+
+  // The commission asked for something alongside the form: the CV the
+  // portal prepared, or a document or picture of the member's own.
+  const usedPortalCv = parsed.data.supportingChoice === "portal-cv";
+  if (usedPortalCv && !(await hasPaidFor({ kind: "member", id: member.id, email: member.email }, PaidDocumentKind.CV))) {
+    return { error: "Your portal CV isn't paid for yet, so it can't be attached. Attach a file instead, or buy it." };
+  }
+  if (parsed.data.supportingChoice === "upload" && !supportingUrl) {
+    return { fieldErrors: { supportingUrl: ["Attach the document or picture"] } };
+  }
+  if (parsed.data.supportingChoice === "none") {
+    return { fieldErrors: { supportingChoice: ["Attach your CV or another document"] } };
+  }
 
   const result = await nominateForElection({
     electionId,
     memberId: member.id,
     positionId: parsed.data.positionId,
     manifesto: parsed.data.manifesto,
+    supporting: {
+      url: usedPortalCv ? null : supportingUrl,
+      name: usedPortalCv ? "Portal CV" : supportingName,
+      usedPortalCv,
+    },
   });
   if (!result.ok) return { error: result.error };
 
@@ -305,3 +394,5 @@ export const reissueStationKeyAction = withTypedActionErrorHandling(
 );
 export const setStationActiveAction = withVoidActionErrorHandling("setStationActiveAction", setStationActiveActionImpl);
 export const submitNominationAction = withActionErrorHandling("submitNominationAction", submitNominationActionImpl);
+export const setNominationFeeAction = withActionErrorHandling("setNominationFeeAction", setNominationFeeActionImpl);
+export const setDuesRatesAction = withActionErrorHandling("setDuesRatesAction", setDuesRatesActionImpl);

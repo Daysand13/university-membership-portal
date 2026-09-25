@@ -42,6 +42,10 @@ export function isDocumentPurchaseReference(reference: string): boolean {
 export const DOCUMENT_PRICES: Record<PaidDocumentKind, { pesewas: number; label: string }> = {
   [PaidDocumentKind.CV]: { pesewas: 20 * PESEWAS_PER_CEDI, label: "Curriculum vitae" },
   [PaidDocumentKind.ID_CARD]: { pesewas: 30 * PESEWAS_PER_CEDI, label: "Membership ID card" },
+  // A nomination form is priced by the commission, per post — see
+  // ElectionPosition.nominationFeePesewas. This is only the fallback for
+  // a post nobody has priced.
+  [PaidDocumentKind.NOMINATION_FORM]: { pesewas: 0, label: "Nomination form" },
 };
 
 /**
@@ -86,11 +90,17 @@ export function formatCedis(pesewas: number): string {
 }
 
 /** Has this person paid for this document, and is that payment still good? */
-export async function hasPaidFor(owner: PurchaseOwner, kind: PaidDocumentKind): Promise<boolean> {
+export async function hasPaidFor(
+  owner: PurchaseOwner,
+  kind: PaidDocumentKind,
+  /** For a nomination form: which post it was bought for. */
+  positionId?: string,
+): Promise<boolean> {
   const paid = await db.documentPurchase.findFirst({
     where: {
       ...ownerWhere(owner),
       kind,
+      ...(positionId ? { positionId } : {}),
       status: "SUCCESS",
       OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }],
     },
@@ -123,11 +133,13 @@ export async function startDocumentPurchase(params: {
   owner: PurchaseOwner;
   kind: PaidDocumentKind;
   callbackUrl: string;
+  /** A nomination form is bought for one post, at that post's price. */
+  position?: { id: string; title: string; nominationFeePesewas: number };
 }): Promise<StartPurchaseResult> {
-  const { owner, kind, callbackUrl } = params;
+  const { owner, kind, callbackUrl, position } = params;
 
-  if (await hasPaidFor(owner, kind)) {
-    return { ok: false, error: "You have already paid for this — it is ready to download." };
+  if (await hasPaidFor(owner, kind, position?.id)) {
+    return { ok: false, error: "You have already paid for this." };
   }
 
   if (!isPaystackConfigured()) {
@@ -138,13 +150,16 @@ export async function startDocumentPurchase(params: {
     };
   }
 
-  const price = priceOf(kind);
+  const price = position
+    ? { pesewas: position.nominationFeePesewas, label: `Nomination form — ${position.title}` }
+    : priceOf(kind);
   const reference = `${DOCUMENT_REFERENCE_PREFIX}${kind.toLowerCase()}-${randomUUID()}`;
 
   await db.documentPurchase.create({
     data: {
       ...ownerWhere(owner),
       kind,
+      positionId: position?.id ?? null,
       amountPesewas: price.pesewas,
       priceLabel: price.label,
       reference,
@@ -227,19 +242,23 @@ export async function recordCashDocumentPayment(params: {
   owner: PurchaseOwner;
   kind: PaidDocumentKind;
   admin: Pick<AdminUser, "id">;
+  position?: { id: string; title: string; nominationFeePesewas: number };
 }): Promise<{ ok: true; summary: string } | { ok: false; error: string }> {
-  const { owner, kind, admin } = params;
+  const { owner, kind, admin, position } = params;
 
-  if (await hasPaidFor(owner, kind)) {
-    return { ok: false, error: "They have already paid for that document." };
+  if (await hasPaidFor(owner, kind, position?.id)) {
+    return { ok: false, error: "They have already paid for that." };
   }
 
-  const price = priceOf(kind);
+  const price = position
+    ? { pesewas: position.nominationFeePesewas, label: `Nomination form — ${position.title}` }
+    : priceOf(kind);
   const paidAt = new Date();
   const purchase = await db.documentPurchase.create({
     data: {
       ...ownerWhere(owner),
       kind,
+      positionId: position?.id ?? null,
       amountPesewas: price.pesewas,
       priceLabel: price.label,
       reference: `cash-doc-${kind.toLowerCase()}-${randomUUID()}`,

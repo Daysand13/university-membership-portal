@@ -9,6 +9,7 @@ import {
 } from "@/lib/services/paystack-client";
 import { notifyCashDuesPaymentRemoved, notifyDuesPaymentReceived } from "@/lib/services/account-notification-service";
 import { ON_THE_ROLL } from "@/lib/services/membership-roll";
+import { getDuesRates } from "@/lib/services/dues-rates-service";
 
 /**
  * Yearly membership dues, charged through Paystack.
@@ -21,14 +22,6 @@ import { ON_THE_ROLL } from "@/lib/services/membership-roll";
  */
 
 const PESEWAS_PER_CEDI = 100;
-
-/** Fee schedule as agreed — everything is in whole cedis here for
- *  readability; converted to pesewas at the one place that needs it. */
-const FEE_SCHEDULE = {
-  fresherOrPgFirstYear: 60 * PESEWAS_PER_CEDI,
-  continuing: 50 * PESEWAS_PER_CEDI,
-  executive: 70 * PESEWAS_PER_CEDI,
-} as const;
 
 /**
  * The Ghanaian academic year runs roughly September to August, so a
@@ -73,21 +66,25 @@ async function isLinkedExecutive(memberId: string): Promise<boolean> {
 export async function getDuesFeeForMember(
   member: Pick<Member, "id" | "applicationTrack" | "level">,
 ): Promise<DuesFee> {
-  if (await isLinkedExecutive(member.id)) {
-    return { amountPesewas: FEE_SCHEDULE.executive, tierLabel: "Executive" };
+  // The rates are the executive's to set, so they are read rather than
+  // compiled in. See dues-rates-service.
+  const [executive, rates] = await Promise.all([isLinkedExecutive(member.id), getDuesRates()]);
+
+  if (executive) {
+    return { amountPesewas: rates.executive, tierLabel: "Executive" };
   }
 
   if (member.applicationTrack === "POSTGRADUATE") {
     if (member.level === "Year 1") {
-      return { amountPesewas: FEE_SCHEDULE.fresherOrPgFirstYear, tierLabel: "Postgraduate — First Year" };
+      return { amountPesewas: rates.fresherOrPgFirstYear, tierLabel: "Postgraduate — First Year" };
     }
-    return { amountPesewas: FEE_SCHEDULE.continuing, tierLabel: "Postgraduate — Continuing" };
+    return { amountPesewas: rates.continuing, tierLabel: "Postgraduate — Continuing" };
   }
 
   if (member.level === "Level 100") {
-    return { amountPesewas: FEE_SCHEDULE.fresherOrPgFirstYear, tierLabel: "Level 100 (Fresher)" };
+    return { amountPesewas: rates.fresherOrPgFirstYear, tierLabel: "Level 100 (Fresher)" };
   }
-  return { amountPesewas: FEE_SCHEDULE.continuing, tierLabel: member.level };
+  return { amountPesewas: rates.continuing, tierLabel: member.level };
 }
 
 /** The most recent payment attempt for this member and academic year, or

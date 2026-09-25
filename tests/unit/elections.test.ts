@@ -4,10 +4,13 @@ import { PHASE_LABELS, effectivePhase, isAcceptingVotes, msUntilClose } from "@/
 import {
   accraInputToDate,
   candidateReviewSchema,
+  duesRatesSchema,
+  nominationFeeSchema,
   dateToAccraInput,
   electionPhaseSchema,
   extendVotingSchema,
   nominationSchema,
+  positionSchema,
   stationSchema,
   votingWindowSchema,
 } from "@/lib/validations/elections";
@@ -126,5 +129,57 @@ describe("registering a terminal", () => {
   it("refuses a code with spaces or punctuation that would be mistyped in a hall", () => {
     expect(stationSchema.safeParse({ code: "LIB 1", name: "Main Library" }).success).toBe(false);
     expect(stationSchema.safeParse({ code: "L", name: "Main Library" }).success).toBe(false);
+  });
+});
+
+describe("what it costs to stand", () => {
+  it("takes whole cedis and stores pesewas", () => {
+    const parsed = positionSchema.safeParse({ title: "President", order: 0, nominationFeePesewas: "20" });
+    expect(parsed.success && parsed.data.nominationFeePesewas).toBe(2000);
+
+    const half = nominationFeeSchema.safeParse({ nominationFeePesewas: "12.50" });
+    expect(half.success && half.data.nominationFeePesewas).toBe(1250);
+  });
+
+  it("treats a post with no fee as free rather than broken", () => {
+    const free = positionSchema.safeParse({ title: "Organiser", order: 1, nominationFeePesewas: "0" });
+    expect(free.success && free.data.nominationFeePesewas).toBe(0);
+  });
+
+  it("refuses a negative fee, or one nobody would pay", () => {
+    expect(nominationFeeSchema.safeParse({ nominationFeePesewas: "-5" }).success).toBe(false);
+    expect(nominationFeeSchema.safeParse({ nominationFeePesewas: "5000" }).success).toBe(false);
+  });
+
+  it("takes all three dues rates in cedis", () => {
+    const parsed = duesRatesSchema.safeParse({
+      fresherOrPgFirstYear: "60",
+      continuing: "50",
+      executive: "70",
+    });
+    expect(parsed.success && parsed.data).toEqual({
+      fresherOrPgFirstYear: 6000,
+      continuing: 5000,
+      executive: 7000,
+    });
+  });
+});
+
+describe("a nomination", () => {
+  it("wants something attached to it", () => {
+    const bare = nominationSchema.safeParse({
+      positionId: "p1",
+      manifesto: "I would push for lecture notes in accessible formats within a week of every class.",
+    });
+    // The schema defaults to "none"; the action is what refuses that, so
+    // both halves are checked here.
+    expect(bare.success && bare.data.supportingChoice).toBe("none");
+
+    const withCv = nominationSchema.safeParse({
+      positionId: "p1",
+      manifesto: "I would push for lecture notes in accessible formats within a week of every class.",
+      supportingChoice: "portal-cv",
+    });
+    expect(withCv.success && withCv.data.supportingChoice).toBe("portal-cv");
   });
 });

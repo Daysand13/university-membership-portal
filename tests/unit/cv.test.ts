@@ -63,12 +63,18 @@ describe("what a member types into their CV", () => {
 });
 
 describe("paying for a document", () => {
-  it("prices every kind of document there is", () => {
+  it("names every kind of document there is", () => {
     for (const kind of Object.values(PaidDocumentKind)) {
-      const price = priceOf(kind);
-      expect(price.pesewas).toBeGreaterThan(0);
-      expect(price.label).toBeTruthy();
+      expect(priceOf(kind).label).toBeTruthy();
     }
+  });
+
+  it("prices the documents the association sets one price for", () => {
+    expect(priceOf(PaidDocumentKind.CV).pesewas).toBeGreaterThan(0);
+    expect(priceOf(PaidDocumentKind.ID_CARD).pesewas).toBeGreaterThan(0);
+    // A nomination form has no single price: the commission sets one per
+    // post, so this is only the fallback for a post nobody has priced.
+    expect(priceOf(PaidDocumentKind.NOMINATION_FORM).pesewas).toBe(0);
   });
 
   it("states money in cedis, never in pesewas", () => {

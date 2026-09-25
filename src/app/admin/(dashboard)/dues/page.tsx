@@ -8,6 +8,8 @@ import {
   formatPesewasAsCedis,
   filterDuesRows,
 } from "@/lib/services/dues-service";
+import { getDuesRates } from "@/lib/services/dues-rates-service";
+import { DuesRatesForm } from "@/components/admin/forms/PriceForms";
 import { recordCashDuesPaymentAction, removeCashDuesPaymentAction } from "@/lib/actions/admin-dues-actions";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { EmptyState } from "@/components/ui/Common";
@@ -29,7 +31,7 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
   await requireCapability("finance.dues");
   const sp = await searchParams;
   const academicYear = getCurrentAcademicYear();
-  const allRows = await listMemberDuesStatus(academicYear);
+  const [allRows, rates] = await Promise.all([listMemberDuesStatus(academicYear), getDuesRates()]);
 
   const search = (sp.q ?? "").trim();
   const rows = filterDuesRows(allRows, { status: sp.status, search });
@@ -72,6 +74,14 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
           <p className="text-2xl font-bold text-primary-950 mt-1">{formatPesewasAsCedis(totalCollectedPesewas)}</p>
         </div>
       </div>
+
+      <section className="mb-6 bg-white rounded-lg border border-line p-5">
+        <h2 className="font-display font-bold text-base text-primary-950">What dues cost</h2>
+        <p className="text-sm text-slate mt-0.5 mb-4">
+          The executive&apos;s figures. Change them here rather than asking anybody to change the software.
+        </p>
+        <DuesRatesForm rates={rates} />
+      </section>
 
       <form className="mb-6 bg-white rounded-lg border border-line p-4 flex flex-wrap items-end gap-3">
         <div className="flex-1 min-w-[15rem]">

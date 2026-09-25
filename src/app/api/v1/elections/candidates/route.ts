@@ -28,6 +28,9 @@ export async function GET(request: NextRequest) {
       id: position.id,
       title: position.title,
       order: position.order,
+      // One candidate is not a choice. The terminal asks whether to have
+      // them rather than offering a list of one.
+      unopposed: position.candidates.length === 1,
       candidates: position.candidates,
     })),
   });

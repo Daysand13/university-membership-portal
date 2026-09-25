@@ -181,6 +181,15 @@ function renderPosition() {
 
   const container = el("candidates");
   container.innerHTML = "";
+
+  // Only one person standing: the question is whether to have them, not
+  // which of them. Offering a list of one and calling it a choice would
+  // be a pretence, and it would make a no impossible to express.
+  if (position.unopposed && position.candidates.length === 1) {
+    renderYesNo(position, container);
+    return;
+  }
+
   position.candidates.forEach((candidate, i) => {
     const id = `candidate-${candidate.id}`;
     const label = document.createElement("label");
@@ -240,10 +249,88 @@ function renderPosition() {
   live(`${position.title}: ${position.candidates.length} standing.`);
 }
 
-function recordChoice(candidateId) {
+/**
+ * An unopposed post: the candidate, and a straight yes or no.
+ *
+ * Rendered as two radios rather than two buttons so the whole screen
+ * still works the same way as every other post — one mark, then Next —
+ * and so a screen reader announces it as the one question it is.
+ */
+function renderYesNo(position, container) {
+  const candidate = position.candidates[0];
+
+  const intro = document.createElement("p");
+  intro.className = "hint";
+  intro.textContent = `${candidate.name} is standing unopposed. Should they take this post?`;
+  container.appendChild(intro);
+
+  if (candidate.photoUrl) {
+    const photo = document.createElement("img");
+    photo.src = candidate.photoUrl;
+    photo.alt = "";
+    photo.className = "candidate-photo";
+    container.appendChild(photo);
+  }
+
+  const name = document.createElement("p");
+  name.className = "candidate-name";
+  name.textContent = candidate.name;
+  container.appendChild(name);
+
+  if (candidate.manifesto) {
+    const manifesto = document.createElement("p");
+    manifesto.className = "candidate-manifesto";
+    manifesto.textContent = candidate.manifesto;
+    container.appendChild(manifesto);
+  }
+
+  [
+    { value: "yes", label: `Yes — ${candidate.name} should take this post` },
+    { value: "no", label: `No — ${candidate.name} should not take this post` },
+  ].forEach((option, i) => {
+    const id = `answer-${option.value}`;
+    const label = document.createElement("label");
+    label.className = "candidate";
+    label.htmlFor = id;
+
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "candidate";
+    input.id = id;
+    input.value = candidate.id;
+    input.dataset.approve = option.value === "yes" ? "true" : "false";
+
+    const number = document.createElement("span");
+    number.className = "number";
+    number.setAttribute("aria-hidden", "true");
+    number.textContent = String(i + 1);
+
+    const text = document.createElement("span");
+    text.className = "candidate-text";
+    const line = document.createElement("span");
+    line.className = "candidate-name";
+    line.textContent = option.value === "yes" ? "Yes" : "No";
+    text.appendChild(line);
+    const spoken = document.createElement("span");
+    spoken.className = "candidate-manifesto";
+    spoken.textContent = option.label;
+    text.appendChild(spoken);
+
+    label.append(input, number, text);
+    container.appendChild(label);
+  });
+
+  show("ballot");
+  announce(
+    `${position.title}. ${candidate.name} is standing unopposed. Press 1 for yes, 2 for no, or skip this post.`,
+  );
+  live(`${position.title}: ${candidate.name}, unopposed. Yes or no.`);
+}
+
+function recordChoice(candidateId, approve = true) {
   const position = state.positions[session.index];
   session.choices = session.choices.filter((c) => c.positionId !== position.id);
-  if (candidateId) session.choices.push({ positionId: position.id, candidateId });
+  if (candidateId) session.choices.push({ positionId: position.id, candidateId, approve });
   session.index += 1;
   renderPosition();
 }
@@ -257,13 +344,20 @@ function renderReview() {
     const choice = session.choices.find((c) => c.positionId === position.id);
     const candidate = position.candidates.find((c) => c.id === choice?.candidateId);
 
+    let answer = "Skipped";
+    if (candidate && position.unopposed) {
+      answer = choice.approve ? `Yes — ${candidate.name}` : `No — ${candidate.name}`;
+    } else if (candidate) {
+      answer = candidate.name;
+    }
+
     const dt = document.createElement("dt");
     dt.textContent = position.title;
     const dd = document.createElement("dd");
-    dd.textContent = candidate ? candidate.name : "Skipped";
+    dd.textContent = answer;
     if (!candidate) dd.className = "skipped";
     list.append(dt, dd);
-    spoken.push(`${position.title}: ${candidate ? candidate.name : "skipped"}.`);
+    spoken.push(`${position.title}: ${candidate ? answer : "skipped"}.`);
   }
 
   show("review");
@@ -343,7 +437,7 @@ el("skip").addEventListener("click", () => recordChoice(null));
 el("ballot-form").addEventListener("submit", (event) => {
   event.preventDefault();
   const chosen = el("candidates").querySelector("input[name='candidate']:checked");
-  recordChoice(chosen ? chosen.value : null);
+  recordChoice(chosen ? chosen.value : null, chosen ? chosen.dataset.approve !== "false" : true);
 });
 el("review-back").addEventListener("click", () => {
   session.index = 0;
@@ -418,10 +512,17 @@ const bridge = window.ballot ?? {
       {
         id: "p1",
         title: "President",
+        unopposed: false,
         candidates: [
           { id: "c1", name: "Ama Mensah", manifesto: "Lecture notes in accessible formats within a week." },
           { id: "c2", name: "Kojo Addo", manifesto: "A quiet study room in every hall." },
         ],
+      },
+      {
+        id: "p2",
+        title: "Treasurer",
+        unopposed: true,
+        candidates: [{ id: "c3", name: "Yaw Boateng", manifesto: "Accounts published every term." }],
       },
     ],
   }),

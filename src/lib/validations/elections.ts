@@ -51,9 +51,29 @@ export const electionPhaseSchema = z.object({
   notice: optionalText(NOTE_TEXT),
 });
 
+/** Whole cedis in, pesewas out — nobody types "2000" meaning twenty. */
+const feeInCedis = z.coerce
+  .number()
+  .min(0, "A fee cannot be negative")
+  .max(1000, "That is more than anybody would pay to stand")
+  .default(0)
+  .transform((cedis) => Math.round(cedis * 100));
+
 export const positionSchema = z.object({
   title: z.string().trim().min(2, "Name the post").max(SHORT_TEXT),
   order: z.coerce.number().int().min(0).max(99).default(0),
+  nominationFeePesewas: feeInCedis,
+});
+
+export const nominationFeeSchema = z.object({
+  nominationFeePesewas: feeInCedis,
+});
+
+/** What the association charges its members each year. */
+export const duesRatesSchema = z.object({
+  fresherOrPgFirstYear: feeInCedis,
+  continuing: feeInCedis,
+  executive: feeInCedis,
 });
 
 export const candidateSchema = z.object({
@@ -77,6 +97,10 @@ export const nominationSchema = z.object({
     .trim()
     .min(40, "Say a little more about what you would do — at least forty characters")
     .max(MANIFESTO_TEXT),
+  /** "portal-cv", or a file they uploaded themselves. */
+  supportingChoice: z.enum(["portal-cv", "upload", "none"]).default("none"),
+  supportingUrl: optionalText(500),
+  supportingName: optionalText(SHORT_TEXT),
 });
 
 export const stationSchema = z.object({
