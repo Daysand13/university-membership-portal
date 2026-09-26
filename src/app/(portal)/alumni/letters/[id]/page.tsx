@@ -97,7 +97,7 @@ export default async function AlumniLetterPage({
               </p>
               <p className="mt-4">
                 <a href={`/api/alumni/letters/${row.id}`} className={buttonClasses("primary", "md")}>
-                  <Download size={16} aria-hidden="true" /> Download (Word)
+                  <Download size={16} aria-hidden="true" /> Download (PDF)
                 </a>
               </p>
             </>
@@ -105,7 +105,7 @@ export default async function AlumniLetterPage({
             <>
               <p className="text-ink mt-2">
                 {price} for this letter. Writing and correcting it costs nothing — you pay when you want the laid-out
-                Word copy.
+                PDF.
               </p>
               <div className="mt-4">
                 <PayForLetterButton letterId={row.id} amount={price} portal="alumni" />

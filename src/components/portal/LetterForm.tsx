@@ -252,8 +252,8 @@ export function LetterForm({
         <Field
           id="letter-subject"
           name="subject"
-          label="What it is about"
-          hint="Printed in bold above the letter, so a busy office knows before reading it."
+          label="Heading"
+          hint="Printed in bold above the letter, so a busy office knows what it is about before reading it."
           defaultValue={letter.subject}
           errors={fe.subject}
           wide

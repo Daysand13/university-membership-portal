@@ -22,7 +22,7 @@ const dateFormat = new Intl.DateTimeFormat("en-GH", {
 /**
  * Letters somebody has written.
  *
- * Writing and correcting are free; a laid-out Word copy is what costs, and
+ * Writing and correcting are free; the laid-out PDF is what costs, and
  * it is charged per letter — somebody who needs one letter should not be
  * asked to buy a subscription to write it.
  */
@@ -44,7 +44,7 @@ export default async function LettersPage({ searchParams }: { searchParams: Prom
     <>
       <PortalPageHeader
         title="My Letters"
-        description="Write a letter in its parts and the association lays it out properly and hands it back as a Word document."
+        description="Write a letter in its parts and the association lays it out properly and hands it back as a PDF you can print or send."
       />
 
       {notice && (
@@ -86,7 +86,7 @@ export default async function LettersPage({ searchParams }: { searchParams: Prom
               </span>
               {paidIds.has(letter.id) ? (
                 <a href={`/api/membership/letters/${letter.id}`} className={buttonClasses("outline", "sm")}>
-                  Download (Word)
+                  Download (PDF)
                 </a>
               ) : (
                 <span className="text-sm text-slate">Draft</span>

@@ -53,7 +53,7 @@ export default async function AlumniLettersPage({
     <>
       <PortalPageHeader
         title="My Letters"
-        description="Write a letter in its parts and the association lays it out properly and hands it back as a Word document."
+        description="Write a letter in its parts and the association lays it out properly and hands it back as a PDF you can print or send."
       />
 
       {notice && (
@@ -95,7 +95,7 @@ export default async function AlumniLettersPage({
               </span>
               {paidIds.has(letter.id) ? (
                 <a href={`/api/alumni/letters/${letter.id}`} className={buttonClasses("outline", "sm")}>
-                  Download (Word)
+                  Download (PDF)
                 </a>
               ) : (
                 <span className="text-sm text-slate">Draft</span>
