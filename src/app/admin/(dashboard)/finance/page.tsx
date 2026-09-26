@@ -21,8 +21,8 @@ export default async function AdminFinancePage() {
     <div>
       <h1 className="font-display font-bold text-2xl text-primary-950 mb-1">Finance</h1>
       <p className="text-sm text-slate mb-4 max-w-3xl">
-        What patrons see on the Finances page of their portal: money raised from dues and donations, and spending you
-        record here.
+        What patrons see on the Finances page of their portal: money raised from dues, donations and the documents
+        the association prepares, beside the spending you record here.
       </p>
       <FinanceSectionNav current="overview" />
 
@@ -34,9 +34,10 @@ export default async function AdminFinancePage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <StatCard icon={Wallet} label="Total Raised" value={formatCedis(totals.raised)} />
         <StatCard icon={HandHeart} label="Donations" value={formatCedis(totals.patronDonations + totals.otherDonations)} href="/admin/finance/donations" />
+        <StatCard icon={FileText} label="Documents" value={formatCedis(totals.documents)} href="/admin/finance/documents" />
         <StatCard icon={Receipt} label="Expenses" value={formatCedis(totals.expenses)} href="/admin/finance/expenses" />
         <StatCard icon={Scale} label="Balance" value={formatCedis(totals.balance)} />
       </div>
@@ -54,16 +55,16 @@ export default async function AdminFinancePage() {
                 label: "Raised",
                 series: [
                   { key: "dues", label: "Dues", color: "var(--viz-dues)" },
-                  { key: "patronDonations", label: "Patron donations", color: "var(--viz-patron)" },
-                  { key: "otherDonations", label: "Other donations", color: "var(--viz-other)" },
+                  { key: "donations", label: "Donations", color: "var(--viz-patron)" },
+                  { key: "documents", label: "Documents", color: "var(--viz-documents)" },
                 ],
               },
               { key: "spent", label: "Expenses", series: [{ key: "expenses", label: "Expenses", color: "var(--viz-expense)" }] },
             ]}
             values={{
               dues: months.map((m) => m.dues),
-              patronDonations: months.map((m) => m.patronDonations),
-              otherDonations: months.map((m) => m.otherDonations),
+              donations: months.map((m) => m.patronDonations + m.otherDonations),
+              documents: months.map((m) => m.documents),
               expenses: months.map((m) => m.expenses),
             }}
             formatValue={(n) => formatCedis(n)}

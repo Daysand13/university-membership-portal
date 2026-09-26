@@ -1,10 +1,15 @@
 import Link from "next/link";
-import { BarChart3, HandHeart, Receipt } from "lucide-react";
+import { BarChart3, FileText, HandHeart, Receipt } from "lucide-react";
 
-export function FinanceSectionNav({ current }: { current: "overview" | "donations" | "expenses" }) {
+export function FinanceSectionNav({
+  current,
+}: {
+  current: "overview" | "donations" | "documents" | "expenses";
+}) {
   const tabs = [
     { key: "overview", href: "/admin/finance", label: "Overview", icon: BarChart3 },
     { key: "donations", href: "/admin/finance/donations", label: "Donations", icon: HandHeart },
+    { key: "documents", href: "/admin/finance/documents", label: "Documents", icon: FileText },
     { key: "expenses", href: "/admin/finance/expenses", label: "Expenses", icon: Receipt },
   ] as const;
   return (

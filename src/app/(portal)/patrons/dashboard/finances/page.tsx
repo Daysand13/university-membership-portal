@@ -132,16 +132,16 @@ export default async function PatronFinancesPage({
               label: "Raised",
               series: [
                 { key: "dues", label: "Dues", color: "var(--viz-dues)" },
-                { key: "patronDonations", label: "Patron donations", color: "var(--viz-patron)" },
-                { key: "otherDonations", label: "Other donations", color: "var(--viz-other)" },
+                { key: "donations", label: "Donations", color: "var(--viz-patron)" },
+                { key: "documents", label: "Documents", color: "var(--viz-documents)" },
               ],
             },
             { key: "spent", label: "Expenses", series: [{ key: "expenses", label: "Expenses", color: "var(--viz-expense)" }] },
           ]}
           values={{
             dues: periods.map((p) => p.dues),
-            patronDonations: periods.map((p) => p.patronDonations),
-            otherDonations: periods.map((p) => p.otherDonations),
+            donations: periods.map((p) => p.patronDonations + p.otherDonations),
+            documents: periods.map((p) => p.documents),
             expenses: periods.map((p) => p.expenses),
           }}
           formatValue={(n) => formatCedis(n)}

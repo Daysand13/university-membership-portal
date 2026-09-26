@@ -114,10 +114,11 @@ describe("patron donations", () => {
   });
 
   it("puts each payment in its month and splits patron from other donations", () => {
+    const empty = { dues: 0, patronDonations: 0, otherDonations: 0, documents: 0, expenses: 0 };
     const periods = bucketFinances(
       [
-        { key: "2026-08", label: "Aug", dues: 0, patronDonations: 0, otherDonations: 0, expenses: 0 },
-        { key: "2026-09", label: "Sep", dues: 0, patronDonations: 0, otherDonations: 0, expenses: 0 },
+        { key: "2026-08", label: "Aug", ...empty },
+        { key: "2026-09", label: "Sep", ...empty },
       ],
       (d) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`,
       {
@@ -129,11 +130,42 @@ describe("patron donations", () => {
           { amountPesewas: 2000, paidAt: new Date("2026-08-31T23:59:00Z"), patronId: "p1", fund: "GENERAL" },
           { amountPesewas: 3000, paidAt: new Date("2026-09-01T00:00:00Z"), patronId: null, fund: "GENERAL" },
         ],
+        documents: [
+          { amountPesewas: 2000, paidAt: new Date("2026-09-04T09:00:00Z"), kind: "CV" },
+          // Never paid for, so it belongs to no month.
+          { amountPesewas: 1000, paidAt: null, kind: "LETTER" },
+        ],
         expenses: [{ amountPesewas: 700, spentOn: new Date("2026-09-10T12:00:00Z"), category: "EVENTS" }],
       },
     );
-    expect(periods[0]).toMatchObject({ dues: 0, patronDonations: 2000, otherDonations: 0 });
-    expect(periods[1]).toMatchObject({ dues: 5000, patronDonations: 0, otherDonations: 3000, expenses: 700 });
+    expect(periods[0]).toMatchObject({ dues: 0, patronDonations: 2000, otherDonations: 0, documents: 0 });
+    expect(periods[1]).toMatchObject({
+      dues: 5000,
+      patronDonations: 0,
+      otherDonations: 3000,
+      documents: 2000,
+      expenses: 700,
+    });
+  });
+
+  it("counts what members paid for their documents as money the association raised", () => {
+    // A CV, an ID card or a letter is sold at a price the executive sets;
+    // leaving it out of the books made the association look poorer than it is.
+    const [period] = bucketFinances(
+      [{ key: "2026-09", label: "Sep", dues: 0, patronDonations: 0, otherDonations: 0, documents: 0, expenses: 0 }],
+      () => "2026-09",
+      {
+        dues: [],
+        donations: [],
+        documents: [
+          { amountPesewas: 2000, paidAt: new Date("2026-09-04T09:00:00Z"), kind: "CV" },
+          { amountPesewas: 3000, paidAt: new Date("2026-09-06T09:00:00Z"), kind: "ID_CARD" },
+          { amountPesewas: 1000, paidAt: new Date("2026-09-07T09:00:00Z"), kind: "LETTER" },
+        ],
+        expenses: [],
+      },
+    );
+    expect(period.documents).toBe(6000);
   });
 });
 

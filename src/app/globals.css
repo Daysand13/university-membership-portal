@@ -354,6 +354,7 @@
   --viz-dues: #2a78d6;
   --viz-patron: #eb6834;
   --viz-other: #1baf7a;
+  --viz-documents: #1baf7a;
   --viz-expense: #4a3aa7;
   --viz-students: #4a3aa7;
   --viz-alumni: #e87ba4;
@@ -365,7 +366,11 @@
   --viz-dues: #3987e5;
   --viz-patron: #d95926;
   --viz-other: #199e70;
-  --viz-expense: #9085e9;
+  --viz-documents: #199e70;
+  /* Re-stepped away from --viz-dues: the old violet and the dues blue were
+     ΔE 9.8 apart to normal vision and 1.9 under protanopia, which is to say
+     indistinguishable. This clears both. */
+  --viz-expense: #c25fc0;
   --viz-students: #9085e9;
   --viz-alumni: #d55181;
 }

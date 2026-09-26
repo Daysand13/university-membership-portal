@@ -1,10 +1,11 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
-import type { DonationFund, ExpenseCategory, PatronProfile } from "@/generated/prisma/client";
+import type { DonationFund, ExpenseCategory, PaidDocumentKind, PatronProfile } from "@/generated/prisma/client";
 import { initializeTransaction, isPaystackConfigured, verifyTransaction } from "@/lib/services/paystack-client";
 import { notifyDonationReceived } from "@/lib/services/patron-portal-notification-service";
 import { DONATION_FUNDS, EXPENSE_CATEGORIES } from "@/lib/patron-portal-options";
+import { priceOf } from "@/lib/services/document-purchase-service";
 
 /**
  * The money side of the Patrons' Portal: patrons' online donations (through
@@ -326,6 +327,8 @@ export interface FinancePeriod {
   dues: number;
   patronDonations: number;
   otherDonations: number;
+  /** CVs, ID cards, letters and nomination forms members paid for. */
+  documents: number;
   expenses: number;
 }
 
@@ -333,7 +336,7 @@ type Money = { amountPesewas: number };
 
 async function loadMoney(since: Date | null) {
   const range = since ? { gte: since } : undefined;
-  const [dues, donations, expenses] = await Promise.all([
+  const [dues, donations, documents, expenses] = await Promise.all([
     db.duesPayment.findMany({
       where: { status: "SUCCESS", ...(range ? { paidAt: range } : {}) },
       select: { amountPesewas: true, paidAt: true },
@@ -342,12 +345,19 @@ async function loadMoney(since: Date | null) {
       where: { status: "SUCCESS", ...(range ? { paidAt: range } : {}) },
       select: { amountPesewas: true, paidAt: true, patronId: true, fund: true },
     }),
+    // What members paid for the documents the association prepares. It is
+    // association income like any other, and leaving it out of the books
+    // made the association look poorer than it is.
+    db.documentPurchase.findMany({
+      where: { status: "SUCCESS", ...(range ? { paidAt: range } : {}) },
+      select: { amountPesewas: true, paidAt: true, kind: true },
+    }),
     db.expense.findMany({
       where: range ? { spentOn: range } : {},
       select: { amountPesewas: true, spentOn: true, category: true },
     }),
   ]);
-  return { dues, donations, expenses };
+  return { dues, donations, documents, expenses };
 }
 
 const sum = (rows: Money[]) => rows.reduce((total, row) => total + row.amountPesewas, 0);
@@ -357,18 +367,28 @@ export interface FinanceTotals {
   dues: number;
   patronDonations: number;
   otherDonations: number;
+  documents: number;
   expenses: number;
   balance: number;
 }
 
 export async function getFinanceTotals(): Promise<FinanceTotals> {
-  const { dues, donations, expenses } = await loadMoney(null);
+  const { dues, donations, documents, expenses } = await loadMoney(null);
   const patronDonations = sum(donations.filter((d) => d.patronId));
   const otherDonations = sum(donations.filter((d) => !d.patronId));
   const duesTotal = sum(dues);
-  const raised = duesTotal + patronDonations + otherDonations;
+  const documentsTotal = sum(documents);
+  const raised = duesTotal + patronDonations + otherDonations + documentsTotal;
   const spent = sum(expenses);
-  return { raised, dues: duesTotal, patronDonations, otherDonations, expenses: spent, balance: raised - spent };
+  return {
+    raised,
+    dues: duesTotal,
+    patronDonations,
+    otherDonations,
+    documents: documentsTotal,
+    expenses: spent,
+    balance: raised - spent,
+  };
 }
 
 const monthLabel = new Intl.DateTimeFormat("en-GH", { month: "short", year: "numeric", timeZone: "UTC" });
@@ -379,7 +399,7 @@ function monthKey(date: Date): string {
 }
 
 function emptyPeriod(key: string, label: string): FinancePeriod {
-  return { key, label, dues: 0, patronDonations: 0, otherDonations: 0, expenses: 0 };
+  return { key, label, dues: 0, patronDonations: 0, otherDonations: 0, documents: 0, expenses: 0 };
 }
 
 export function bucketFinances(
@@ -397,6 +417,10 @@ export function bucketFinances(
     if (!period) continue;
     if (row.patronId) period.patronDonations += row.amountPesewas;
     else period.otherDonations += row.amountPesewas;
+  }
+  for (const row of data.documents) {
+    const period = row.paidAt && byKey.get(keyOf(row.paidAt));
+    if (period) period.documents += row.amountPesewas;
   }
   for (const row of data.expenses) {
     const period = byKey.get(keyOf(row.spentOn));
@@ -456,6 +480,53 @@ export async function getDonationTotalsByFund(): Promise<{ fund: string; label: 
  * Patrons who have given and agreed to be named, in the order they first
  * gave. Names only — never amounts.
  */
+/**
+ * What each kind of document has brought in, largest first.
+ *
+ * The association sells four things — a CV, an ID card, a letter, a
+ * nomination form — at prices the executive sets, and this is the answer
+ * to "is any of that worth the trouble".
+ */
+export async function getDocumentSales(): Promise<
+  { kind: PaidDocumentKind; label: string; count: number; amountPesewas: number }[]
+> {
+  const groups = await db.documentPurchase.groupBy({
+    by: ["kind"],
+    where: { status: "SUCCESS" },
+    _sum: { amountPesewas: true },
+    _count: { _all: true },
+  });
+  return groups
+    .map((group) => ({
+      kind: group.kind,
+      label: priceOf(group.kind).label,
+      count: group._count._all,
+      amountPesewas: group._sum.amountPesewas ?? 0,
+    }))
+    .sort((a, b) => b.amountPesewas - a.amountPesewas);
+}
+
+/** Every document sale, newest first, for the finance ledger. */
+export async function listDocumentSales(limit = 200) {
+  return db.documentPurchase.findMany({
+    where: { status: "SUCCESS" },
+    orderBy: [{ paidAt: "desc" }, { createdAt: "desc" }],
+    take: limit,
+    select: {
+      id: true,
+      kind: true,
+      amountPesewas: true,
+      priceLabel: true,
+      paidAt: true,
+      createdAt: true,
+      reference: true,
+      member: { select: { id: true, firstName: true, middleName: true, lastName: true } },
+      alumniProfile: { select: { id: true, fullName: true } },
+      recordedBy: { select: { name: true } },
+    },
+  });
+}
+
 export async function getHonorRoll(): Promise<{ patronId: string; name: string; organization: string | null }[]> {
   const donations = await db.donation.findMany({
     where: { status: "SUCCESS", anonymous: false, patronId: { not: null }, patron: { status: "APPROVED" } },

@@ -167,7 +167,7 @@ export default async function PatronDashboardPage() {
             </Link>
           }
         >
-          <p className="text-sm text-slate mb-3">Dues and donations received over the last six months.</p>
+          <p className="text-sm text-slate mb-3">Dues, donations and document fees received over the last six months.</p>
           <ColumnChart
             label="Money received per month over the last six months, by source"
             categories={months.map((m) => m.label)}
@@ -177,15 +177,15 @@ export default async function PatronDashboardPage() {
                 label: "Received",
                 series: [
                   { key: "dues", label: "Dues", color: "var(--viz-dues)" },
-                  { key: "patronDonations", label: "Patron donations", color: "var(--viz-patron)" },
-                  { key: "otherDonations", label: "Other donations", color: "var(--viz-other)" },
+                  { key: "donations", label: "Donations", color: "var(--viz-patron)" },
+                  { key: "documents", label: "Documents", color: "var(--viz-documents)" },
                 ],
               },
             ]}
             values={{
               dues: months.map((m) => m.dues),
-              patronDonations: months.map((m) => m.patronDonations),
-              otherDonations: months.map((m) => m.otherDonations),
+              donations: months.map((m) => m.patronDonations + m.otherDonations),
+              documents: months.map((m) => m.documents),
             }}
             formatValue={(n) => formatCedis(n)}
             formatTick={(n) => formatCedis(n, { compact: true })}
