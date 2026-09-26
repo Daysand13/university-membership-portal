@@ -114,11 +114,10 @@ export function SignaturePad({
 
       <fieldset className="mb-4">
         <legend className="text-sm font-medium text-primary-950 mb-1.5">How would you like to sign?</legend>
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2">
           {[
             { value: SignatureKind.TYPED, label: "Type my initials", icon: <Type size={16} aria-hidden="true" /> },
             { value: SignatureKind.DRAWN, label: "Draw it", icon: <PenLine size={16} aria-hidden="true" /> },
-            { value: SignatureKind.NONE, label: "Leave it unsigned", icon: null },
           ].map((option) => (
             <label
               key={option.value}
