@@ -1001,6 +1001,8 @@ export interface MemberListFilter {
   membershipType?: string;
   gender?: string;
   applicationTrack?: string;
+  /** "Level 200" for an undergraduate, "Year 2" for a postgraduate. */
+  level?: string;
   campus?: string;
   status?: string;
   dateFrom?: string;
@@ -1038,6 +1040,7 @@ function buildMemberWhere(filter?: MemberListFilter): Prisma.MemberWhereInput {
   if (filter?.membershipType) and.push({ membershipType: filter.membershipType as MembershipType });
   if (filter?.gender) and.push({ gender: filter.gender as Gender });
   if (filter?.applicationTrack) and.push({ applicationTrack: filter.applicationTrack as ApplicationTrack });
+  if (filter?.level) and.push({ level: filter.level });
   if (filter?.campus) and.push({ campus: filter.campus });
   if (filter?.status) and.push({ status: filter.status as MemberStatus });
   if (filter?.dateFrom) and.push({ createdAt: { gte: new Date(filter.dateFrom) } });

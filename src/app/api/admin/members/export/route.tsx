@@ -26,6 +26,7 @@ function buildFilterSummary(sp: URLSearchParams): string {
   }
   if (sp.get("gender")) parts.push(`Gender: ${sp.get("gender") === "MALE" ? "Male" : "Female"}`);
   if (sp.get("track")) parts.push(`Track: ${sp.get("track") === "UNDERGRADUATE" ? "Undergraduate" : "Postgraduate"}`);
+  if (sp.get("level")) parts.push(`Level: ${sp.get("level")}`);
   if (sp.get("campus")) parts.push(`Campus: ${sp.get("campus")}`);
   if (sp.get("status")) parts.push(`Status: ${sp.get("status")}`);
   if (sp.get("from")) parts.push(`From: ${sp.get("from")}`);
@@ -53,6 +54,7 @@ export async function GET(request: NextRequest) {
       membershipType: sp.get("membershipType") ?? undefined,
       gender: sp.get("gender") ?? undefined,
       applicationTrack: sp.get("track") ?? undefined,
+      level: sp.get("level") ?? undefined,
       campus: sp.get("campus") ?? undefined,
       status: sp.get("status") ?? undefined,
       dateFrom: sp.get("from") ?? undefined,

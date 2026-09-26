@@ -54,6 +54,8 @@ export async function GET(request: NextRequest) {
   const filter: DuesFilter = {
     status: statusParam === "paid" || statusParam === "unpaid" ? statusParam : undefined,
     search: request.nextUrl.searchParams.get("q") ?? undefined,
+    track: request.nextUrl.searchParams.get("track") ?? undefined,
+    level: request.nextUrl.searchParams.get("level") ?? undefined,
   };
 
   const [allRows, brand] = await Promise.all([listMemberDuesStatus(academicYear), getEmailBrand()]);

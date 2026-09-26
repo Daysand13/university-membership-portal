@@ -415,6 +415,10 @@ export interface DuesFilter {
   status?: "paid" | "unpaid";
   /** A name or an index number, whole or part. */
   search?: string;
+  /** UNDERGRADUATE or POSTGRADUATE; anything else means both. */
+  track?: string;
+  /** "Level 200" for an undergraduate, "Year 2" for a postgraduate. */
+  level?: string;
 }
 
 /**
@@ -433,6 +437,8 @@ export function filterDuesRows(rows: MemberDuesRow[], filter: DuesFilter): Membe
   return rows.filter((row) => {
     if (filter.status === "paid" && !row.paid) return false;
     if (filter.status === "unpaid" && row.paid) return false;
+    if (filter.track && row.applicationTrack !== filter.track) return false;
+    if (filter.level && row.level !== filter.level) return false;
     if (!term) return true;
     return row.fullName.toLowerCase().includes(term) || row.indexNumber.toLowerCase().includes(term);
   });
@@ -443,6 +449,8 @@ export function describeDuesFilter(filter: DuesFilter): string {
   const parts: string[] = [];
   if (filter.status === "paid") parts.push("Paid only");
   if (filter.status === "unpaid") parts.push("Unpaid only");
+  if (filter.track) parts.push(filter.track === "POSTGRADUATE" ? "Postgraduate" : "Undergraduate");
+  if (filter.level) parts.push(filter.level);
   if (filter.search?.trim()) parts.push(`Matching "${filter.search.trim()}"`);
   return parts.length ? `Filters applied — ${parts.join(" · ")}` : "";
 }

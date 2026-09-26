@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/Common";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { DataTable, type Column } from "@/components/admin/DataTable";
 import { FilterActions, FilterBar, FilterField, FilterSearch, filterControlClasses } from "@/components/admin/FilterBar";
+import { TrackLevelFilter } from "@/components/admin/TrackLevelFilter";
 import { listMembers, getMemberFilterOptions, MEMBER_SORT_OPTIONS, type MemberSort } from "@/lib/services/membership-service";
 import { deleteMemberAction } from "@/lib/actions/membership-actions";
 import { getCurrentAdmin, requireCapability } from "@/lib/auth/admin";
@@ -27,6 +28,7 @@ interface MembersSearchParams {
   membershipType?: string;
   gender?: string;
   track?: string;
+  level?: string;
   campus?: string;
   status?: string;
   from?: string;
@@ -52,6 +54,7 @@ export default async function AdminMembersPage({ searchParams }: { searchParams:
       membershipType: sp.membershipType,
       gender: sp.gender,
       applicationTrack: sp.track,
+      level: sp.level,
       campus: sp.campus,
       status: sp.status,
       dateFrom: sp.from,
@@ -172,13 +175,7 @@ export default async function AdminMembersPage({ searchParams }: { searchParams:
             <option value="FEMALE">Female</option>
           </select>
         </FilterField>
-        <FilterField id="members-track" label="Track">
-          <select id="members-track" name="track" defaultValue={sp.track ?? ""} className={filterControlClasses}>
-            <option value="">Undergraduate &amp; postgraduate</option>
-            <option value="UNDERGRADUATE">Undergraduate</option>
-            <option value="POSTGRADUATE">Postgraduate</option>
-          </select>
-        </FilterField>
+        <TrackLevelFilter idPrefix="members" track={sp.track} level={sp.level} />
         <FilterField id="members-campus" label="Campus">
           <select id="members-campus" name="campus" defaultValue={sp.campus ?? ""} className={filterControlClasses}>
             <option value="">All campuses</option>

@@ -14,6 +14,7 @@ import { recordCashDuesPaymentAction, removeCashDuesPaymentAction } from "@/lib/
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { DataTable, type Column } from "@/components/admin/DataTable";
 import { filterControlClasses } from "@/components/admin/FilterBar";
+import { TrackLevelFilter } from "@/components/admin/TrackLevelFilter";
 import { EmptyState } from "@/components/ui/Common";
 
 export const metadata = { title: "Membership Dues" };
@@ -27,6 +28,9 @@ interface DuesSearchParams {
   status?: "paid" | "unpaid";
   /** A name or an index number — whoever the officer at the desk is looking for. */
   q?: string;
+  /** One year group at a time, for a class rep chasing their own year. */
+  track?: string;
+  level?: string;
 }
 
 export default async function AdminDuesPage({ searchParams }: { searchParams: Promise<DuesSearchParams> }) {
@@ -36,13 +40,16 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
   const [allRows, rates] = await Promise.all([listMemberDuesStatus(academicYear), getDuesRates()]);
 
   const search = (sp.q ?? "").trim();
-  const rows = filterDuesRows(allRows, { status: sp.status, search });
+  const rows = filterDuesRows(allRows, { status: sp.status, search, track: sp.track, level: sp.level });
+  const narrowed = Boolean(search || sp.status || sp.track || sp.level);
 
   // The ledger that downloads is the rows on screen, so the button never
   // quietly hands over more than was asked for.
   const exportQuery = new URLSearchParams({ year: academicYear });
   if (sp.status) exportQuery.set("status", sp.status);
   if (search) exportQuery.set("q", search);
+  if (sp.track) exportQuery.set("track", sp.track);
+  if (sp.level) exportQuery.set("level", sp.level);
 
   const paidCount = allRows.filter((r) => r.paid).length;
   // What was actually paid (online or cash), not today's fee, which can differ if a tier changed since.
@@ -167,6 +174,7 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
             className={filterControlClasses}
           />
         </div>
+        <TrackLevelFilter idPrefix="dues" track={sp.track} level={sp.level} />
         <div>
           <label htmlFor="dues-status" className="block text-xs font-semibold uppercase tracking-wide text-slate mb-1">
             Payment status
@@ -184,7 +192,7 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
           >
             <Search size={15} aria-hidden="true" /> Apply
           </button>
-          {(search || sp.status) && (
+          {narrowed && (
             <Link href="/admin/dues" className="text-sm font-semibold text-slate hover:text-primary-800 px-2 py-2">
               Clear
             </Link>
@@ -198,12 +206,20 @@ export default async function AdminDuesPage({ searchParams }: { searchParams: Pr
         </div>
       </form>
 
-      {(search || sp.status) && (
+      {narrowed && (
         <p className="text-sm text-slate mb-4">
           Showing {rows.length} of {allRows.length} member{allRows.length === 1 ? "" : "s"}
           {search && ` matching "${search}"`}
           {sp.status === "paid" && " who have paid"}
-          {sp.status === "unpaid" && " who have not paid"}. The ledger button downloads exactly these.
+          {sp.status === "unpaid" && " who have not paid"}
+          {sp.level
+            ? ` in ${sp.level}`
+            : sp.track === "POSTGRADUATE"
+              ? " on the postgraduate track"
+              : sp.track === "UNDERGRADUATE"
+                ? " on the undergraduate track"
+                : ""}
+          . The ledger button downloads exactly these.
         </p>
       )}
 
