@@ -483,12 +483,18 @@ export function AdminBroadcastComposer({
             {BROADCAST_AUDIENCES.map((option) => (
               <label
                 key={option.value}
+                // Explicit id and htmlFor rather than relying on the label
+                // wrapping the input: see components/portal/SignaturePad for
+                // what a member actually heard when we relied on that.
+                htmlFor={`broadcast-audience-${option.value}`}
                 className="flex items-start gap-3 rounded-lg border border-line bg-white p-3 cursor-pointer hover:border-primary-400 has-[:checked]:border-primary-800 has-[:checked]:bg-primary-50"
               >
                 <input
+                  id={`broadcast-audience-${option.value}`}
                   type="radio"
                   name="audience"
                   value={option.value}
+                  aria-label={option.label}
                   checked={audience === option.value}
                   onChange={() => setAudience(option.value)}
                   className="mt-1 h-4 w-4 text-primary-800"
@@ -536,12 +542,32 @@ export function AdminBroadcastComposer({
         <fieldset>
           <legend className="text-sm font-semibold text-primary-950 mb-2">How to send it</legend>
           <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2.5">
-            <label className="flex items-center gap-2.5 rounded-lg border border-line bg-white px-3 py-2.5 cursor-pointer">
-              <input type="checkbox" name="postToPortal" defaultChecked className="h-4 w-4 rounded border-line text-primary-800" />
+            <label
+              htmlFor="broadcast-post-to-portal"
+              className="flex items-center gap-2.5 rounded-lg border border-line bg-white px-3 py-2.5 cursor-pointer"
+            >
+              <input
+                id="broadcast-post-to-portal"
+                type="checkbox"
+                name="postToPortal"
+                aria-label="Portal announcement"
+                defaultChecked
+                className="h-4 w-4 rounded border-line text-primary-800"
+              />
               <span className="text-sm font-medium text-primary-950">Portal announcement</span>
             </label>
-            <label className="flex items-center gap-2.5 rounded-lg border border-line bg-white px-3 py-2.5 cursor-pointer">
-              <input type="checkbox" name="sendEmail" defaultChecked className="h-4 w-4 rounded border-line text-primary-800" />
+            <label
+              htmlFor="broadcast-send-email"
+              className="flex items-center gap-2.5 rounded-lg border border-line bg-white px-3 py-2.5 cursor-pointer"
+            >
+              <input
+                id="broadcast-send-email"
+                type="checkbox"
+                name="sendEmail"
+                aria-label="Email"
+                defaultChecked
+                className="h-4 w-4 rounded border-line text-primary-800"
+              />
               <span className="text-sm font-medium text-primary-950">Email</span>
             </label>
           </div>

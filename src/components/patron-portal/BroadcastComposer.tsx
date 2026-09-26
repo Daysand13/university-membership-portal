@@ -32,12 +32,15 @@ function AudienceChoice({ defaultValue, compact }: { defaultValue: string; compa
         {PATRON_BROADCAST_AUDIENCES.map((audience) => (
           <label
             key={audience.value}
+            htmlFor={`patron-audience-${audience.value}`}
             className="flex items-start gap-3 rounded-lg border border-line bg-white p-3 cursor-pointer hover:border-primary-400 has-[:checked]:border-primary-800 has-[:checked]:bg-primary-50"
           >
             <input
+              id={`patron-audience-${audience.value}`}
               type="radio"
               name="audience"
               value={audience.value}
+              aria-label={audience.label}
               defaultChecked={audience.value === defaultValue}
               className="mt-1 h-4 w-4 text-primary-800"
             />
@@ -84,12 +87,32 @@ export function BroadcastComposer() {
       <fieldset>
         <legend className="text-sm font-semibold text-primary-950 mb-2">How to send it</legend>
         <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2.5">
-          <label className="flex items-center gap-2.5 rounded-lg border border-line bg-white px-3 py-2.5 cursor-pointer">
-            <input type="checkbox" name="postToPortal" defaultChecked className="h-4 w-4 rounded border-line text-primary-800" />
+          <label
+            htmlFor="patron-post-to-portal"
+            className="flex items-center gap-2.5 rounded-lg border border-line bg-white px-3 py-2.5 cursor-pointer"
+          >
+            <input
+              id="patron-post-to-portal"
+              type="checkbox"
+              name="postToPortal"
+              aria-label="Portal announcement"
+              defaultChecked
+              className="h-4 w-4 rounded border-line text-primary-800"
+            />
             <span className="text-sm font-medium text-primary-950">Portal announcement</span>
           </label>
-          <label className="flex items-center gap-2.5 rounded-lg border border-line bg-white px-3 py-2.5 cursor-pointer">
-            <input type="checkbox" name="sendEmail" defaultChecked className="h-4 w-4 rounded border-line text-primary-800" />
+          <label
+            htmlFor="patron-send-email"
+            className="flex items-center gap-2.5 rounded-lg border border-line bg-white px-3 py-2.5 cursor-pointer"
+          >
+            <input
+              id="patron-send-email"
+              type="checkbox"
+              name="sendEmail"
+              aria-label="Email"
+              defaultChecked
+              className="h-4 w-4 rounded border-line text-primary-800"
+            />
             <span className="text-sm font-medium text-primary-950">Email</span>
           </label>
         </div>
