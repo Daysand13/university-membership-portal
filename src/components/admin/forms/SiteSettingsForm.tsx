@@ -94,6 +94,24 @@ export function SiteSettingsForm({ settings }: { settings: SiteSettingsInput }) 
             <input id="postalAddress" name="postalAddress" defaultValue={settings.postalAddress} className={inputClasses} />
           </div>
           <div className="sm:col-span-2">
+            <Label htmlFor="meetingDomain">Meeting Service</Label>
+            <input
+              id="meetingDomain"
+              name="meetingDomain"
+              type="text"
+              placeholder="meet.jit.si"
+              aria-describedby="meetingDomain-help"
+              defaultValue={settings.meetingDomain}
+              className={inputClasses}
+            />
+            <p id="meetingDomain-help" className="mt-1.5 text-xs text-slate">
+              Where a mentor and student talk when they join a session&apos;s call. Left blank it uses{" "}
+              <strong>meet.jit.si</strong>, which is free and needs no account. If that instance starts asking people to
+              sign in, put another Jitsi address here and the calls move with it — nothing else changes.
+            </p>
+            <FieldError messages={fe.meetingDomain} />
+          </div>
+          <div className="sm:col-span-2">
             <Label htmlFor="mapEmbedUrl">Google Maps Location Link</Label>
             {/* type="text", not "url": Google's "Embed a map" option gives an
                 <iframe> snippet, which the browser would refuse as a URL. */}

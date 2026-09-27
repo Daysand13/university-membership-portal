@@ -197,6 +197,8 @@ export const siteSettingsSchema = z.object({
   postalAddress: z.string().trim().max(MEDIUM_TEXT).optional().or(z.literal("")),
   officeHours: z.string().trim().max(MEDIUM_TEXT).optional().or(z.literal("")),
   // Accepts a pasted <iframe> snippet as well as a URL, keeping just its src.
+  /** Where a mentorship call happens. Blank means Jitsi's public instance. */
+  meetingDomain: z.string().trim().max(200).optional().or(z.literal("")),
   mapEmbedUrl: z.preprocess(
     (value) => (typeof value === "string" ? extractMapUrl(value) : value),
     z.string().trim().url("Paste a Google Maps link, for example https://maps.app.goo.gl/…").optional().or(z.literal("")),

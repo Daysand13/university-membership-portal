@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarClock, MessageSquare, Target } from "lucide-react";
+import { ArrowLeft, CalendarClock, MessageSquare, Target, Video } from "lucide-react";
 import { requireAlumni } from "@/lib/auth/alumni";
 import { getMentorshipForMentor, markMentorshipRead, studentName } from "@/lib/services/mentorship-service";
 import {
@@ -17,6 +17,7 @@ import {
   SessionBookingForm,
 } from "@/components/portal/MentorshipThread";
 import { PortalActionButton } from "@/components/student-portal/Forms";
+import { buttonClasses } from "@/components/ui/Button";
 import { SESSION_STATUS_LABELS, formatSessionTime } from "@/lib/portal-options";
 
 export const metadata = { title: "Mentee" };
@@ -88,6 +89,12 @@ export default async function AlumniMentorshipThreadPage({ params }: { params: P
                   <p className="text-xs text-slate">Booked by {session.bookedByStudent ? name.split(" ")[0] : "you"}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/alumni/mentorship/${mentorship.id}/call/${session.id}`}
+                    className={buttonClasses("primary", "sm")}
+                  >
+                    <Video size={15} aria-hidden="true" /> Join the call
+                  </Link>
                   <PortalActionButton
                     action={closeSessionAsMentorAction.bind(null, session.id, true)}
                     variant="primary"

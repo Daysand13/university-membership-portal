@@ -232,6 +232,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettingsInput = {
   physicalAddress: "",
   postalAddress: "",
   officeHours: "",
+  meetingDomain: "",
   mapEmbedUrl: "",
 };
 

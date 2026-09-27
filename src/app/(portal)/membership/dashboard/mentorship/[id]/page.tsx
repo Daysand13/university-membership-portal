@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarClock, MessageSquare, Target } from "lucide-react";
+import { ArrowLeft, CalendarClock, MessageSquare, Target, Video } from "lucide-react";
 import { requireMember } from "@/lib/auth/member";
 import { getMentorshipForStudent, markMentorshipRead } from "@/lib/services/mentorship-service";
 import {
@@ -17,6 +17,7 @@ import {
   SessionBookingForm,
 } from "@/components/portal/MentorshipThread";
 import { PortalActionButton } from "@/components/student-portal/Forms";
+import { buttonClasses } from "@/components/ui/Button";
 import { SESSION_STATUS_LABELS, formatSessionTime } from "@/lib/portal-options";
 
 export const metadata = { title: "Your Mentor" };
@@ -78,7 +79,10 @@ export default async function StudentMentorshipThreadPage({ params }: { params: 
 
       <DashboardCard id="sessions" title="Sessions" icon={<CalendarClock size={20} />} readAloud>
         {upcoming.length === 0 && finished.length === 0 && (
-          <p className="text-slate mb-4">No sessions yet. Book one at a time that suits you both.</p>
+          <p className="text-slate mb-4">
+            No sessions yet. Book one at a time that suits you both — you can talk by voice or video here when it
+            comes round.
+          </p>
         )}
 
         {upcoming.length > 0 && (
@@ -92,6 +96,13 @@ export default async function StudentMentorshipThreadPage({ params }: { params: 
                     Booked by {session.bookedByStudent ? "you" : mentor.fullName.split(" ")[0]}
                   </p>
                 </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Link
+                    href={`/membership/dashboard/mentorship/${mentorship.id}/call/${session.id}`}
+                    className={buttonClasses("primary", "sm")}
+                  >
+                    <Video size={15} aria-hidden="true" /> Join the call
+                  </Link>
                 <PortalActionButton
                   action={cancelSessionAsStudentAction.bind(null, session.id)}
                   variant="danger"
@@ -100,6 +111,7 @@ export default async function StudentMentorshipThreadPage({ params }: { params: 
                 >
                   Cancel
                 </PortalActionButton>
+                </div>
               </li>
             ))}
           </ul>
