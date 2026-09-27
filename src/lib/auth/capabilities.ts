@@ -163,7 +163,16 @@ export const ROLE_DEFAULTS: Record<AdminRole, string[]> = {
   // Super admins hold every capability and can't be pared back — somebody
   // has to be able to put the permissions right again afterwards.
   [AdminRole.SUPER_ADMIN]: ALL_CAPABILITIES,
-  [AdminRole.ADMIN]: ["content.media", "content.social", "messages.contact"],
+  // An Admin keeps the books as well as the site: an organisation hands
+  // over cash at a dinner and somebody has to be able to record it
+  // without waiting for the super admin.
+  [AdminRole.ADMIN]: [
+    "content.media",
+    "content.social",
+    "messages.contact",
+    "finance.ledger",
+    "finance.ledger.record",
+  ],
   [AdminRole.EDITOR]: [...CONTENT_ALL, "outreach.allies", "outreach.software", "messages.contact"],
   [AdminRole.MEMBERSHIP_OFFICER]: [
     ...MEMBERS_ALL,
