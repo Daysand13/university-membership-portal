@@ -285,6 +285,80 @@ export async function verifyAndRecordPurchase(reference: string): Promise<Verify
  * and it stays useful afterwards: not every student has a mobile money
  * wallet. Who recorded it is kept, and it goes in the audit log.
  */
+/**
+ * Undoing a payment that was recorded by hand.
+ *
+ * An officer marks a CV paid at the desk and then finds the money was
+ * never handed over, or that they marked the wrong person. Only a cash
+ * payment an officer recorded can be taken back: an online payment is
+ * Paystack's record of real money moving, and pretending otherwise here
+ * would put the books out.
+ *
+ * The row goes, because a purchase that did not happen should not sit in
+ * the accounts as income — but the audit log keeps what was removed, by
+ * whom, and what it said.
+ */
+export async function removeCashDocumentPayment(params: {
+  purchaseId: string;
+  admin: Pick<AdminUser, "id">;
+}): Promise<{ ok: true; summary: string } | { ok: false; error: string }> {
+  const { purchaseId, admin } = params;
+  const purchase = await db.documentPurchase.findUnique({ where: { id: purchaseId } });
+  if (!purchase) return { ok: false, error: "That payment has already been removed." };
+  if (!purchase.recordedById) {
+    return {
+      ok: false,
+      error: "That was paid online, so it can't be undone here — it is Paystack's record of money that moved.",
+    };
+  }
+
+  const { count } = await db.documentPurchase.deleteMany({ where: { id: purchaseId, recordedById: { not: null } } });
+  if (count === 0) return { ok: false, error: "That payment has already been removed." };
+
+  await db.auditLog.create({
+    data: {
+      adminId: admin.id,
+      action: "REMOVE_CASH_DOCUMENT_PAYMENT",
+      entityType: "DocumentPurchase",
+      entityId: purchase.id,
+      previousValue: {
+        memberId: purchase.memberId,
+        alumniProfileId: purchase.alumniProfileId,
+        kind: purchase.kind,
+        amountPesewas: purchase.amountPesewas,
+        priceLabel: purchase.priceLabel,
+        reference: purchase.reference,
+        paidAt: purchase.paidAt?.toISOString() ?? null,
+      },
+    },
+  });
+
+  return {
+    ok: true,
+    summary: `${purchase.priceLabel} is locked again — the ${formatCedis(purchase.amountPesewas)} cash payment has been removed.`,
+  };
+}
+
+/** The cash payment behind a document, if an officer recorded one. */
+export async function findCashPurchase(
+  owner: PurchaseOwner,
+  kind: PaidDocumentKind,
+  about?: PurchaseAbout,
+): Promise<{ id: string; priceLabel: string; amountPesewas: number } | null> {
+  return db.documentPurchase.findFirst({
+    where: {
+      OR: await everyIdentityOf(owner),
+      kind,
+      ...(about?.positionId ? { positionId: about.positionId } : {}),
+      ...(about?.letterId ? { letterId: about.letterId } : {}),
+      status: "SUCCESS",
+      recordedById: { not: null },
+    },
+    orderBy: { paidAt: "desc" },
+    select: { id: true, priceLabel: true, amountPesewas: true },
+  });
+}
+
 export async function recordCashDocumentPayment(params: {
   owner: PurchaseOwner;
   kind: PaidDocumentKind;

@@ -1,8 +1,12 @@
 import { db } from "@/lib/db";
 import { PaidDocumentKind } from "@/generated/prisma/client";
-import { formatCedis, hasPaidFor, paidUntil, priceOf } from "@/lib/services/document-purchase-service";
+import { findCashPurchase, formatCedis, hasPaidFor, paidUntil, priceOf } from "@/lib/services/document-purchase-service";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
-import { recordCashAlumniCvPaymentAction, recordCashCvPaymentAction } from "@/lib/actions/cv-actions";
+import {
+  recordCashAlumniCvPaymentAction,
+  recordCashCvPaymentAction,
+  removeCashDocumentPaymentAction,
+} from "@/lib/actions/cv-actions";
 import {
   recordCashAlumniLetterPaymentAction,
   recordCashLetterPaymentAction,
@@ -41,9 +45,12 @@ export async function PaidDocumentsPanel({
   const letterPrice = priceOf(PaidDocumentKind.LETTER);
   const isMember = owner.kind === "member";
 
-  const [cvPaid, cvUntil, letters, paidLetterRows] = await Promise.all([
+  const backTo = isMember ? `/admin/members/${owner.id}` : `/admin/alumni/${owner.id}`;
+
+  const [cvPaid, cvUntil, cvCash, letters, paidLetterRows] = await Promise.all([
     hasPaidFor(owner, PaidDocumentKind.CV),
     paidUntil(owner, PaidDocumentKind.CV),
+    findCashPurchase(owner, PaidDocumentKind.CV),
     db.memberLetter.findMany({
       where: isMember ? { memberId: owner.id } : { alumniProfileId: owner.id },
       orderBy: { updatedAt: "desc" },
@@ -75,11 +82,31 @@ export async function PaidDocumentsPanel({
           CV
         </h3>
         {cvPaid ? (
-          <p className="text-sm text-ink">
-            {name} has paid for their CV{cvUntil ? `, until ${dateFormat.format(cvUntil)}` : ""}. They can write it and
-            download it from their own dashboard, as often as they like
-            {cvUntil ? " until then" : ""}.
-          </p>
+          <>
+            <p className="text-sm text-ink">
+              {name} has paid for their CV{cvUntil ? `, until ${dateFormat.format(cvUntil)}` : ""}. They can write it
+              and download it from their own dashboard, as often as they like
+              {cvUntil ? " until then" : ""}.
+            </p>
+            {cvCash ? (
+              <div className="mt-3">
+                <ConfirmButton
+                  action={removeCashDocumentPaymentAction.bind(null, backTo, cvCash.id)}
+                  confirmMessage={`Undo the ${formatCedis(cvCash.amountPesewas)} cash payment for ${name}'s CV? Their download locks again straight away.`}
+                  className={buttonClass}
+                >
+                  Undo this payment
+                </ConfirmButton>
+                <p className="text-xs text-slate mt-2">
+                  Use this when the money never came, or the wrong person was marked.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-slate mt-2">
+                Paid online, so it can&apos;t be undone here — that is Paystack&apos;s record of money that moved.
+              </p>
+            )}
+          </>
         ) : (
           <>
             <p className="text-sm text-slate mb-3">

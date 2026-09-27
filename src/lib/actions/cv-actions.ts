@@ -12,6 +12,7 @@ import { cvSchema } from "@/lib/validations/cv";
 import { saveCv, type CvOwner } from "@/lib/services/cv-service";
 import {
   recordCashDocumentPayment,
+  removeCashDocumentPayment,
   startDocumentPurchase,
   type PurchaseOwner,
 } from "@/lib/services/document-purchase-service";
@@ -118,6 +119,24 @@ async function recordCashAlumniCvPaymentActionImpl(alumniId: string): Promise<vo
 
 export const saveCvAction = withActionErrorHandling("saveCvAction", saveCvActionImpl);
 export const payForCvAction = withVoidActionErrorHandling("payForCvAction", payForCvActionImpl);
+/**
+ * Taking a paid mark back off, when the money never arrived or the wrong
+ * person was marked. Only what an officer recorded by hand can go.
+ */
+async function removeCashDocumentPaymentActionImpl(
+  backTo: string,
+  purchaseId: string,
+): Promise<void> {
+  const admin = await requireCapability("finance.dues");
+  const result = await removeCashDocumentPayment({ purchaseId, admin });
+  if (!result.ok) throw new Error(result.error);
+  revalidatePath(backTo);
+}
+
+export const removeCashDocumentPaymentAction = withVoidActionErrorHandling(
+  "removeCashDocumentPaymentAction",
+  removeCashDocumentPaymentActionImpl,
+);
 export const recordCashCvPaymentAction = withVoidActionErrorHandling(
   "recordCashCvPaymentAction",
   recordCashCvPaymentActionImpl,
