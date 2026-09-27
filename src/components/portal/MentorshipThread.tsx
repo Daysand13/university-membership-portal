@@ -14,15 +14,6 @@ const timeFormat = new Intl.DateTimeFormat("en-GH", {
   timeZone: "Africa/Accra",
 });
 
-const dateTimeLocalFormat = new Intl.DateTimeFormat("en-GH", {
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: "Africa/Accra",
-});
-
 export interface ThreadMessage {
   id: string;
   sender: "STUDENT" | "MENTOR";
@@ -166,6 +157,4 @@ export function SessionBookingForm({
   );
 }
 
-export function formatSessionTime(date: Date): string {
-  return dateTimeLocalFormat.format(date);
-}
+

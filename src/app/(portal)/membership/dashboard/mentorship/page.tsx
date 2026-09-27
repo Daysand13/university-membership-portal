@@ -8,8 +8,7 @@ import { DashboardCard } from "@/components/portal/DashboardCard";
 import { OpportunityList } from "@/components/portal/OpportunityList";
 import { EmptyState } from "@/components/ui/Common";
 import { MentorRequestForm } from "@/components/student-portal/Forms";
-import { formatSessionTime } from "@/components/portal/MentorshipThread";
-import { mentorshipStatusLabel } from "@/lib/portal-options";
+import { formatSessionTime, mentorshipStatusLabel } from "@/lib/portal-options";
 
 export const metadata = { title: "Mentorship & Alumni" };
 export const dynamic = "force-dynamic";

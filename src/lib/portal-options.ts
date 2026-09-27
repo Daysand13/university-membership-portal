@@ -160,6 +160,30 @@ export const SESSION_STATUS_LABELS: Record<string, string> = {
   CANCELLED: "Cancelled",
 };
 
+const sessionTimeFormat = new Intl.DateTimeFormat("en-GH", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZone: "Africa/Accra",
+});
+
+/**
+ * When a mentorship session is, written out.
+ *
+ * It lives here rather than beside the conversation component because both
+ * portals' pages print it while rendering on the server. It used to be
+ * exported from a "use client" module, and importing a plain function from
+ * one of those gives the server a reference to something on the client, not
+ * the function — so calling it threw, and the page showed the unexpected-error
+ * boundary. Only pages with a session to print were affected, which is why it
+ * appeared the moment somebody booked their first one.
+ */
+export function formatSessionTime(date: Date): string {
+  return sessionTimeFormat.format(date);
+}
+
 // --- The opportunity board ---------------------------------------------------
 
 export const OPPORTUNITY_TYPES = [

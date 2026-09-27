@@ -33,10 +33,25 @@ const month = z
  * and "09/2021" can't end up in the same list — and anything still going
  * on says so rather than needing an end date invented for it.
  */
+/**
+ * A tick box that has been through a form.
+ *
+ * It arrives as a boolean from the CV editor, but a blank row once seeded
+ * it with an empty string and a plain HTML form would send "on" — and
+ * `z.boolean()` met any of those with "Invalid input: expected boolean,
+ * received string", which is what a member saw instead of their CV. What
+ * somebody meant by each of them is not in doubt, so it is read rather
+ * than refused.
+ */
+const ticked = z.preprocess((value) => {
+  if (typeof value === "string") return value === "true" || value === "on" || value === "1";
+  return value;
+}, z.boolean().optional().default(false));
+
 const dated = {
   startMonth: month,
   endMonth: month,
-  current: z.boolean().optional().default(false),
+  current: ticked,
   /** What earlier versions stored as free text. Read, never written. */
   period: optional(60),
 };

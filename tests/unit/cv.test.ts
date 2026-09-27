@@ -247,3 +247,34 @@ describe("a letter, in its parts", () => {
     expect(formatCedis(priceOf(PaidDocumentKind.LETTER).pesewas)).toBe("GH₵10.00");
   });
 });
+
+describe("a tick box that has been through a form", () => {
+  it("reads a blank row's untouched tick as 'not still going on'", () => {
+    // The CV editor once seeded a new row with current: "", and the schema
+    // answered "Invalid input: expected boolean, received string" — which is
+    // what a member saw instead of their CV.
+    const parsed = cvSchema.safeParse({
+      ...EMPTY_CV,
+      education: [{ institution: "Winneba SHS", startMonth: "2018-09", endMonth: "2021-06", current: "" }],
+    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.education[0].current).toBe(false);
+  });
+
+  it("reads what a plain HTML form would send for a ticked box", () => {
+    const parsed = cvSchema.safeParse({
+      ...EMPTY_CV,
+      experience: [{ role: "Teaching assistant", startMonth: "2024-06", current: "on" }],
+    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.experience[0].current).toBe(true);
+  });
+
+  it("still takes a real boolean", () => {
+    const parsed = cvSchema.safeParse({
+      ...EMPTY_CV,
+      experience: [{ role: "Teaching assistant", startMonth: "2024-06", current: true }],
+    });
+    expect(parsed.success && parsed.data.experience[0].current).toBe(true);
+  });
+});

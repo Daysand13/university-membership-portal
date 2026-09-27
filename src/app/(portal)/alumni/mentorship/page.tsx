@@ -6,8 +6,7 @@ import { PortalPageHeader } from "@/components/portal/PortalPageHeader";
 import { DashboardCard } from "@/components/portal/DashboardCard";
 import { EmptyState } from "@/components/ui/Common";
 import { MentorSettingsForm, MentorshipResponseForm } from "@/components/alumni-portal/Forms";
-import { formatSessionTime } from "@/components/portal/MentorshipThread";
-import { mentorshipStatusLabel } from "@/lib/portal-options";
+import { formatSessionTime, mentorshipStatusLabel } from "@/lib/portal-options";
 
 export const metadata = { title: "Mentorship Centre" };
 export const dynamic = "force-dynamic";

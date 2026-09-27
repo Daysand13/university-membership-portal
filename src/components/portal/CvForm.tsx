@@ -345,7 +345,7 @@ export function CvForm({ cv, portal }: { cv: CvInput; portal: "member" | "alumni
         description="Anything before your current programme — senior high school, an earlier certificate."
         addLabel="Add a school"
         onAdd={() =>
-          education.add({ institution: "", qualification: "", startMonth: "", endMonth: "", current: "", details: "" })
+          education.add({ institution: "", qualification: "", startMonth: "", endMonth: "", current: false, details: "" })
         }
       >
         {education.rows.map((row, i) => (
@@ -384,7 +384,9 @@ export function CvForm({ cv, portal }: { cv: CvInput; portal: "member" | "alumni
         title="Experience"
         description="Jobs, attachments, teaching practice, volunteering. Unpaid work counts."
         addLabel="Add a role"
-        onAdd={() => experience.add({ role: "", organisation: "", startMonth: "", endMonth: "", current: "", details: "" })}
+        onAdd={() =>
+          experience.add({ role: "", organisation: "", startMonth: "", endMonth: "", current: false, details: "" })
+        }
       >
         {experience.rows.map((row, i) => (
           <RowShell key={`exp-${i}`} legend={`Role ${i + 1}`} onRemove={() => experience.remove(i)}>

@@ -15,10 +15,9 @@ import {
   MentorshipThread,
   MessageComposer,
   SessionBookingForm,
-  formatSessionTime,
 } from "@/components/portal/MentorshipThread";
 import { PortalActionButton } from "@/components/student-portal/Forms";
-import { SESSION_STATUS_LABELS } from "@/lib/portal-options";
+import { SESSION_STATUS_LABELS, formatSessionTime } from "@/lib/portal-options";
 
 export const metadata = { title: "Your Mentor" };
 export const dynamic = "force-dynamic";
