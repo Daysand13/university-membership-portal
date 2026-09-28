@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { ContentStatus, Prisma } from "@/generated/prisma/client";
 import { slugify } from "@/lib/validations/content";
 import type { EventInput } from "@/lib/validations/content";
+import { notifyOfChangedEvent, notifyOfPublishedEvent } from "@/lib/services/push-service";
 
 async function uniqueSlug(base: string, excludeId?: string): Promise<string> {
   let candidate = slugify(base) || "event";
@@ -83,7 +84,7 @@ export async function getEventForAdmin(id: string) {
 
 export async function createEvent(input: EventInput, imageUrl: string | null, adminId: string) {
   const slug = await uniqueSlug(input.slug || input.title);
-  return db.event.create({
+  const created = await db.event.create({
     data: {
       title: input.title,
       slug,
@@ -105,13 +106,26 @@ export async function createEvent(input: EventInput, imageUrl: string | null, ad
       createdById: adminId,
     },
   });
+
+  if (created.status === ContentStatus.PUBLISHED) await notifyOfPublishedEvent(created);
+  return created;
 }
 
 export async function updateEvent(id: string, input: EventInput, imageUrl: string | null | undefined) {
   const existing = await db.event.findUniqueOrThrow({ where: { id } });
   const slug = input.slug && input.slug !== existing.slug ? await uniqueSlug(input.slug, id) : existing.slug;
 
-  return db.event.update({
+  const becomingPublished = input.status === ContentStatus.PUBLISHED && existing.status !== ContentStatus.PUBLISHED;
+  // People plan around a date and a place. Moving either, on an event they
+  // have already been told about, is worth a second notification; changing
+  // the wording of the description is not.
+  const moved =
+    !becomingPublished &&
+    existing.status === ContentStatus.PUBLISHED &&
+    input.status === ContentStatus.PUBLISHED &&
+    (input.startDate.getTime() !== existing.startDate.getTime() || input.venue !== existing.venue);
+
+  const updated = await db.event.update({
     where: { id },
     data: {
       title: input.title,
@@ -133,6 +147,10 @@ export async function updateEvent(id: string, input: EventInput, imageUrl: strin
       featured: input.featured,
     },
   });
+
+  if (becomingPublished) await notifyOfPublishedEvent(updated);
+  else if (moved) await notifyOfChangedEvent(updated);
+  return updated;
 }
 
 export async function deleteEvent(id: string) {

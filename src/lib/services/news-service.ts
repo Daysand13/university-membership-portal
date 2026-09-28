@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { ContentStatus, Prisma } from "@/generated/prisma/client";
 import { slugify } from "@/lib/validations/content";
 import type { NewsInput } from "@/lib/validations/content";
+import { notifyOfPublishedNews } from "@/lib/services/push-service";
 
 async function uniqueSlug(base: string, excludeId?: string): Promise<string> {
   let candidate = slugify(base) || "article";
@@ -114,7 +115,7 @@ export async function getNewsForAdmin(id: string) {
 
 export async function createNews(input: NewsInput, coverImageUrl: string | null, authorId: string) {
   const slug = await uniqueSlug(input.slug || input.title);
-  return db.news.create({
+  const created = await db.news.create({
     data: {
       title: input.title,
       slug,
@@ -129,6 +130,11 @@ export async function createNews(input: NewsInput, coverImageUrl: string | null,
       publishedAt: input.status === ContentStatus.PUBLISHED ? new Date() : null,
     },
   });
+
+  // An article published straight away tells the phones straight away.
+  // Saved as a draft, nothing goes out until it is published below.
+  if (created.status === ContentStatus.PUBLISHED) await notifyOfPublishedNews(created);
+  return created;
 }
 
 export async function updateNews(
@@ -141,7 +147,7 @@ export async function updateNews(
 
   const becomingPublished = input.status === ContentStatus.PUBLISHED && existing.status !== ContentStatus.PUBLISHED;
 
-  return db.news.update({
+  const updated = await db.news.update({
     where: { id },
     data: {
       title: input.title,
@@ -156,6 +162,9 @@ export async function updateNews(
       publishedAt: becomingPublished ? new Date() : existing.publishedAt,
     },
   });
+
+  if (becomingPublished) await notifyOfPublishedNews(updated);
+  return updated;
 }
 
 export async function deleteNews(id: string) {
@@ -164,7 +173,7 @@ export async function deleteNews(id: string) {
 
 export async function setNewsStatus(id: string, status: ContentStatus) {
   const existing = await db.news.findUniqueOrThrow({ where: { id } });
-  return db.news.update({
+  const updated = await db.news.update({
     where: { id },
     data: {
       status,
@@ -172,6 +181,13 @@ export async function setNewsStatus(id: string, status: ContentStatus) {
         status === ContentStatus.PUBLISHED && !existing.publishedAt ? new Date() : existing.publishedAt,
     },
   });
+
+  // The Publish button on the news list comes through here. Sending is
+  // once-only however many times it is pressed — see push-service.
+  if (status === ContentStatus.PUBLISHED && existing.status !== ContentStatus.PUBLISHED) {
+    await notifyOfPublishedNews(updated);
+  }
+  return updated;
 }
 
 export async function listNewsCategories() {

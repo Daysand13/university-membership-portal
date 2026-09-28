@@ -171,6 +171,7 @@ model AdminUser {
   user   User?   @relation(fields: [userId], references: [id])
 
   @@map("admin_users")
+  appReleases     AppRelease[] @relation("AppReleasePublisher")
 }
 
 model Member {
@@ -241,6 +242,7 @@ model Member {
 
   @@index([status])
   @@map("members")
+  mobileDevices   MobileDevice[]
 }
 
 model MembershipApplication {
@@ -959,6 +961,7 @@ model AlumniProfile {
   cv                MemberCv?
   documentPurchases DocumentPurchase[]
   letters           MemberLetter[]
+  mobileDevices   MobileDevice[]
 }
 
 /// The showcase presentation of an alumnus — the editorial layer on top of
@@ -1274,6 +1277,7 @@ model PatronProfile {
   @@index([status])
   @@index([submittedAt])
   @@map("patron_profiles")
+  mobileDevices   MobileDevice[]
 }
 
 model DuesPayment {
@@ -2379,4 +2383,154 @@ model AlumniPriorProgramme {
 
   @@index([alumniId])
   @@map("alumni_prior_programmes")
+}
+
+// ---------------------------------------------------------------------------
+// THE ANDROID APP
+// ---------------------------------------------------------------------------
+
+/// Which portal an app session belongs to. A person who is both a student
+/// and a graduate signs in as one or the other, exactly as on the website.
+enum AppAudience {
+  MEMBER
+  ALUMNI
+  PATRON
+}
+
+/// A phone that somebody has signed into the ASSN app on.
+///
+/// The website's own sessions are stateless tokens in a cookie: good enough
+/// for a browser, but there is no way to end one before its seven days are
+/// up. A phone is different — it gets lost, it gets stolen, it gets sold —
+/// so an app session is a row, and a row can be revoked.
+///
+/// It also carries the address Firebase sends notifications to, because the
+/// device and the thing we notify are the same device, and a second table
+/// would only have to be kept in step with this one.
+model MobileDevice {
+  id String @id @default(cuid())
+
+  /// Who is signed in, and as which portal.
+  audience        AppAudience
+  memberId        String?
+  member          Member?        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  alumniProfileId String?
+  alumniProfile   AlumniProfile? @relation(fields: [alumniProfileId], references: [id], onDelete: Cascade)
+  patronId        String?
+  patron          PatronProfile? @relation(fields: [patronId], references: [id], onDelete: Cascade)
+
+  /// The refresh token, hashed. The plain value is shown to the phone once
+  /// and never stored, for the same reason a password never is.
+  refreshTokenHash String  @unique
+  /// Rotated on every refresh; an old token presented again means it was
+  /// copied, and the whole device is cut off.
+  tokenFamily      String
+  revokedAt        DateTime?
+  /// Why it ended, for somebody reading their own list of signed-in phones.
+  revokedReason    String?
+
+  /// What the person sees in "your signed-in phones".
+  deviceName   String?
+  platform     String  @default("android")
+  appVersion   String?
+  androidSdk   Int?
+
+  /// Where Firebase delivers to. Null until the phone has been asked for
+  /// permission and said yes.
+  pushToken    String?
+  /// What they want to hear about. Silence is a choice people make.
+  notifyNews          Boolean @default(true)
+  notifyEvents        Boolean @default(true)
+  notifyAnnouncements Boolean @default(true)
+
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([memberId, revokedAt])
+  @@index([alumniProfileId, revokedAt])
+  @@index([patronId, revokedAt])
+  @@index([pushToken])
+  @@map("mobile_devices")
+}
+
+/// A build of the Android app that phones may update themselves to.
+///
+/// The app is not on Google Play, so the association hosts its own APKs and
+/// the phone checks here for a newer one. The hash is what makes that safe
+/// to do: a download that does not match it is thrown away unread. Android
+/// then checks the signing certificate itself, which is the check that
+/// actually stops somebody else's APK replacing this one.
+model AppRelease {
+  id String @id @default(cuid())
+
+  /// "1.4.0", shown to people.
+  version     String @unique
+  /// Android's own versionCode. Always increasing; the phone refuses to go
+  /// backwards.
+  buildNumber Int    @unique
+
+  /// Where the APK is, and how to know it arrived intact.
+  apkUrl      String
+  sha256      String
+  sizeBytes   Int
+
+  /// What changed, in the words somebody reading an update prompt needs.
+  changelog   String
+  /// Below this build number the app stops working until it is updated.
+  /// Only for a fault serious enough to justify it.
+  minimumBuild Int    @default(0)
+  /// The oldest Android this build runs on.
+  minAndroidSdk Int   @default(26)
+
+  /// A release exists before it is offered to anybody.
+  published   Boolean  @default(false)
+  releasedAt  DateTime @default(now())
+
+  publishedById String?
+  publishedBy   AdminUser? @relation("AppReleasePublisher", fields: [publishedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([published, buildNumber])
+  @@map("app_releases")
+}
+
+/// What a notification was about.
+enum PushSubject {
+  NEWS
+  EVENT
+  EVENT_CHANGED
+  ANNOUNCEMENT
+}
+
+/// A notification the association has already sent to phones.
+///
+/// Its job is to make sending exactly once easy to guarantee: publishing an
+/// article, editing it, unpublishing and publishing it again all pass
+/// through the same code, and without a record of what has gone out,
+/// members would be buzzed each time. The unique key below is the whole
+/// point of the table.
+///
+/// It doubles as the answer to "did the app tell anybody?", which is
+/// otherwise impossible to check after the fact.
+model PushDispatch {
+  id String @id @default(cuid())
+
+  subject   PushSubject
+  /// The news or event id this was about.
+  entityId  String
+
+  title     String
+  body      String
+  /// How many phones it was accepted for, and how many addresses were dead.
+  sentCount    Int @default(0)
+  failedCount  Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@unique([subject, entityId])
+  @@index([createdAt])
+  @@map("push_dispatches")
 }
