@@ -49,8 +49,17 @@ export async function checkRateLimit(
   // here would mean any brief database problem takes the entire membership
   // form offline, which is far worse than briefly not enforcing a limit.
   try {
-    const [count] = await Promise.all([
-      db.rateLimitAttempt.count({ where: { key, createdAt: { gte: since } } }),
+    // Counted BEFORE this attempt is recorded, and deliberately not
+    // alongside it. Running the two together meant whether an attempt was
+    // counted against itself depended on which query the database happened
+    // to answer first — so the effective limit was `max` or `max - 1`
+    // depending on the round trip. A local Postgres almost always answered
+    // the count first and hid it; a remote one does not, which is how this
+    // finally showed up. One extra round trip buys a limit that means what
+    // it says.
+    const count = await db.rateLimitAttempt.count({ where: { key, createdAt: { gte: since } } });
+
+    await Promise.all([
       db.rateLimitAttempt.create({ data: { key } }),
       // Opportunistic cleanup so this table never grows unbounded — cheap,
       // and only actually deletes anything roughly once in a while.

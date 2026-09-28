@@ -69,11 +69,11 @@ let testAdminId: string;
 describe("alumni network flow", () => {
   it("sets up a throwaway admin", async () => {
     const admin = await db.adminUser.upsert({
-      where: { email: "vitest-admin@example.com" },
+      where: { email: "vitest-admin-alumni@example.com" },
       update: {},
       create: {
         name: "Vitest Admin",
-        email: "vitest-admin@example.com",
+        email: "vitest-admin-alumni@example.com",
         passwordHash: "not-used-in-this-test",
         role: "SUPER_ADMIN",
       },
@@ -158,7 +158,7 @@ describe("alumni network flow", () => {
       await db.membershipApplication.deleteMany({ where: { id: { in: createdApplicationIds } } });
     }
     await db.auditLog.deleteMany({ where: { adminId: testAdminId } });
-    await db.adminUser.deleteMany({ where: { email: "vitest-admin@example.com" } });
+    await db.adminUser.deleteMany({ where: { email: "vitest-admin-alumni@example.com" } });
     await db.$disconnect();
   });
 });
