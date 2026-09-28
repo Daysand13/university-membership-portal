@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { isR2Configured } from "@/lib/storage/r2";
 import { isPaystackConfigured } from "@/lib/services/paystack-client";
+import { isPushConfigured } from "@/lib/push/fcm";
 
 /**
  * Whether the services the association depends on are actually working —
@@ -38,6 +39,9 @@ export function summariseHealth(input: {
   recentEmailFailures: number;
   paymentsConfigured: boolean;
   storageConfigured: boolean;
+  pushConfigured: boolean;
+  /** Phones signed in and asking to be notified. */
+  phonesReachable: number;
 }): SystemHealth {
   const checks: HealthCheck[] = [
     {
@@ -78,6 +82,19 @@ export function summariseHealth(input: {
         ? "File storage is connected."
         : "File storage isn't connected, so photos, reports and documents can't be attached.",
     },
+    {
+      key: "push",
+      label: "App notifications",
+      // Configured but reaching nobody is not a fault: it is what the day
+      // before the app is released looks like. Worth saying, not worth a
+      // warning light.
+      state: input.pushConfigured ? "ok" : "off",
+      detail: !input.pushConfigured
+        ? "Firebase isn't connected, so publishing news or an event won't reach anybody's phone."
+        : input.phonesReachable === 0
+          ? "Firebase is connected. No phones have asked for notifications yet."
+          : `Firebase is connected. ${input.phonesReachable} phone${input.phonesReachable === 1 ? "" : "s"} will be notified.`,
+    },
   ];
   return { checks, problems: checks.filter((c) => c.state !== "ok").length };
 }
@@ -86,8 +103,12 @@ export async function getSystemHealth(): Promise<SystemHealth> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   let databaseReachable = true;
   let recentEmailFailures = 0;
+  let phonesReachable = 0;
   try {
-    recentEmailFailures = await db.emailLog.count({ where: { status: "FAILED", createdAt: { gte: since } } });
+    [recentEmailFailures, phonesReachable] = await Promise.all([
+      db.emailLog.count({ where: { status: "FAILED", createdAt: { gte: since } } }),
+      db.mobileDevice.count({ where: { revokedAt: null, pushToken: { not: null } } }),
+    ]);
   } catch (err) {
     console.error("[system-health] database check failed", err);
     databaseReachable = false;
@@ -99,5 +120,7 @@ export async function getSystemHealth(): Promise<SystemHealth> {
     recentEmailFailures,
     paymentsConfigured: isPaystackConfigured(),
     storageConfigured: isR2Configured(),
+    pushConfigured: isPushConfigured(),
+    phonesReachable,
   });
 }

@@ -41,6 +41,8 @@ describe("the system health light", () => {
     recentEmailFailures: 0,
     paymentsConfigured: true,
     storageConfigured: true,
+    pushConfigured: true,
+    phonesReachable: 12,
   };
 
   it("is all clear when everything is connected", () => {
@@ -66,5 +68,36 @@ describe("the system health light", () => {
   it("treats an unreachable database as a warning, not as 'not set up'", () => {
     const health = summariseHealth({ ...healthy, databaseReachable: false });
     expect(health.checks.find((c) => c.key === "database")?.state).toBe("warning");
+  });
+});
+
+describe("the app-notifications light", () => {
+  const healthy = {
+    databaseReachable: true,
+    emailConfigured: true,
+    recentEmailFailures: 0,
+    paymentsConfigured: true,
+    storageConfigured: true,
+    pushConfigured: true,
+    phonesReachable: 12,
+  };
+  const push = (input: Parameters<typeof summariseHealth>[0]) =>
+    summariseHealth(input).checks.find((c) => c.key === "push")!;
+
+  it("says plainly what an unconnected Firebase costs", () => {
+    const check = push({ ...healthy, pushConfigured: false });
+    expect(check.state).toBe("off");
+    expect(check.detail).toContain("won't reach anybody's phone");
+  });
+
+  it("counts the phones that will actually be notified", () => {
+    expect(push(healthy).detail).toContain("12 phones");
+    expect(push({ ...healthy, phonesReachable: 1 }).detail).toContain("1 phone will");
+  });
+
+  it("doesn't call an empty app a fault — that is the day before release", () => {
+    const check = push({ ...healthy, phonesReachable: 0 });
+    expect(check.state).toBe("ok");
+    expect(check.detail).toContain("No phones have asked");
   });
 });
