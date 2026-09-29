@@ -81,13 +81,24 @@ export async function refreshAppSession(params: {
   device?: DeviceDescription;
 }): Promise<RefreshOutcome> {
   const hash = hashRefreshToken(params.refreshToken);
-  const row = await db.mobileDevice.findUnique({ where: { refreshTokenHash: hash } });
+
+  // Looked up against BOTH the current hash and the one before it. Matching
+  // only the current one made the re-use check below unreachable: rotation
+  // overwrites the hash, so a copied token came back as simply unknown and
+  // was indistinguishable from a typo. Keeping the previous hash is what
+  // makes "this token has already been spent" a thing we can actually say.
+  const row = await db.mobileDevice.findFirst({
+    where: { OR: [{ refreshTokenHash: hash }, { previousTokenHash: hash }] },
+  });
 
   if (!row) return { ok: false, error: "Please sign in again." };
 
-  if (row.revokedAt) {
-    // A spent or revoked token being presented means it was copied; the
-    // honest phone will simply be asked to sign in again.
+  const alreadySpent = row.previousTokenHash === hash && row.refreshTokenHash !== hash;
+
+  if (row.revokedAt || alreadySpent) {
+    // Two phones are holding one token: either somebody copied it, or a
+    // backup was restored onto a second handset. Both are worth stopping,
+    // and the honest phone is simply asked to sign in again.
     await db.mobileDevice.updateMany({
       where: { tokenFamily: row.tokenFamily, revokedAt: null },
       data: { revokedAt: new Date(), revokedReason: "A refresh token was re-used." },
@@ -112,6 +123,9 @@ export async function refreshAppSession(params: {
     where: { id: row.id },
     data: {
       refreshTokenHash: next.hash,
+      // What it held a moment ago, so presenting that again is recognised
+      // as a re-use rather than mistaken for nonsense.
+      previousTokenHash: row.refreshTokenHash,
       lastSeenAt: new Date(),
       deviceName: params.device?.deviceName ?? row.deviceName,
       appVersion: params.device?.appVersion ?? row.appVersion,

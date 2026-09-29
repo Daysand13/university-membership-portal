@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { appError, appJson } from "@/lib/api/app-request";
 import { refreshAppSession } from "@/lib/services/mobile-device-service";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, clientIpFrom } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return appError("Please sign in again.", 400, "sign_in_again");
 
-  const ip = await getClientIp();
+  const ip = clientIpFrom(request.headers);
   const limit = await checkRateLimit(`app-refresh:ip:${ip}`, { max: 120, windowSeconds: 600 });
   if (!limit.allowed) return appError("Too many requests. Please try again shortly.", 429, "rate_limited");
 

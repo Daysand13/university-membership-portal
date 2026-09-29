@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { appError, appJson } from "@/lib/api/app-request";
 import { signInFromApp } from "@/lib/services/app-auth-service";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, clientIpFrom } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     return appError(parsed.error.issues[0]?.message ?? "That sign-in request wasn't readable.", 400);
   }
 
-  const ip = await getClientIp();
+  const ip = clientIpFrom(request.headers);
   const [byIp, byIdentifier] = await Promise.all([
     checkRateLimit(`app-login:ip:${ip}`, { max: 40, windowSeconds: 600 }),
     checkRateLimit(`app-login:id:${parsed.data.identifier.toLowerCase()}`, { max: 8, windowSeconds: 600 }),

@@ -11,10 +11,22 @@ import { db } from "@/lib/db";
  * external service.
  */
 export async function getClientIp(): Promise<string> {
-  const h = await headers();
-  const forwarded = h.get("x-forwarded-for");
+  return clientIpFrom(await headers());
+}
+
+/**
+ * The same thing, from headers already in hand.
+ *
+ * A route handler is given the request, so reaching for the ambient
+ * `headers()` instead ties it to a Next request scope it does not need —
+ * and makes it impossible to call the handler directly from a test, which
+ * is exactly how this turned up. Server Actions have no request object and
+ * still want `getClientIp` above.
+ */
+export function clientIpFrom(requestHeaders: Headers): string {
+  const forwarded = requestHeaders.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0].trim();
-  return h.get("x-real-ip") ?? "unknown";
+  return requestHeaders.get("x-real-ip") ?? "unknown";
 }
 
 export interface RateLimitResult {

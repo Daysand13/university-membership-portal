@@ -2422,6 +2422,11 @@ model MobileDevice {
   /// The refresh token, hashed. The plain value is shown to the phone once
   /// and never stored, for the same reason a password never is.
   refreshTokenHash String  @unique
+  /// The hash this row held before the last refresh. Kept precisely so a
+  /// re-used token is recognisable: rotation alone overwrites the old
+  /// hash, which makes a copied token indistinguishable from a garbage
+  /// one, and the whole point is to tell those apart.
+  previousTokenHash String?
   /// Rotated on every refresh; an old token presented again means it was
   /// copied, and the whole device is cut off.
   tokenFamily      String

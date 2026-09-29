@@ -56,17 +56,26 @@ export async function requireAppActor(request: NextRequest): Promise<AppAuth> {
   return { actor };
 }
 
-/** The same endpoint for everybody, but only for one kind of person. */
-export async function requireAppAudience(
+/** The actor for one particular portal — a Member for MEMBER, and so on. */
+type ActorOf<A extends AppAudience> = Extract<AppActor, { audience: A }>;
+
+/**
+ * An endpoint only one kind of person may use — dues for students, say.
+ *
+ * Generic so the caller gets the right actor back already narrowed: asking
+ * for MEMBER hands you something with `.member` on it, and reaching for
+ * `.alumni` will not compile.
+ */
+export async function requireAppAudience<A extends AppAudience>(
   request: NextRequest,
-  audience: AppAudience,
-): Promise<AppAuth> {
+  audience: A,
+): Promise<{ actor: ActorOf<A> } | { response: NextResponse }> {
   const auth = await requireAppActor(request);
   if ("response" in auth) return auth;
   if (auth.actor.audience !== audience) {
     return { response: appError("This isn't available to your account.", 403, "wrong_audience") };
   }
-  return auth;
+  return { actor: auth.actor as ActorOf<A> };
 }
 
 async function loadActor(

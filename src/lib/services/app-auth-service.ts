@@ -9,6 +9,12 @@ import {
   getActiveRolesForUser,
 } from "@/lib/services/user-service";
 import {
+  AlumniAccountNotActiveError,
+  AlumniPasswordNotSetError,
+  InvalidAlumniCredentialsError,
+  authenticateAlumni,
+} from "@/lib/services/alumni-service";
+import {
   InvalidPatronCredentialsError,
   PatronNotApprovedError,
   authenticatePatron,
@@ -91,6 +97,27 @@ async function identitiesFor(identifier: string, password: string): Promise<AppI
   }
 
   if (identifier.includes("@")) {
+    // A graduate whose profile predates the unified identity has no User
+    // row for the authenticator above to find — 18 of the 24 active
+    // graduates, at the time of writing. The website's own alumni sign-in
+    // reads the profile directly, so the app does too; without this they
+    // could sign in on the website and be refused by the app, which is the
+    // sort of difference nobody would think to report as a bug.
+    if (!found.some((identity) => identity.audience === "ALUMNI")) {
+      try {
+        const alumnus = await authenticateAlumni(identifier.trim().toLowerCase(), password);
+        found.push({ audience: "ALUMNI", label: LABELS.ALUMNI, id: alumnus.id, name: alumnus.fullName });
+      } catch (err) {
+        if (
+          !(err instanceof InvalidAlumniCredentialsError) &&
+          !(err instanceof AlumniAccountNotActiveError) &&
+          !(err instanceof AlumniPasswordNotSetError)
+        ) {
+          throw err;
+        }
+      }
+    }
+
     try {
       const patron = await authenticatePatron(identifier.trim().toLowerCase(), password);
       found.push({
