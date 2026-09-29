@@ -153,6 +153,20 @@ async function send<T>(path: string, options: RequestOptions, isRetry = false): 
     if (refreshed) return send<T>(path, options, true);
   }
 
+  // We sent a token and the server says it received none. That is not a
+  // session ending — it is the header being lost on the way, which is what a
+  // redirect to another host does. Signing out here is how the app used to
+  // throw people out a moment after they signed in; it must never again
+  // turn a transport problem into "your session has ended".
+  if (response.status === 401 && failure.code === "no_token" && headers.authorization) {
+    throw new ApiError(
+      "ASSN couldn't be reached properly. Please try again in a moment.",
+      response.status,
+      "token_lost_in_transit",
+      true,
+    );
+  }
+
   if (response.status === 401 && !options.open) {
     // Revoked, or an account no longer active. There is nothing the app
     // can do but ask them to sign in again.

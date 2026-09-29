@@ -65,13 +65,18 @@ that has been through a chat window. Let Expo hold it.
 Open `mobile/eas.json` and check the production profile:
 
 ```json
-"EXPO_PUBLIC_API_URL": "https://assnuew.com"
+"EXPO_PUBLIC_API_URL": "https://www.assnuew.com"
 ```
 
-Confirmed correct. That address is baked into the APK, so if the site ever
-moves, a new build is needed — the app would install fine and then be
-unable to sign anybody in, which reads as a broken app rather than a wrong
-setting.
+**With the www.** This guide used to say the bare `assnuew.com`, and builds
+1 and 2 shipped with it. The bare domain redirects to www, and a redirect to
+another host strips the sign-in token from every request — so signing in
+appeared to work, and the app signed itself out a moment later. It also
+meant no phone ever registered for notifications.
+
+`npm run verify` now checks this before anything is bundled, and refuses an
+address that redirects. That address is baked into the APK, so if the site
+ever moves, a new build is needed.
 
 ### 2. The icon — done
 

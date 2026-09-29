@@ -13,8 +13,17 @@
  * at staging, and a developer's build points at their own machine. Expo
  * inlines EXPO_PUBLIC_* at build time, so this is decided when the APK is
  * made, not when it runs.
+ *
+ * **www, not the bare domain.** assnuew.com answers everything with a
+ * redirect to www.assnuew.com, and an HTTP client following a redirect to a
+ * different host drops the Authorization header — deliberately, so a token
+ * is never handed to a host it was not meant for. Pointed at the bare
+ * domain, signing in worked (it needs no token) and every call after it
+ * arrived with none, so the app signed itself out a moment after signing
+ * in, and no phone ever registered for notifications. `npm run verify`
+ * now refuses to build against an address that redirects.
  */
-export const SITE_URL = (process.env.EXPO_PUBLIC_API_URL ?? "https://assnuew.com").replace(/\/+$/, "");
+export const SITE_URL = (process.env.EXPO_PUBLIC_API_URL ?? "https://www.assnuew.com").replace(/\/+$/, "");
 
 export const API_URL = `${SITE_URL}/api/v1/app`;
 

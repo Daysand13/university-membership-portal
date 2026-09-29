@@ -133,6 +133,34 @@ describe("an access token that has aged out", () => {
   });
 });
 
+describe("a token lost on the way to the server", () => {
+  it("does NOT sign anybody out when the server says it received no token we sent", async () => {
+    // What actually happened on a real phone: the app was pointed at the
+    // bare domain, which redirects to www, and the redirect dropped the
+    // Authorization header. The server answered "no_token", and the app —
+    // reading any 401 as the end of the session — signed the person out a
+    // moment after they had signed in.
+    const onSignedOut = vi.fn(async () => {});
+    configureTokens({ accessToken: "fresh", refreshToken: "refresh-1", onRefreshed: async () => {}, onSignedOut });
+
+    queue({ status: 401, body: { ok: false, error: "Please sign in.", code: "no_token" } });
+
+    await expect(api.get("/me")).rejects.toMatchObject({ code: "token_lost_in_transit", retryable: true });
+    expect(onSignedOut).not.toHaveBeenCalled();
+  });
+
+  it("still signs out when a device really has been revoked", async () => {
+    // The guard above must not swallow the genuine case.
+    const onSignedOut = vi.fn(async () => {});
+    configureTokens({ accessToken: "fresh", refreshToken: "refresh-1", onRefreshed: async () => {}, onSignedOut });
+
+    queue({ status: 401, body: { ok: false, error: "This phone has been signed out.", code: "device_revoked" } });
+
+    await expect(api.get("/me")).rejects.toBeInstanceOf(ApiError);
+    expect(onSignedOut).toHaveBeenCalledWith("This phone has been signed out.");
+  });
+});
+
 describe("what the app is told when something goes wrong", () => {
   it("passes the server's own wording through, because it was written for a member", async () => {
     setAccessToken("token", "refresh");

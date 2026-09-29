@@ -8,7 +8,8 @@
     "android": "expo start --android",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "verify": "expo export --platform android --output-dir .expo/verify"
+    "verify": "node scripts/check-api.mjs production && expo export --platform android --output-dir .expo/verify",
+    "check-api": "node scripts/check-api.mjs production"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",
