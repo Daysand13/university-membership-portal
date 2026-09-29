@@ -69,10 +69,12 @@ with two Reacts in it and fail in ways that look nothing like their cause.
 
 ## Still to do
 
-- **The launcher icon is a placeholder.** The association's logo is not in
-  this repository and is not set in the website's Site Settings either, so
-  there was nothing to use. Upload the logo in Settings, then replace
-  `assets/icon.png` and the three `android-icon-*.png` files with it.
+- The association's logo is still not set in the website's **Admin →
+  Settings**, which is why printed ID cards have no crest. The app has it, at
+  `assets/association-logo.png`; uploading it there gives the website the
+  same.
+- No dark mode. The website has one and several members use it, so this is
+  worth doing rather than an oversight.
 - Mentorship, barrier reports and support requests are phase two.
 - CVs, letters and enrollment stay on the website, where the long forms and
   file uploads already work.

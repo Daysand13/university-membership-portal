@@ -55,35 +55,27 @@ Open `mobile/eas.json` and check the production profile:
 "EXPO_PUBLIC_API_URL": "https://assnuew.com"
 ```
 
-That address is baked into the APK. If the association's site is at a
-different address, change it there before building — otherwise the app
-installs fine and then cannot sign anybody in, which looks like a broken
-app rather than a wrong setting.
+Confirmed correct. That address is baked into the APK, so if the site ever
+moves, a new build is needed — the app would install fine and then be
+unable to sign anybody in, which reads as a broken app rather than a wrong
+setting.
 
-I could not check this myself: the repository does not record it anywhere
-(the ID card takes it from whatever address the request arrives on), and
-the real value lives in Vercel's settings.
+### 2. The icon — done
 
-### 2. The icon
+The association's badge is in place, at every density Android asks for.
+The white around it was flood-filled away from the edges rather than keyed
+out by colour, so the three white figures inside the purple shield
+survive; the layer behind it is white, because the black script and orange
+arc are drawn for a white badge and all but disappear on the navy.
 
-The launcher icon is currently Expo's placeholder — a plain shape, plainly
-not the association's.
+There is no themed (monochrome) icon. That has to be a single flat
+silhouette, and a ring of text around a script monogram reduced to one
+colour is a blob — Android falls back to the full-colour icon, which is
+the better of the two outcomes.
 
-The logo is not in this repository, and it is not set in **Admin →
-Settings** either; all three logo fields are empty, which is also why
-printed ID cards have no crest on them. Upload it there and the website
-gets it too.
-
-Then put the same image in `mobile/assets/`, replacing:
-
-- `icon.png` — 1024×1024, square
-- `android-icon-foreground.png` — the mark itself, with room round it
-- `android-icon-background.png` — a plain background, or the navy `#14153D`
-- `android-icon-monochrome.png` — a white silhouette on transparent
-
-I deliberately did not draw something in the meantime. An icon shipped to
-the whole association becomes the thing on everyone's home screen, and
-replacing it later needs another release.
+One thing is still worth doing on the website side: the logo is not set in
+**Admin → Settings**, which is why printed ID cards have no crest. The
+file is at `mobile/assets/association-logo.png` if it helps.
 
 ---
 

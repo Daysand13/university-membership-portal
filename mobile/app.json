@@ -13,8 +13,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png",
-        "backgroundColor": "#14153D"
+        "backgroundColor": "#FFFFFF"
       },
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
@@ -37,7 +36,8 @@
             "minSdkVersion": 26
           }
         }
-      ]
+      ],
+      "expo-splash-screen"
     ],
     "extra": {
       "router": {},
