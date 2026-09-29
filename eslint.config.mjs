@@ -16,6 +16,9 @@ const eslintConfig = defineConfig([
     // build: its main and preload processes must be CommonJS, so the
     // rules here flag correct code as twenty errors.
     "ballot/**",
+    // The Android app is React Native with its own toolchain and its own
+    // lint rules; the Next.js config here would flag correct code.
+    "mobile/**",
   ]),
   {
     // Server actions must not be exported directly — every one has to go

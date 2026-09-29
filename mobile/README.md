@@ -1,31 +1,78 @@
 # ASSN — the Android app
 
-The React Native (Expo) app lives here. The Expo project itself is not built
-yet; this directory currently holds the Firebase configuration it will need.
+The association's app, built with React Native and Expo. It talks to the
+website's own API at `/api/v1/app/` and keeps no data of its own, so
+anything an administrator publishes on the website appears here without a
+new release.
 
-## `google-services.json`
+## Running it
 
-Firebase project `assn-af6b0`, package `com.assnuew.app`.
+You do not need Android Studio or a Java installation. Expo builds in the
+cloud.
 
-**This file is committed on purpose.** It is not a secret — it is designed to
-ship inside every copy of the app, and Google expects it to. The `api_key` in
-it is a client key tied to the app's package name and signing certificate; it
-cannot be used to read the association's data or to send notifications.
+```bash
+cd mobile
+npm install
+npx expo start          # then scan the code with Expo Go, or use a dev build
+```
 
-The file that *is* secret is the **service account key** — the one used to
-send notifications from the server. That never comes near this repository.
-It lives in Vercel as three environment variables:
+To point it at a different site while developing:
 
-- `FIREBASE_PROJECT_ID`
-- `FIREBASE_CLIENT_EMAIL`
-- `FIREBASE_PRIVATE_KEY`
+```bash
+EXPO_PUBLIC_API_URL=http://10.0.2.2:3000 npx expo start
+```
 
-Whether those took is visible at a glance: the **System Health** light in the
-admin header now has an "App notifications" line, which says either that
-Firebase isn't connected, or how many phones will be notified.
+`10.0.2.2` is how an Android emulator reaches the machine it runs on.
 
-## The package name is fixed
+## Building an APK
 
-`com.assnuew.app` is baked into the Firebase registration above. Changing it
-later means re-registering the app with Firebase and re-issuing
-`google-services.json`, so it is worth not changing.
+```bash
+npx eas build --platform android --profile production
+```
+
+The profiles are in `eas.json`. `development` points at a local machine,
+`staging` at the staging site, `production` at the live one. Each build
+says which it is: any build that is not production shows the environment
+at the bottom of the More tab, so a tester never has to wonder.
+
+**The first production build asks who should hold the signing key.** Let
+Expo generate and keep it, or upload your own. Whichever you choose, keep
+a copy somewhere that survives a lost laptop — if that key is lost, no
+future update can ever install over the app, and everybody would have to
+uninstall and reinstall by hand.
+
+## What is in here
+
+| Folder | What it holds |
+|---|---|
+| `app/` | The screens. File names are the routes, as in Next.js |
+| `src/api/` | The client, and the shapes the server sends |
+| `src/auth/` | Signing in, and where tokens are kept |
+| `src/push/` | Asking for notifications and registering this phone |
+| `src/update/` | Checking for, verifying and installing a new APK |
+| `src/ui/` | The pieces every screen is built from |
+| `tests/` | `npm test` — the hash and the API client |
+
+## Two things that are not obvious
+
+**`google-services.json` is committed on purpose.** It is meant to ship
+inside every copy of the app, and the key in it is tied to the package name
+and signing certificate — it cannot read the association's data or send
+anything. The file that *is* secret is the Firebase **service account**,
+which lives in the website's environment variables and never comes near
+this folder.
+
+**`metro.config.js` stops dependency lookup escaping this folder.** The app
+sits inside the website's repository, and the website has its own copy of
+React for a different renderer. Without that config a build could end up
+with two Reacts in it and fail in ways that look nothing like their cause.
+
+## Still to do
+
+- **The launcher icon is a placeholder.** The association's logo is not in
+  this repository and is not set in the website's Site Settings either, so
+  there was nothing to use. Upload the logo in Settings, then replace
+  `assets/icon.png` and the three `android-icon-*.png` files with it.
+- Mentorship, barrier reports and support requests are phase two.
+- CVs, letters and enrollment stay on the website, where the long forms and
+  file uploads already work.
