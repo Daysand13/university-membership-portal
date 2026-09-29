@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
 import { Text } from "react-native";
-import { colours, type } from "../../src/theme";
+import { GradientHeader } from "../../src/ui/components";
+import { colours, spacing, type } from "../../src/theme";
 
 /**
  * Four tabs, named in words.
@@ -23,12 +24,21 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colours.primary },
+        headerBackground: () => <GradientHeader />,
         headerTintColor: colours.white,
         headerTitleStyle: { fontWeight: "700" },
-        tabBarActiveTintColor: colours.primary,
-        tabBarInactiveTintColor: colours.slate,
-        tabBarStyle: { backgroundColor: colours.surface, borderTopColor: colours.line, minHeight: 60 },
+        // The gradient is the edge. A drop shadow under it as well reads as
+        // a seam.
+        headerShadowVisible: false,
+        tabBarActiveTintColor: colours.accent,
+        tabBarInactiveTintColor: colours.tabInactive,
+        tabBarStyle: {
+          backgroundColor: colours.tabBar,
+          borderTopWidth: 0,
+          height: 68,
+          paddingTop: spacing.sm,
+          paddingBottom: spacing.md,
+        },
         tabBarLabelStyle: { fontSize: type.tiny, fontWeight: "700" },
       }}
     >

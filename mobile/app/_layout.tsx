@@ -6,6 +6,7 @@ import { router } from "expo-router";
 import { AuthProvider } from "../src/auth/AuthContext";
 import { prepareNotifications } from "../src/push/register";
 import { UpdateGate } from "../src/update/UpdateGate";
+import { GradientHeader } from "../src/ui/components";
 import { colours } from "../src/theme";
 
 /**
@@ -56,9 +57,10 @@ export default function RootLayout() {
       <StatusBar style="light" />
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: colours.primary },
+          headerBackground: () => <GradientHeader />,
           headerTintColor: colours.white,
           headerTitleStyle: { fontWeight: "700" },
+          headerShadowVisible: false,
           contentStyle: { backgroundColor: colours.surfaceMuted },
         }}
       >

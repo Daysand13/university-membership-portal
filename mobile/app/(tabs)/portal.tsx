@@ -1,7 +1,7 @@
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "../../src/auth/AuthContext";
-import { Badge, Button, Card, Heading, Loading } from "../../src/ui/components";
+import { Badge, Button, Card, Heading, Loading, SectionLabel } from "../../src/ui/components";
 import { colours, spacing, type } from "../../src/theme";
 
 /**
@@ -77,6 +77,8 @@ export default function PortalScreen() {
           {me.profile.organization && <Text style={styles.muted}>{me.profile.organization}</Text>}
         </Card>
       )}
+
+      <SectionLabel>Shortcuts</SectionLabel>
 
       <Card onPress={() => router.push("/announcements")} accessibilityLabel="Announcements. Opens the list.">
         <Text style={styles.cardTitle}>Announcements</Text>

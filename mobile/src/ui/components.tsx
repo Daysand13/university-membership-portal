@@ -12,7 +12,8 @@ import {
   type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { colours, radius, spacing, TOUCH_TARGET, type } from "../theme";
+import { LinearGradient } from "expo-linear-gradient";
+import { colours, HEADER_GRADIENT, radius, shadow, spacing, TOUCH_TARGET, type } from "../theme";
 
 /**
  * The pieces every screen is built from.
@@ -171,6 +172,40 @@ export function Row({ children }: { children: ReactNode }) {
 }
 
 /**
+ * The bar across the top of every screen.
+ *
+ * Passed to the navigator as `headerBackground`, so one gradient covers the
+ * status bar, the title and the back arrow without any screen knowing about
+ * it. Deep on the left, lighter on the right — the light end is still dark
+ * enough to carry a white title, which is what fixes its shade.
+ */
+export function GradientHeader() {
+  return (
+    <LinearGradient
+      colors={[...HEADER_GRADIENT]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={StyleSheet.absoluteFill}
+    />
+  );
+}
+
+/**
+ * "YOUR MEMBERSHIP", "WHAT'S ON" — the small label above a group of cards.
+ *
+ * Marked as a heading so a screen reader can jump between sections, which
+ * is how somebody using one navigates a long screen. Spaced capitals are a
+ * visual device, not a reading one.
+ */
+export function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <Text accessibilityRole="header" style={styles.sectionLabel}>
+      {children}
+    </Text>
+  );
+}
+
+/**
  * The picture on an article or an event.
  *
  * Hidden from the screen reader on purpose. These images are uploaded
@@ -208,28 +243,51 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colours.surface,
     borderRadius: radius.lg,
+    // Hairline as well as shadow. The shadow is the soft look; the border
+    // is what somebody with low vision actually uses to tell one card from
+    // the next.
     borderWidth: 1,
     borderColor: colours.line,
     padding: spacing.lg,
-    gap: spacing.xs,
+    gap: spacing.sm,
+    ...shadow.card,
   },
   cardPressed: { backgroundColor: colours.surfaceMuted },
   button: {
-    minHeight: TOUCH_TARGET,
-    borderRadius: radius.md,
-    backgroundColor: colours.primary,
+    // Above the 48dp floor, not at it. A primary action is the thing most
+    // people are reaching for.
+    minHeight: 52,
+    borderRadius: radius.pill,
+    backgroundColor: colours.primaryMid,
     paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
+    ...shadow.raised,
   },
-  buttonPressed: { backgroundColor: colours.primaryLight },
-  buttonOutline: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: colours.primary },
-  buttonDanger: { backgroundColor: colours.danger },
-  buttonDisabled: { opacity: 0.5 },
+  buttonPressed: { backgroundColor: colours.primary },
+  buttonOutline: {
+    backgroundColor: colours.surface,
+    borderWidth: 1.5,
+    borderColor: colours.primaryMid,
+    // An outline button is a quieter choice and should not float.
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  buttonDanger: { backgroundColor: colours.danger, shadowColor: colours.danger },
+  buttonDisabled: { opacity: 0.5, shadowOpacity: 0, elevation: 0 },
   buttonLabel: { color: colours.white, fontSize: type.body, fontWeight: "700", textAlign: "center" },
-  buttonLabelOutline: { color: colours.primary },
+  buttonLabelOutline: { color: colours.primaryMid },
+  sectionLabel: {
+    fontSize: type.tiny,
+    fontWeight: "700",
+    letterSpacing: 1.1,
+    color: colours.slate,
+    textTransform: "uppercase",
+    marginTop: spacing.sm,
+  },
   centred: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: spacing.md },
   problemText: { fontSize: type.body, color: colours.ink, textAlign: "center", lineHeight: type.body * 1.5 },
   emptyTitle: { fontSize: type.subheading, fontWeight: "700", color: colours.primary, textAlign: "center" },

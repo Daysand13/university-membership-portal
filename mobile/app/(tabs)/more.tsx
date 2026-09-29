@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import * as Application from "expo-application";
 import { useAuth } from "../../src/auth/AuthContext";
 import { registerForPush, updatePushPreferences } from "../../src/push/register";
-import { Card, Heading } from "../../src/ui/components";
+import { Card, Heading, SectionLabel } from "../../src/ui/components";
 import { SITE_URL, ENVIRONMENT, IS_PRODUCTION } from "../../src/config";
 import { colours, spacing, type } from "../../src/theme";
 
@@ -41,6 +41,8 @@ export default function MoreScreen() {
     <ScrollView contentContainerStyle={styles.body}>
       <Heading>More</Heading>
 
+      <SectionLabel>The association</SectionLabel>
+
       <Card onPress={() => router.push("/library")} accessibilityLabel="Library. Opens the association's documents.">
         <Text style={styles.cardTitle}>Library</Text>
         <Text style={styles.muted}>Documents the association has published.</Text>
@@ -50,6 +52,8 @@ export default function MoreScreen() {
         <Text style={styles.cardTitle}>Elections</Text>
         <Text style={styles.muted}>Who is standing, and results once published.</Text>
       </Card>
+
+      {signedIn && <SectionLabel>This phone</SectionLabel>}
 
       {signedIn && (
         <Card>
@@ -72,12 +76,14 @@ export default function MoreScreen() {
                   set(next);
                   void change({ [key]: next });
                 }}
-                trackColor={{ true: colours.primary, false: colours.line }}
+                trackColor={{ true: colours.primaryMid, false: colours.line }}
               />
             </View>
           ))}
         </Card>
       )}
+
+      <SectionLabel>Elsewhere</SectionLabel>
 
       <Card
         onPress={() => Linking.openURL(SITE_URL)}
