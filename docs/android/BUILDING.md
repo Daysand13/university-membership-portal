@@ -1,14 +1,20 @@
 # Getting the APK
 
-Three commands, about twenty minutes, most of it waiting. You need a free
-Expo account — nothing is installed on your machine beyond what is already
-in `mobile/`.
+About twenty minutes, most of it waiting. You need a free Expo account —
+nothing is installed on your machine beyond what is already in `mobile/`.
 
 ```bash
 cd mobile
+npm install
 npx eas login
+npx eas init
 npx eas build --platform android --profile production
 ```
+
+`eas init` links this code to the project in your Expo dashboard. It asks
+whether to link an existing project — say yes and choose **ASSN UEW** —
+and writes the project id into `app.json` so builds land where you can see
+them.
 
 The build runs on Expo's servers. When it finishes you get a link; that
 link downloads the APK, and that is the file you send round.
