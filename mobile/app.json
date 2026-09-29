@@ -5,7 +5,6 @@
     "scheme": "assn",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
     "android": {
       "package": "com.assnuew.app",
