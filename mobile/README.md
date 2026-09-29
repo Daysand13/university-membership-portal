@@ -53,7 +53,7 @@ uninstall and reinstall by hand.
 | `src/ui/` | The pieces every screen is built from |
 | `tests/` | `npm test` — the hash and the API client |
 
-## Two things that are not obvious
+## Three things that are not obvious
 
 **`google-services.json` is committed on purpose.** It is meant to ship
 inside every copy of the app, and the key in it is tied to the package name
@@ -66,6 +66,20 @@ this folder.
 sits inside the website's repository, and the website has its own copy of
 React for a different renderer. Without that config a build could end up
 with two Reacts in it and fail in ways that look nothing like their cause.
+
+**`npx expo-doctor` reports three failures, and all three are meant to be
+there.** Worth knowing before you act on its advice, because two of its
+suggestions would break this app.
+
+| What it says | Why it stays |
+|---|---|
+| `disableHierarchicalLookup` should be false | That switch is what stops the double React above. Taking its advice causes the bug its next check reports. |
+| Two copies of React | The same thing, seen from the other side: the website's React at the repository root. Metro never reaches it, and EAS only uploads this folder, so the cloud build never sees it either. |
+| eas-cli should not be a dependency | It is here so `npx eas` works in this folder. Without it npm looks for a package called `eas`, which is not eas-cli, and the error it gives says nothing about that. It is a devDependency, so it is not in the APK. |
+
+The version check is *not* in that list — if it starts failing, run
+`npx expo install --fix`. Being on the patch versions the SDK expects is
+worth keeping, since a cloud build is twenty minutes to discover otherwise.
 
 ## Still to do
 
