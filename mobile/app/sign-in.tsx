@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "../src/auth/AuthContext";
 import { registerForPush } from "../src/push/register";
@@ -48,7 +57,14 @@ export default function SignInScreen() {
 
     // Signed in. Now is the moment the question makes sense.
     void registerForPush();
-    router.replace("/(tabs)/portal");
+
+    // Back, not replace. This screen was pushed on top of the tabs, so the
+    // portal is already underneath — replacing this route with one already
+    // in the stack does nothing at all, which looked from the outside like
+    // signing in had silently failed. The portal reads the auth context, so
+    // it is already showing the signed-in view by the time we land on it.
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)/portal");
   };
 
   if (choices) {
@@ -56,17 +72,46 @@ export default function SignInScreen() {
       <ScrollView contentContainerStyle={styles.body}>
         <Heading>Which portal?</Heading>
         <Body muted>You belong to more than one. Choose the one you want to open.</Body>
+
+        {/* This screen used to render neither of these, so a second sign-in
+            that failed — a portal the account turns out not to have, a
+            connection that dropped — looked like the tap had done nothing. */}
+        {problem && (
+          <Text accessibilityRole="alert" style={styles.problem}>
+            {problem}
+          </Text>
+        )}
+
         {choices.map((choice) => (
           <Card
             key={choice.audience}
-            onPress={() => void attempt(choice.audience)}
+            onPress={() => {
+              if (busy) return;
+              void attempt(choice.audience);
+            }}
             accessibilityLabel={`Sign in to the ${choice.label} as ${choice.name}`}
           >
             <Text style={styles.choiceTitle}>{choice.label}</Text>
             <Text style={styles.muted}>{choice.name}</Text>
           </Card>
         ))}
-        <Button label="Back" variant="outline" onPress={() => setChoices(null)} />
+
+        {busy && (
+          <View style={styles.working} accessibilityRole="progressbar" accessibilityLabel="Signing you in">
+            <ActivityIndicator size="small" color={colours.primary} />
+            <Text style={styles.muted}>Signing you in…</Text>
+          </View>
+        )}
+
+        <Button
+          label="Back"
+          variant="outline"
+          disabled={busy}
+          onPress={() => {
+            setProblem(null);
+            setChoices(null);
+          }}
+        />
       </ScrollView>
     );
   }
@@ -162,6 +207,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   noticeText: { fontSize: type.small, color: colours.ink, lineHeight: type.small * 1.5 },
+  working: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   choiceTitle: { fontSize: type.subheading, fontWeight: "700", color: colours.primary },
   muted: { fontSize: type.small, color: colours.slate, lineHeight: type.small * 1.5 },
 });

@@ -66,6 +66,35 @@ export async function registerForPush(preferences?: PushPreferences): Promise<"g
   }
 }
 
+/**
+ * Re-registers a phone that has already agreed, on launch.
+ *
+ * Firebase rotates an address on its own schedule, and a rotated address
+ * means the association is sending to somewhere that no longer exists —
+ * silently, because nothing fails. This runs every launch of a signed-in
+ * app so the server always has the current one.
+ *
+ * It never asks for permission. That is the difference between this and
+ * registerForPush, and it matters: Android only offers the prompt once, so
+ * a prompt at launch is how an app gets refused for good. Somebody who has
+ * not agreed is left alone until they turn notifications on in More.
+ */
+export async function refreshPushRegistration(): Promise<void> {
+  if (!Device.isDevice) return;
+
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== "granted") return;
+
+  await prepareNotifications();
+  try {
+    const { data } = await Notifications.getDevicePushTokenAsync();
+    if (typeof data === "string" && data) await api.post("/devices", { pushToken: data });
+  } catch {
+    // Offline, or Firebase unreachable. The address already on the server
+    // is no worse for this having failed.
+  }
+}
+
 /** Tells the association to stop sending here. Not the same as signing out. */
 export async function forgetPushToken(): Promise<void> {
   await api.post("/devices", { pushToken: null });

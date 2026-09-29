@@ -5,7 +5,7 @@ import { Platform } from "react-native";
 import { api, configureTokens, setAccessToken } from "../api/client";
 import type { Identity, Me, SignedIn } from "../api/types";
 import { clearSession, loadSession, saveSession, saveTokens } from "./storage";
-import { forgetPushToken } from "../push/register";
+import { forgetPushToken, refreshPushRegistration } from "../push/register";
 
 /**
  * Who is signed in, for the whole app.
@@ -88,6 +88,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAccessToken(saved.accessToken, saved.refreshToken);
         setIdentity(saved.identity);
         await loadMe();
+        // Firebase rotates addresses, so the one the server has may be
+        // stale. This asks for nothing and prompts nobody; it only refreshes
+        // an address for a phone that already agreed.
+        void refreshPushRegistration();
       }
       setReady(true);
     })();

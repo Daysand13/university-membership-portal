@@ -21,6 +21,11 @@ export async function GET(request: NextRequest) {
     pageSize: pageSizeFrom(params.get("pageSize")),
     categorySlug: params.get("category") ?? undefined,
     search: params.get("q") ?? undefined,
+    // Newest first. The website pins featured articles to the top of its
+    // news page, which is right for a page somebody browses — but in a feed
+    // it buries the thing they opened the app to read underneath whatever
+    // was pinned last term.
+    order: "newest",
   });
 
   return appJson({

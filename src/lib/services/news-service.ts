@@ -26,6 +26,17 @@ export async function listPublishedNews(params?: {
   pageSize?: number;
   categorySlug?: string;
   search?: string;
+  /**
+   * "featured-first" pins whatever an editor marked featured to the top,
+   * which is what the website's news page wants — it is a browsing page,
+   * and the pinning is an editorial decision.
+   *
+   * "newest" is for the app's feed, which is a feed: somebody who opens it
+   * after an announcement expects that announcement, not four pinned
+   * articles from last term with the new one below them. Defaults to the
+   * website's behaviour so nothing changes by accident.
+   */
+  order?: "featured-first" | "newest";
 }) {
   const page = params?.page ?? 1;
   const pageSize = params?.pageSize ?? 9;
@@ -42,11 +53,19 @@ export async function listPublishedNews(params?: {
       : {}),
   };
 
+  // createdAt breaks ties. Without it two articles published in the same
+  // second have no defined order, which on a paged list means one of them
+  // can appear on both pages or neither.
+  const orderBy: Prisma.NewsOrderByWithRelationInput[] =
+    params?.order === "newest"
+      ? [{ publishedAt: "desc" }, { createdAt: "desc" }]
+      : [{ featured: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }];
+
   const [items, total] = await Promise.all([
     db.news.findMany({
       where,
       include: { category: true, author: { select: { name: true } } },
-      orderBy: [{ featured: "desc" }, { publishedAt: "desc" }],
+      orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),

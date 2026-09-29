@@ -2,7 +2,7 @@ import { ScrollView, StyleSheet, Text } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useApi } from "../../src/data/useApi";
 import type { NewsArticle } from "../../src/api/types";
-import { Loading, Problem } from "../../src/ui/components";
+import { CoverImage, Loading, Problem } from "../../src/ui/components";
 import { colours, spacing, type } from "../../src/theme";
 
 const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "long", year: "numeric" });
@@ -44,6 +44,7 @@ export default function ArticleScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.body}>
+      <CoverImage url={article.coverImageUrl} />
       <Text accessibilityRole="header" style={styles.title}>
         {article.title}
       </Text>

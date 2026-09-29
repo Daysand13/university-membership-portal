@@ -1,11 +1,13 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  type ImageStyle,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
@@ -168,6 +170,33 @@ export function Row({ children }: { children: ReactNode }) {
   return <View style={styles.row}>{children}</View>;
 }
 
+/**
+ * The picture on an article or an event.
+ *
+ * Hidden from the screen reader on purpose. These images are uploaded
+ * without any description — the schema has nowhere to put one — and a
+ * screen reader announcing "image" before every headline is noise that
+ * tells a reader nothing. The headline beside it carries the meaning.
+ *
+ * It removes itself if the file will not load. A grey box where a picture
+ * should be reads as a broken app; a card with no picture reads as a card
+ * with no picture.
+ */
+export function CoverImage({ url, style }: { url: string | null; style?: StyleProp<ImageStyle> }) {
+  const [failed, setFailed] = useState(false);
+  if (!url || failed) return null;
+  return (
+    <Image
+      source={{ uri: url }}
+      style={[styles.cover, style]}
+      resizeMode="cover"
+      onError={() => setFailed(true)}
+      accessibilityElementsHidden
+      importantForAccessibility="no"
+    />
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colours.surfaceMuted },
   screenBody: { flex: 1 },
@@ -225,4 +254,12 @@ const styles = StyleSheet.create({
   badgeTextGood: { color: colours.success },
   badgeTextWarn: { color: colours.warning },
   row: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: spacing.sm },
+  cover: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+    borderRadius: radius.md,
+    // Shown while the file is still coming down, so the card does not jump
+    // when it arrives.
+    backgroundColor: colours.surfaceMuted,
+  },
 });

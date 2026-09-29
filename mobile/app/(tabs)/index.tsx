@@ -2,7 +2,7 @@ import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useApi } from "../../src/data/useApi";
 import type { NewsSummary, Paged } from "../../src/api/types";
-import { Badge, Card, Empty, Loading, OfflineNotice, Problem } from "../../src/ui/components";
+import { Badge, Card, CoverImage, Empty, Loading, OfflineNotice, Problem } from "../../src/ui/components";
 import { colours, spacing, type } from "../../src/theme";
 
 /**
@@ -45,6 +45,7 @@ export default function NewsScreen() {
             onPress={() => router.push(`/news/${item.slug}`)}
             accessibilityLabel={`${item.title}. ${when(item.publishedAt)}. Opens the full article.`}
           >
+            <CoverImage url={item.coverImageUrl} />
             {item.featured && <Badge label="Featured" tone="warn" />}
             <Text style={styles.title}>{item.title}</Text>
             {item.excerpt && (
