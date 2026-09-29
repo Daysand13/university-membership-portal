@@ -41,7 +41,10 @@
     ],
     "extra": {
       "router": {},
-      "eas": {}
-    }
+      "eas": {
+        "projectId": "320c5471-998a-4239-9d76-bbb5bceea745"
+      }
+    },
+    "owner": "assnuews-team"
   }
 }

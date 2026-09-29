@@ -11,6 +11,13 @@ npx eas init
 npx eas build --platform android --profile production
 ```
 
+Run `npm run verify` before that last line. It bundles the JavaScript
+exactly as the build server does, on your machine, in about a minute — and
+that is the phase that fails. A break found here costs a minute; the same
+break found on EAS costs the queue, the upload and twenty minutes, and
+reports itself only as "Unknown error. See logs of the Bundle JavaScript
+build phase."
+
 `eas init` links this code to the project in your Expo dashboard. It asks
 whether to link an existing project — say yes and choose **ASSN UEW** —
 and writes the project id into `app.json` so builds land where you can see
