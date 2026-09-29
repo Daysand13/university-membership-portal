@@ -79,10 +79,6 @@ silhouette, and a ring of text around a script monogram reduced to one
 colour is a blob — Android falls back to the full-colour icon, which is
 the better of the two outcomes.
 
-One thing is still worth doing on the website side: the logo is not set in
-**Admin → Settings**, which is why printed ID cards have no crest. The
-file is at `mobile/assets/association-logo.png` if it helps.
-
 ---
 
 ## Sending it round

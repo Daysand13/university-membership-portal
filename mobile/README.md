@@ -83,10 +83,6 @@ worth keeping, since a cloud build is twenty minutes to discover otherwise.
 
 ## Still to do
 
-- The association's logo is still not set in the website's **Admin →
-  Settings**, which is why printed ID cards have no crest. The app has it, at
-  `assets/association-logo.png`; uploading it there gives the website the
-  same.
 - No dark mode. The website has one and several members use it, so this is
   worth doing rather than an oversight.
 - Mentorship, barrier reports and support requests are phase two.
