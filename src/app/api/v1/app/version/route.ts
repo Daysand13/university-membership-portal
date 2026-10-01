@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { appJson } from "@/lib/api/app-request";
 import { db } from "@/lib/db";
 import { buildFrom, decideUpdate, type ReleaseManifest } from "@/lib/app-release";
+import { downloadAddressFor } from "@/lib/services/app-release-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +33,10 @@ export async function GET(request: NextRequest) {
     ? {
         version: newest.version,
         buildNumber: newest.buildNumber,
-        apkUrl: newest.apkUrl,
+        // Not the recorded address as it stands: a build in the
+        // association's storage is downloaded through the website's own
+        // route, off the rate-limited public address (downloadAddressFor).
+        apkUrl: downloadAddressFor(newest, request.nextUrl.origin),
         sha256: newest.sha256,
         sizeBytes: newest.sizeBytes,
         changelog: newest.changelog,

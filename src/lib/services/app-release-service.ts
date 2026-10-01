@@ -6,6 +6,7 @@ import {
   buildPublicUrl,
   extractObjectKeyFromPublicUrl,
   getObjectMetadata,
+  getPresignedDownloadUrl,
   getPresignedUploadUrl,
   isR2Configured,
   R2_PREFIXES,
@@ -46,6 +47,48 @@ export async function requestApkUpload(params: {
     apkUrl: buildPublicUrl(objectKey),
     contentType: APK_CONTENT_TYPE,
   };
+}
+
+/**
+ * The address phones are told to download a release from.
+ *
+ * A build in the association's own storage is not handed out at its public
+ * r2.dev address. Cloudflare rate-limits r2.dev and says it is not for
+ * production — and an announcement that the app exists is exactly the hour
+ * in which every member downloads 100MB at once. So phones are pointed at
+ * the website's own download route, which forwards them to Cloudflare's
+ * main storage endpoint with a short-lived signed link; that endpoint is
+ * not throttled the same way.
+ *
+ * The alternative was a custom domain on the storage, which on Cloudflare
+ * means moving the domain's DNS from Namecheap — and with it Namecheap's
+ * email forwarding, which every @assnuew.com address depends on.
+ *
+ * A build stored anywhere else is handed out as recorded.
+ */
+export function downloadAddressFor(release: { id: string; apkUrl: string }, siteOrigin: string): string {
+  if (!extractObjectKeyFromPublicUrl(release.apkUrl)) return release.apkUrl;
+  return `${siteOrigin.replace(/\/$/, "")}/api/v1/app/download/${release.id}`;
+}
+
+/**
+ * A short-lived signed link to a published release's file, or null if there
+ * is no such release (or it is not published — an unpublished build is not
+ * anybody's to download).
+ */
+export async function signedDownloadFor(releaseId: string): Promise<string | null> {
+  const release = await db.appRelease.findFirst({ where: { id: releaseId, published: true } });
+  if (!release) return null;
+
+  const objectKey = extractObjectKeyFromPublicUrl(release.apkUrl);
+  if (!objectKey) return release.apkUrl;
+
+  // An hour: long enough for a slow 100MB download to start, after which
+  // the link is no use to anybody it was shared with.
+  return getPresignedDownloadUrl(objectKey, 60 * 60, {
+    filename: `assn-${release.version}.apk`,
+    contentType: APK_CONTENT_TYPE,
+  });
 }
 
 /**

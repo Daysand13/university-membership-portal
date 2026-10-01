@@ -15,13 +15,16 @@ const r2 = vi.hoisted(() => ({
     url.startsWith("https://files.example.test/") ? url.slice("https://files.example.test/".length) : null,
   ),
   getObjectMetadata: vi.fn(),
+  getPresignedDownloadUrl: vi.fn(async (key: string) => `https://account.r2.cloudflarestorage.com/bucket/${key}?X-Amz-Signature=abc`),
   R2_PREFIXES: { app: "app" },
 }));
 vi.mock("@/lib/storage/r2", () => r2);
 
-const { requestApkUpload, checkStoredApk, ReleaseError, APK_CONTENT_TYPE } = await import(
-  "@/lib/services/app-release-service"
-);
+const database = vi.hoisted(() => ({ db: { appRelease: { findFirst: vi.fn() } } }));
+vi.mock("@/lib/db", () => database);
+
+const { requestApkUpload, checkStoredApk, downloadAddressFor, signedDownloadFor, ReleaseError, APK_CONTENT_TYPE } =
+  await import("@/lib/services/app-release-service");
 
 beforeEach(() => {
   r2.isR2Configured.mockReturnValue(true);
@@ -79,5 +82,42 @@ describe("checking the stored file before a release is recorded", () => {
   it("leaves an address somewhere else to the administrator", async () => {
     await expect(checkStoredApk("https://elsewhere.example.org/assn.apk", 10)).resolves.toBeUndefined();
     expect(r2.getObjectMetadata).not.toHaveBeenCalled();
+  });
+});
+
+describe("where phones download a release from", () => {
+  it("sends a build in our storage through the website, not the rate-limited public address", () => {
+    const address = downloadAddressFor(
+      { id: "rel_123", apkUrl: "https://files.example.test/app/1-assn-1-1-0.apk" },
+      "https://www.assnuew.com",
+    );
+    expect(address).toBe("https://www.assnuew.com/api/v1/app/download/rel_123");
+  });
+
+  it("hands out a build stored elsewhere as it was recorded", () => {
+    expect(downloadAddressFor({ id: "rel_9", apkUrl: "https://elsewhere.example.org/assn.apk" }, "https://www.assnuew.com")).toBe(
+      "https://elsewhere.example.org/assn.apk",
+    );
+  });
+
+  it("signs an hour-long link to the stored file, named and typed as an APK", async () => {
+    database.db.appRelease.findFirst.mockResolvedValue({
+      id: "rel_123",
+      version: "1.1.0",
+      apkUrl: "https://files.example.test/app/1-assn-1-1-0.apk",
+    });
+    const link = await signedDownloadFor("rel_123");
+    expect(link).toContain("r2.cloudflarestorage.com");
+    expect(r2.getPresignedDownloadUrl).toHaveBeenCalledWith("app/1-assn-1-1-0.apk", 3600, {
+      filename: "assn-1.1.0.apk",
+      contentType: APK_CONTENT_TYPE,
+    });
+    // Only a published release may be downloaded.
+    expect(database.db.appRelease.findFirst).toHaveBeenCalledWith({ where: { id: "rel_123", published: true } });
+  });
+
+  it("gives nothing for a release that isn't published, or doesn't exist", async () => {
+    database.db.appRelease.findFirst.mockResolvedValue(null);
+    await expect(signedDownloadFor("rel_unpublished")).resolves.toBeNull();
   });
 });

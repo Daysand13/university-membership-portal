@@ -128,8 +128,15 @@ export async function getPresignedUploadUrl(params: {
 export async function getPresignedDownloadUrl(
   objectKey: string,
   expiresInSeconds = 300,
+  /** What a browser should call the file, and treat it as — e.g. an APK. */
+  response?: { filename?: string; contentType?: string },
 ): Promise<string> {
-  const command = new GetObjectCommand({ Bucket: getBucket(), Key: objectKey });
+  const command = new GetObjectCommand({
+    Bucket: getBucket(),
+    Key: objectKey,
+    ...(response?.filename ? { ResponseContentDisposition: `attachment; filename="${response.filename}"` } : {}),
+    ...(response?.contentType ? { ResponseContentType: response.contentType } : {}),
+  });
   return getSignedUrl(getClient(), command, { expiresIn: expiresInSeconds });
 }
 
