@@ -57,8 +57,9 @@ is nothing the person could do about it.
 
 | `code` | What the app should do |
 |---|---|
-| `no_token` | Send them to sign in |
+| `no_token` | Send them to sign in — unless the request *carried* a token, in which case it was lost in transit (a redirect drops it) and is a problem to retry, not a session ending |
 | `session_expired` | Refresh once, then retry the request |
+| `invalid_fields` | A form needs correcting; `fieldErrors` has the message for each box |
 | `device_revoked` | Sign out and clear the tokens |
 | `account_inactive` | Sign out, and say the account is not active |
 | `wrong_audience` | A bug in the app — it asked for another portal's data |
@@ -80,18 +81,41 @@ taken from the token. Suspending somebody takes effect at once.
 | `POST /devices` | Yes | Register the Firebase address and preferences |
 | `GET /version?build&sdk` | No | Whether to update — see below |
 
-News and events are open without signing in, because the app's public side
-is open without signing in, exactly like the website's. Only PUBLISHED rows
-come back, through the same calls the website makes: a draft cannot leak
-here without leaking there first.
+News and events are open without signing in on the server, exactly like the
+website's pages. The app itself shows them only once somebody has signed in,
+as the dashboard's tabs — that is a choice about the app, not a protection,
+and nothing here depends on it. Only PUBLISHED rows come back, through the
+same calls the website makes: a draft cannot leak here without leaking there
+first.
 
 `pageSize` is capped at 40 and `page` at 500. Each list says `hasMore`, so an
 infinite scroll never has to work out for itself whether page 9 of 8 exists.
 
+### Joining
+
+| Method and path | Sign-in needed | What it does |
+|---|---|---|
+| `GET /join/options` | No | Every list the sign-up forms offer, from the same place the website's forms read them |
+| `POST /join/upload` | No | A signed, short-lived address to put a passport photo or medical report, and a ticket for it |
+| `POST /join/student` | No | An undergraduate or postgraduate application (`track`), waiting for review |
+| `POST /join/alumni` | No | A graduate's alumni account — active at once, and answered like a sign-in, with tokens |
+| `POST /join/patron` | No | A patron's application, waiting for approval |
+
+Every check is the website's own: both front doors call
+`src/lib/services/registration-service.ts`. Rate limits use the website's
+keys, so an address has one allowance, not two. The student route has no
+hidden-field bot trap (meaningless in an app); what stands in for it is the
+medical report, which is required, and whose ticket can only be had by
+uploading a file through `/join/upload`.
+
+The address the app is built against must be the one that answers —
+`https://www.assnuew.com`. The bare domain redirects, and a redirect to
+another host drops the Authorization header from every signed-in request.
+`npm run verify` refuses to bundle against an address that redirects.
+
 ### Still to build
 
-`announcements`, `elections` (view-only), `library`, the alumni directory,
-dues status, and the ID card.
+The ID card.
 
 ## Notifications
 

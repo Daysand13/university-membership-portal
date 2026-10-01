@@ -30,6 +30,8 @@ interface AuthValue {
   me: Me | null;
   signedIn: boolean;
   signIn: (identifier: string, password: string, audience?: Identity["audience"]) => Promise<SignInResult>;
+  /** Starts a session the server has already opened — after a graduate signs up. */
+  adoptSession: (session: SignedIn) => Promise<void>;
   signOut: () => Promise<void>;
   refreshMe: () => Promise<void>;
   /** Set when a session ended by itself, to be shown once on the sign-in screen. */
@@ -39,7 +41,7 @@ interface AuthValue {
 
 const AuthContext = createContext<AuthValue | null>(null);
 
-function describeThisPhone() {
+export function describeThisPhone() {
   return {
     deviceName: [Device.manufacturer, Device.modelName].filter(Boolean).join(" ") || "Android phone",
     appVersion: Application.nativeApplicationVersion ?? undefined,
@@ -97,6 +99,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })();
   }, [loadMe]);
 
+  /**
+   * Takes on a session. Tokens and /me first, identity last: setting the
+   * identity is what moves the app from the sign-in screens to the
+   * dashboard, and the dashboard should open with the person's details
+   * already there rather than flash empty first.
+   */
+  const adoptSession = useCallback(
+    async (session: SignedIn) => {
+      setAccessToken(session.accessToken, session.refreshToken);
+      await saveSession({
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        identity: session.identity,
+        deviceId: session.deviceId,
+      });
+      await loadMe();
+      setEndedMessage(null);
+      setIdentity(session.identity);
+    },
+    [loadMe],
+  );
+
   const signIn = useCallback<AuthValue["signIn"]>(
     async (identifier, password, audience) => {
       try {
@@ -108,22 +132,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if ("chooseFrom" in response) return { kind: "choose", identities: response.chooseFrom };
 
-        setAccessToken(response.accessToken, response.refreshToken);
-        await saveSession({
-          accessToken: response.accessToken,
-          refreshToken: response.refreshToken,
-          identity: response.identity,
-          deviceId: response.deviceId,
-        });
-        setIdentity(response.identity);
-        setEndedMessage(null);
-        await loadMe();
+        await adoptSession(response);
         return { kind: "signed-in" };
       } catch (err) {
         return { kind: "failed", message: (err as Error).message };
       }
     },
-    [loadMe],
+    [adoptSession],
   );
 
   const signOut = useCallback(async () => {
@@ -145,12 +160,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       me,
       signedIn: identity !== null,
       signIn,
+      adoptSession,
       signOut,
       refreshMe: loadMe,
       endedMessage,
       clearEndedMessage: () => setEndedMessage(null),
     }),
-    [ready, identity, me, signIn, signOut, loadMe, endedMessage],
+    [ready, identity, me, signIn, adoptSession, signOut, loadMe, endedMessage],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

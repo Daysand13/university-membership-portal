@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { FlatList, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, RefreshControl, View } from "react-native";
 import { useApi } from "../src/data/useApi";
-import { useAuth } from "../src/auth/AuthContext";
 import type { DirectoryEntry } from "../src/api/types";
-import { Badge, Card, Empty, Loading, Problem } from "../src/ui/components";
-import { colours, radius, spacing, TOUCH_TARGET, type } from "../src/theme";
+import { makeStyles, useTheme } from "../src/a11y/preferences";
+import { Badge, Card, Empty, Loading, Problem, Screen } from "../src/ui/components";
+import { TextField } from "../src/ui/form";
+import { Text } from "../src/ui/Text";
+import { spacing } from "../src/theme";
 
 /**
  * Graduates who chose to be listed.
@@ -14,31 +16,32 @@ import { colours, radius, spacing, TOUCH_TARGET, type } from "../src/theme";
  * and what that should yield is names and professions. Getting in touch
  * goes through mentorship, which both sides have agreed to.
  */
+
+const useStyles = makeStyles((t) => ({
+  searchBox: { padding: spacing.lg, paddingBottom: 0 },
+  list: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
+  name: { fontSize: t.type.subheading, fontWeight: "700", color: t.colours.heading },
+  role: { fontSize: t.type.body, color: t.colours.ink },
+  muted: { fontSize: t.type.small, color: t.colours.muted, lineHeight: t.type.small * 1.5 },
+}));
+
 export default function DirectoryScreen() {
-  const { signedIn } = useAuth();
+  const styles = useStyles();
+  const theme = useTheme();
   const [query, setQuery] = useState("");
   const { data, error, loading, refreshing, refresh } = useApi<{ alumni: DirectoryEntry[]; total: number }>(
     `/alumni${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ""}`,
-    { enabled: signedIn },
   );
 
-  if (!signedIn) return <Empty title="Sign in to see the directory" />;
-
   return (
-    <View style={styles.screen}>
+    <Screen>
       <View style={styles.searchBox}>
-        <Text nativeID="directory-search" style={styles.label}>
-          Search by name, programme or profession
-        </Text>
-        <TextInput
-          accessibilityLabelledBy="directory-search"
-          accessibilityLabel="Search the alumni directory"
+        <TextField
+          label="Search by name, programme or profession"
           value={query}
-          onChangeText={setQuery}
+          onChange={setQuery}
           autoCapitalize="none"
-          style={styles.input}
-          placeholder="e.g. teaching"
-          placeholderTextColor={colours.slateLight}
+          placeholder="teaching"
         />
       </View>
 
@@ -51,7 +54,8 @@ export default function DirectoryScreen() {
           data={data?.alumni ?? []}
           keyExtractor={(entry) => entry.id}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colours.primary} />}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.colours.accentText} />}
           ListEmptyComponent={<Empty title="Nobody matches that" />}
           renderItem={({ item }) => (
             <Card>
@@ -70,26 +74,6 @@ export default function DirectoryScreen() {
           )}
         />
       )}
-    </View>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colours.surfaceMuted },
-  searchBox: { padding: spacing.lg, paddingBottom: 0 },
-  label: { fontSize: type.small, fontWeight: "700", color: colours.primary, marginBottom: spacing.xs },
-  input: {
-    minHeight: TOUCH_TARGET,
-    borderWidth: 1.5,
-    borderColor: colours.line,
-    borderRadius: radius.md,
-    backgroundColor: colours.surface,
-    paddingHorizontal: spacing.lg,
-    fontSize: type.body,
-    color: colours.ink,
-  },
-  list: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
-  name: { fontSize: type.subheading, fontWeight: "700", color: colours.primary },
-  role: { fontSize: type.body, color: colours.ink },
-  muted: { fontSize: type.small, color: colours.slate, lineHeight: type.small * 1.5 },
-});

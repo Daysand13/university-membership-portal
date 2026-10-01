@@ -24,13 +24,22 @@ export class ApiError extends Error {
   readonly status: number;
   /** True when it is worth trying again — as opposed to being refused. */
   readonly retryable: boolean;
+  /** A form that needs correcting: the message for each box, by field name. */
+  readonly fieldErrors: Record<string, string[]>;
 
-  constructor(message: string, status: number, code?: string, retryable = false) {
+  constructor(
+    message: string,
+    status: number,
+    code?: string,
+    retryable = false,
+    fieldErrors: Record<string, string[]> = {},
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.retryable = retryable;
+    this.fieldErrors = fieldErrors;
   }
 }
 
@@ -180,6 +189,7 @@ async function send<T>(path: string, options: RequestOptions, isRetry = false): 
     response.status,
     failure.code,
     response.status >= 500 || response.status === 429,
+    failure.fieldErrors ?? {},
   );
 }
 

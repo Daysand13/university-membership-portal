@@ -1,10 +1,14 @@
 import { useState } from "react";
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, View } from "react-native";
 import { router } from "expo-router";
 import { useApi } from "../../src/data/useApi";
 import type { EventSummary, Paged } from "../../src/api/types";
-import { Card, Empty, Loading, OfflineNotice, Problem } from "../../src/ui/components";
-import { colours, radius, spacing, TOUCH_TARGET, type } from "../../src/theme";
+import { makeStyles, useTheme } from "../../src/a11y/preferences";
+import { useSpeakable } from "../../src/a11y/reading";
+import { describeControl } from "../../src/a11y/speech-words";
+import { Card, CoverImage, Empty, Loading, OfflineNotice, Problem, Screen } from "../../src/ui/components";
+import { Text } from "../../src/ui/Text";
+import { radius, spacing, TOUCH_TARGET } from "../../src/theme";
 
 const dateFormat = new Intl.DateTimeFormat("en-GH", {
   weekday: "long",
@@ -14,35 +18,65 @@ const dateFormat = new Intl.DateTimeFormat("en-GH", {
   timeZone: "Africa/Accra",
 });
 
+const useStyles = makeStyles((t) => ({
+  list: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
+  switcher: { flexDirection: "row", gap: spacing.sm, padding: spacing.lg, paddingBottom: 0 },
+  switch: {
+    minHeight: TOUCH_TARGET,
+    justifyContent: "center",
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.pill,
+    borderWidth: t.highContrast ? 2.5 : 1.5,
+    borderColor: t.colours.lineStrong,
+    backgroundColor: t.colours.surface,
+  },
+  switchOn: { backgroundColor: t.colours.button, borderColor: t.colours.button },
+  switchText: { fontSize: t.type.body, fontWeight: "700", color: t.colours.ink },
+  switchTextOn: { color: t.colours.onButton },
+  title: { fontSize: t.type.subheading, fontWeight: "700", color: t.colours.heading, lineHeight: t.type.subheading * 1.4 },
+  date: { fontSize: t.type.body, color: t.colours.ink },
+  meta: { fontSize: t.type.small, color: t.colours.muted },
+}));
+
+type When = "upcoming" | "past";
+
+/** Two plain choices rather than a segmented control: each is a tab TalkBack announces with its state. */
+function WhenTab({ option, chosen, onChoose }: { option: When; chosen: boolean; onChoose: () => void }) {
+  const styles = useStyles();
+  const label = option === "upcoming" ? "Upcoming events" : "Past events";
+  const ref = useSpeakable<React.ComponentRef<typeof View>>(describeControl({ kind: "radio", name: label, checked: chosen }));
+  return (
+    <Pressable
+      ref={ref}
+      onPress={onChoose}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: chosen }}
+      accessibilityLabel={label}
+      style={[styles.switch, chosen && styles.switchOn]}
+    >
+      <Text speak={false} style={[styles.switchText, chosen && styles.switchTextOn]}>
+        {option === "upcoming" ? "Upcoming" : "Past"}
+      </Text>
+    </Pressable>
+  );
+}
+
 export default function EventsScreen() {
-  const [when, setWhen] = useState<"upcoming" | "past">("upcoming");
+  const styles = useStyles();
+  const theme = useTheme();
+  const [when, setWhen] = useState<When>("upcoming");
   const { data, error, loading, refreshing, fromCache, refresh } = useApi<{ events: EventSummary[] } & Paged>(
     `/events?when=${when}&pageSize=20`,
     { cacheKey: `events-${when}` },
   );
 
-  const events = data?.events ?? [];
-
   return (
-    <View style={styles.screen}>
+    <Screen>
       {fromCache && <OfflineNotice />}
 
-      {/* Two plain choices rather than a segmented control, so each is a
-          button a screen reader announces with its state. */}
       <View style={styles.switcher} accessibilityRole="tablist">
         {(["upcoming", "past"] as const).map((option) => (
-          <Pressable
-            key={option}
-            onPress={() => setWhen(option)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: when === option }}
-            accessibilityLabel={option === "upcoming" ? "Upcoming events" : "Past events"}
-            style={[styles.switch, when === option && styles.switchOn]}
-          >
-            <Text style={[styles.switchText, when === option && styles.switchTextOn]}>
-              {option === "upcoming" ? "Upcoming" : "Past"}
-            </Text>
-          </Pressable>
+          <WhenTab key={option} option={option} chosen={when === option} onChoose={() => setWhen(option)} />
         ))}
       </View>
 
@@ -52,10 +86,11 @@ export default function EventsScreen() {
         <Problem message={error} onRetry={refresh} />
       ) : (
         <FlatList
-          data={events}
+          data={data?.events ?? []}
           keyExtractor={(event) => event.id}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colours.primary} />}
+          initialNumToRender={20}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.colours.accentText} />}
           ListEmptyComponent={
             <Empty
               title={when === "upcoming" ? "Nothing coming up" : "No past events"}
@@ -65,8 +100,10 @@ export default function EventsScreen() {
           renderItem={({ item }) => (
             <Card
               onPress={() => router.push(`/events/${item.slug}`)}
-              accessibilityLabel={`${item.title}, ${dateFormat.format(new Date(item.startDate))}, at ${item.venue}. Opens the full event.`}
+              accessibilityLabel={`${item.title}. ${dateFormat.format(new Date(item.startDate))}, at ${item.venue}.`}
+              accessibilityHint="Opens the full event"
             >
+              <CoverImage url={item.imageUrl} />
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.date}>{dateFormat.format(new Date(item.startDate))}</Text>
               <Text style={styles.meta}>{item.venue}</Text>
@@ -74,27 +111,6 @@ export default function EventsScreen() {
           )}
         />
       )}
-    </View>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colours.surfaceMuted },
-  list: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
-  switcher: { flexDirection: "row", gap: spacing.sm, padding: spacing.lg, paddingBottom: 0 },
-  switch: {
-    minHeight: TOUCH_TARGET,
-    justifyContent: "center",
-    paddingHorizontal: spacing.xl,
-    borderRadius: radius.pill,
-    borderWidth: 1.5,
-    borderColor: colours.line,
-    backgroundColor: colours.surface,
-  },
-  switchOn: { backgroundColor: colours.primary, borderColor: colours.primary },
-  switchText: { fontSize: type.body, fontWeight: "700", color: colours.slate },
-  switchTextOn: { color: colours.white },
-  title: { fontSize: type.subheading, fontWeight: "700", color: colours.primary, lineHeight: type.subheading * 1.4 },
-  date: { fontSize: type.body, color: colours.ink },
-  meta: { fontSize: type.small, color: colours.slate },
-});

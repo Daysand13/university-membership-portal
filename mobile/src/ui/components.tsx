@@ -5,77 +5,197 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
   type ImageStyle,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { colours, HEADER_GRADIENT, radius, shadow, spacing, TOUCH_TARGET, type } from "../theme";
+import { makeStyles, useTheme } from "../a11y/preferences";
+import { ReadableScreen, SpokenFor, useSpeakable } from "../a11y/reading";
+import { describeControl } from "../a11y/speech-words";
+import { radius, spacing, TOUCH_TARGET } from "../theme";
+import { Text } from "./Text";
 
 /**
  * The pieces every screen is built from.
  *
- * Three rules run through all of them, and they are the same three the
- * website was put right on:
+ * Four rules run through all of them, the same ones the website was put
+ * right on:
  *
  *  - Nothing is described by colour alone. A status has words as well.
- *  - Every control has a name a screen reader can say, and is at least
- *    48dp, because a member with a tremor cannot hit a small button.
- *  - Nothing assumes text is one line. Android's font scaling goes up to
- *    twice the size, and several of this association's members use it.
+ *  - Every control has a name and a role TalkBack can say, and says itself
+ *    to Read Aloud in the website's own words ("Sign in, button.").
+ *  - Every control is at least 48dp, because a member with a tremor cannot
+ *    hit a small button.
+ *  - Nothing assumes text is one line. The larger text sizes, and Android's
+ *    own font scaling on top, mean a heading may be three lines. Let it be.
  */
 
+type ViewInstance = React.ComponentRef<typeof View>;
+
+const useStyles = makeStyles((t) => ({
+  screen: { flex: 1, backgroundColor: t.colours.background },
+  scrollBody: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.md },
+  title: { fontSize: t.type.title, lineHeight: t.type.title * 1.3, fontWeight: "700", color: t.colours.heading },
+  heading: { fontSize: t.type.heading, lineHeight: t.type.heading * 1.35, fontWeight: "700", color: t.colours.heading },
+  body: { fontSize: t.type.body, color: t.colours.ink, lineHeight: t.type.body * 1.55 },
+  muted: { fontSize: t.type.small, color: t.colours.muted, lineHeight: t.type.small * 1.5 },
+  card: {
+    backgroundColor: t.colours.surface,
+    borderRadius: radius.lg,
+    // A border as well as the shadow: the shadow is the soft look, the
+    // border is what somebody with low vision uses to tell one card from the
+    // next. In dark mode the shadow is invisible and the border does it all.
+    borderWidth: t.border,
+    borderColor: t.colours.line,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    ...t.shadow.card,
+  },
+  cardPressed: { backgroundColor: t.colours.surfacePressed },
+  button: {
+    minHeight: 52,
+    borderRadius: radius.pill,
+    backgroundColor: t.colours.button,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    ...t.shadow.raised,
+  },
+  buttonPressed: { backgroundColor: t.colours.buttonPressed },
+  buttonOutline: {
+    backgroundColor: t.colours.surface,
+    borderWidth: t.highContrast ? 2.5 : 1.5,
+    borderColor: t.colours.accentText,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  buttonDanger: { backgroundColor: t.colours.danger, shadowColor: t.colours.danger },
+  buttonDisabled: { opacity: 0.5, shadowOpacity: 0, elevation: 0 },
+  buttonLabel: {
+    color: t.colours.onButton,
+    fontSize: t.type.body,
+    fontWeight: "700",
+    textAlign: "center",
+    flexShrink: 1,
+  },
+  buttonLabelOutline: { color: t.colours.accentText },
+  buttonLabelDanger: { color: t.dark ? "#1A0705" : t.colours.white },
+  centred: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: spacing.md },
+  problemText: { fontSize: t.type.body, color: t.colours.ink, textAlign: "center", lineHeight: t.type.body * 1.5 },
+  emptyTitle: { fontSize: t.type.subheading, fontWeight: "700", color: t.colours.heading, textAlign: "center" },
+  emptyText: { fontSize: t.type.small, color: t.colours.muted, textAlign: "center", lineHeight: t.type.small * 1.5 },
+  offline: {
+    backgroundColor: t.colours.warningBg,
+    borderBottomWidth: t.border,
+    borderBottomColor: t.colours.line,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  offlineText: { fontSize: t.type.small, color: t.colours.warning, lineHeight: t.type.small * 1.5, fontWeight: "600" },
+  badge: {
+    alignSelf: "flex-start",
+    backgroundColor: t.colours.surfacePressed,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  badgeGood: { backgroundColor: t.colours.successBg },
+  badgeWarn: { backgroundColor: t.colours.warningBg },
+  badgeText: { fontSize: t.type.tiny, fontWeight: "700", color: t.colours.ink },
+  badgeTextGood: { color: t.colours.success },
+  badgeTextWarn: { color: t.colours.warning },
+  row: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: spacing.sm },
+  sectionLabel: {
+    fontSize: t.type.tiny,
+    fontWeight: "700",
+    letterSpacing: 1.1,
+    color: t.colours.muted,
+    textTransform: "uppercase",
+    marginTop: spacing.sm,
+  },
+  cover: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+    borderRadius: radius.md,
+    // Shown while the picture is still coming down, so the card does not
+    // jump when it arrives.
+    backgroundColor: t.colours.surfacePressed,
+  },
+}));
+
+/**
+ * A whole screen: the background, an optional scroll, and the scope Read
+ * Aloud reads while this screen is in front.
+ */
 export function Screen({ children, scroll = false }: { children: ReactNode; scroll?: boolean }) {
-  const Body = scroll ? ScrollView : View;
+  const styles = useStyles();
   return (
-    <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
-      <Body style={styles.screenBody} contentContainerStyle={scroll ? styles.scrollBody : undefined}>
-        {children}
-      </Body>
-    </SafeAreaView>
+    <ReadableScreen>
+      {scroll ? (
+        <ScrollView style={styles.screen} contentContainerStyle={styles.scrollBody} keyboardShouldPersistTaps="handled">
+          {children}
+        </ScrollView>
+      ) : (
+        <View style={styles.screen}>{children}</View>
+      )}
+    </ReadableScreen>
   );
 }
 
 export function Heading({ children, level = 1 }: { children: ReactNode; level?: 1 | 2 }) {
+  const styles = useStyles();
   return (
-    <Text
-      accessibilityRole="header"
-      style={level === 1 ? styles.title : styles.heading}
-      // A heading may be three lines at the largest font size. Let it be.
-      numberOfLines={0}
-    >
+    <Text accessibilityRole="header" style={level === 1 ? styles.title : styles.heading}>
       {children}
     </Text>
   );
 }
 
 export function Body({ children, muted = false }: { children: ReactNode; muted?: boolean }) {
-  return <Text style={[styles.body, muted && styles.muted]}>{children}</Text>;
+  const styles = useStyles();
+  return <Text style={muted ? styles.muted : styles.body}>{children}</Text>;
 }
 
+/**
+ * A card. Given `onPress` it is a button, and says itself as one —
+ * `accessibilityLabel` is required then, because it is all TalkBack and
+ * Read Aloud have to go on: the words inside the card are not read
+ * separately, or they would be read twice.
+ */
 export function Card({
   children,
   onPress,
   accessibilityLabel,
+  accessibilityHint,
   style,
 }: {
   children: ReactNode;
   onPress?: () => void;
   accessibilityLabel?: string;
+  accessibilityHint?: string;
   style?: StyleProp<ViewStyle>;
 }) {
+  const styles = useStyles();
+  const ref = useSpeakable<ViewInstance>(
+    onPress ? describeControl({ kind: "button", name: accessibilityLabel ?? "" }) : null,
+  );
+
   if (!onPress) return <View style={[styles.card, style]}>{children}</View>;
   return (
     <Pressable
+      ref={ref}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed, style]}
     >
-      {children}
+      <SpokenFor>{children}</SpokenFor>
     </Pressable>
   );
 }
@@ -86,48 +206,74 @@ export function Button({
   variant = "primary",
   disabled = false,
   busy = false,
+  accessibilityHint,
 }: {
   label: string;
   onPress: () => void;
   variant?: "primary" | "outline" | "danger";
   disabled?: boolean;
   busy?: boolean;
+  accessibilityHint?: string;
 }) {
+  const styles = useStyles();
+  const theme = useTheme();
   const unusable = disabled || busy;
+  const ref = useSpeakable<ViewInstance>(describeControl({ kind: "button", name: label, disabled: unusable }));
+
   return (
     <Pressable
+      ref={ref}
       onPress={onPress}
       disabled={unusable}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: unusable, busy }}
       style={({ pressed }) => [
         styles.button,
         variant === "outline" && styles.buttonOutline,
         variant === "danger" && styles.buttonDanger,
         unusable && styles.buttonDisabled,
-        pressed && !unusable && styles.buttonPressed,
+        pressed && !unusable && variant !== "outline" && styles.buttonPressed,
       ]}
     >
-      {busy && <ActivityIndicator size="small" color={variant === "outline" ? colours.primary : colours.white} />}
-      <Text style={[styles.buttonLabel, variant === "outline" && styles.buttonLabelOutline]}>{label}</Text>
+      {busy && (
+        <ActivityIndicator
+          size="small"
+          color={variant === "outline" ? theme.colours.accentText : theme.colours.onButton}
+        />
+      )}
+      <SpokenFor>
+        <Text
+          style={[
+            styles.buttonLabel,
+            variant === "outline" && styles.buttonLabelOutline,
+            variant === "danger" && styles.buttonLabelDanger,
+          ]}
+        >
+          {label}
+        </Text>
+      </SpokenFor>
     </Pressable>
   );
 }
 
 export function Loading({ what }: { what: string }) {
+  const styles = useStyles();
+  const theme = useTheme();
   return (
     <View style={styles.centred} accessibilityRole="progressbar" accessibilityLabel={`Loading ${what}`}>
-      <ActivityIndicator size="large" color={colours.primary} />
+      <ActivityIndicator size="large" color={theme.colours.accentText} />
       <Text style={styles.muted}>Loading {what}…</Text>
     </View>
   );
 }
 
 export function Problem({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  const styles = useStyles();
   return (
     <View style={styles.centred}>
-      {/* role=alert so a screen reader says it without being asked. */}
+      {/* role=alert so TalkBack says it without being asked. */}
       <Text accessibilityRole="alert" style={styles.problemText}>
         {message}
       </Text>
@@ -137,16 +283,18 @@ export function Problem({ message, onRetry }: { message: string; onRetry?: () =>
 }
 
 export function Empty({ title, description }: { title: string; description?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.centred}>
       <Text style={styles.emptyTitle}>{title}</Text>
-      {description && <Text style={styles.muted}>{description}</Text>}
+      {description && <Text style={styles.emptyText}>{description}</Text>}
     </View>
   );
 }
 
 /** "Saved copy" — shown when the network was unavailable. Never silent. */
 export function OfflineNotice() {
+  const styles = useStyles();
   return (
     <View style={styles.offline} accessibilityRole="alert">
       <Text style={styles.offlineText}>
@@ -157,6 +305,7 @@ export function OfflineNotice() {
 }
 
 export function Badge({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "good" | "warn" }) {
+  const styles = useStyles();
   return (
     // The word is the label; the colour only agrees with it.
     <View style={[styles.badge, tone === "good" && styles.badgeGood, tone === "warn" && styles.badgeWarn]}>
@@ -168,21 +317,20 @@ export function Badge({ label, tone = "neutral" }: { label: string; tone?: "neut
 }
 
 export function Row({ children }: { children: ReactNode }) {
+  const styles = useStyles();
   return <View style={styles.row}>{children}</View>;
 }
 
 /**
- * The bar across the top of every screen.
- *
- * Passed to the navigator as `headerBackground`, so one gradient covers the
- * status bar, the title and the back arrow without any screen knowing about
- * it. Deep on the left, lighter on the right — the light end is still dark
- * enough to carry a white title, which is what fixes its shade.
+ * The bar across the top of every screen, passed to the navigators as
+ * `headerBackground`. The light end is still dark enough to carry a white
+ * title — that is what fixes its shade (theme.ts, tests/theme.test.ts).
  */
 export function GradientHeader() {
+  const theme = useTheme();
   return (
     <LinearGradient
-      colors={[...HEADER_GRADIENT]}
+      colors={[theme.colours.headerFrom, theme.colours.headerTo]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={StyleSheet.absoluteFill}
@@ -191,13 +339,12 @@ export function GradientHeader() {
 }
 
 /**
- * "YOUR MEMBERSHIP", "WHAT'S ON" — the small label above a group of cards.
- *
- * Marked as a heading so a screen reader can jump between sections, which
- * is how somebody using one navigates a long screen. Spaced capitals are a
- * visual device, not a reading one.
+ * "SHORTCUTS", "THIS PHONE" — the small label above a group of cards.
+ * Marked as a heading, because jumping between headings is how somebody on
+ * TalkBack gets round a long screen.
  */
 export function SectionLabel({ children }: { children: ReactNode }) {
+  const styles = useStyles();
   return (
     <Text accessibilityRole="header" style={styles.sectionLabel}>
       {children}
@@ -208,16 +355,16 @@ export function SectionLabel({ children }: { children: ReactNode }) {
 /**
  * The picture on an article or an event.
  *
- * Hidden from the screen reader on purpose. These images are uploaded
- * without any description — the schema has nowhere to put one — and a
- * screen reader announcing "image" before every headline is noise that
- * tells a reader nothing. The headline beside it carries the meaning.
+ * Hidden from TalkBack and Read Aloud on purpose. These images are uploaded
+ * with no description anywhere to put one, and "image" said before every
+ * headline tells a reader nothing the headline does not.
  *
- * It removes itself if the file will not load. A grey box where a picture
+ * It removes itself if the file will not load: a grey box where a picture
  * should be reads as a broken app; a card with no picture reads as a card
  * with no picture.
  */
 export function CoverImage({ url, style }: { url: string | null; style?: StyleProp<ImageStyle> }) {
+  const styles = useStyles();
   const [failed, setFailed] = useState(false);
   if (!url || failed) return null;
   return (
@@ -232,92 +379,10 @@ export function CoverImage({ url, style }: { url: string | null; style?: StylePr
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colours.surfaceMuted },
-  screenBody: { flex: 1 },
-  scrollBody: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.md },
-  title: { fontSize: type.title, fontWeight: "700", color: colours.primary, marginBottom: spacing.xs },
-  heading: { fontSize: type.heading, fontWeight: "700", color: colours.primary, marginBottom: spacing.xs },
-  body: { fontSize: type.body, color: colours.ink, lineHeight: type.body * 1.5 },
-  muted: { fontSize: type.small, color: colours.slate, lineHeight: type.small * 1.5 },
-  card: {
-    backgroundColor: colours.surface,
-    borderRadius: radius.lg,
-    // Hairline as well as shadow. The shadow is the soft look; the border
-    // is what somebody with low vision actually uses to tell one card from
-    // the next.
-    borderWidth: 1,
-    borderColor: colours.line,
-    padding: spacing.lg,
-    gap: spacing.sm,
-    ...shadow.card,
-  },
-  cardPressed: { backgroundColor: colours.surfaceMuted },
-  button: {
-    // Above the 48dp floor, not at it. A primary action is the thing most
-    // people are reaching for.
-    minHeight: 52,
-    borderRadius: radius.pill,
-    backgroundColor: colours.primaryMid,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    ...shadow.raised,
-  },
-  buttonPressed: { backgroundColor: colours.primary },
-  buttonOutline: {
-    backgroundColor: colours.surface,
-    borderWidth: 1.5,
-    borderColor: colours.primaryMid,
-    // An outline button is a quieter choice and should not float.
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  buttonDanger: { backgroundColor: colours.danger, shadowColor: colours.danger },
-  buttonDisabled: { opacity: 0.5, shadowOpacity: 0, elevation: 0 },
-  buttonLabel: { color: colours.white, fontSize: type.body, fontWeight: "700", textAlign: "center" },
-  buttonLabelOutline: { color: colours.primaryMid },
-  sectionLabel: {
-    fontSize: type.tiny,
-    fontWeight: "700",
-    letterSpacing: 1.1,
-    color: colours.slate,
-    textTransform: "uppercase",
-    marginTop: spacing.sm,
-  },
-  centred: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: spacing.md },
-  problemText: { fontSize: type.body, color: colours.ink, textAlign: "center", lineHeight: type.body * 1.5 },
-  emptyTitle: { fontSize: type.subheading, fontWeight: "700", color: colours.primary, textAlign: "center" },
-  offline: {
-    backgroundColor: colours.warningLight,
-    borderBottomWidth: 1,
-    borderBottomColor: colours.line,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  offlineText: { fontSize: type.small, color: colours.ink, lineHeight: type.small * 1.5 },
-  badge: {
-    alignSelf: "flex-start",
-    backgroundColor: colours.surfaceMuted,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  badgeGood: { backgroundColor: colours.successLight },
-  badgeWarn: { backgroundColor: colours.warningLight },
-  badgeText: { fontSize: type.tiny, fontWeight: "700", color: colours.slate },
-  badgeTextGood: { color: colours.success },
-  badgeTextWarn: { color: colours.warning },
-  row: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: spacing.sm },
-  cover: {
-    width: "100%",
-    aspectRatio: 16 / 9,
-    borderRadius: radius.md,
-    // Shown while the file is still coming down, so the card does not jump
-    // when it arrives.
-    backgroundColor: colours.surfaceMuted,
-  },
-});
+/** For screens that need the theme's text styles directly. */
+export function useTextStyles() {
+  const styles = useStyles();
+  return { title: styles.title, heading: styles.heading, body: styles.body, muted: styles.muted };
+}
+
+export { TOUCH_TARGET };

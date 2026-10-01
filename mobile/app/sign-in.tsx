@@ -1,36 +1,49 @@
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, View } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "../src/auth/AuthContext";
 import { registerForPush } from "../src/push/register";
 import type { Identity } from "../src/api/types";
-import { Body, Button, Card, Heading } from "../src/ui/components";
-import { colours, radius, spacing, TOUCH_TARGET, type } from "../src/theme";
+import { makeStyles } from "../src/a11y/preferences";
+import { Body, Button, Card, Heading, Screen } from "../src/ui/components";
+import { FormAlert, TextField } from "../src/ui/form";
+import { Text } from "../src/ui/Text";
+import { radius, spacing } from "../src/theme";
 
 /**
  * Signing in.
  *
  * One box for either an index number or an email address, because that is
  * what the website's own sign-in accepts and a student who has graduated
- * may reasonably reach for either.
+ * may reasonably reach for either. Somebody who is both a student and a
+ * graduate is asked which portal rather than being put wherever we guessed.
  *
- * Somebody who is both a student and a graduate is asked which portal
- * rather than being put wherever we guessed.
+ * This screen does not navigate anywhere when sign-in succeeds. The root
+ * layout guards the signed-in half of the app, and the router moves there
+ * by itself the moment a session exists — one place deciding, rather than
+ * every screen that can sign somebody in getting the navigation right.
  *
  * Notifications are asked for after this, not before: Android only asks
  * once, and a prompt before somebody has seen what the app is gets refused
  * for good.
  */
+
+const useStyles = makeStyles((t) => ({
+  notice: {
+    backgroundColor: t.colours.warningBg,
+    borderRadius: radius.md,
+    borderWidth: t.border,
+    borderColor: t.colours.warning,
+    padding: spacing.lg,
+  },
+  noticeText: { fontSize: t.type.small, color: t.colours.warning, lineHeight: t.type.small * 1.5, fontWeight: "600" },
+  choiceTitle: { fontSize: t.type.subheading, fontWeight: "700", color: t.colours.heading },
+  muted: { fontSize: t.type.small, color: t.colours.muted, lineHeight: t.type.small * 1.5 },
+  working: { fontSize: t.type.body, color: t.colours.ink },
+}));
+
 export default function SignInScreen() {
+  const styles = useStyles();
   const { signIn, endedMessage, clearEndedMessage } = useAuth();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -39,6 +52,7 @@ export default function SignInScreen() {
   const [choices, setChoices] = useState<Identity[] | null>(null);
 
   const attempt = async (audience?: Identity["audience"]) => {
+    if (busy) return;
     setBusy(true);
     setProblem(null);
     clearEndedMessage();
@@ -55,41 +69,24 @@ export default function SignInScreen() {
       return;
     }
 
-    // Signed in. Now is the moment the question makes sense.
+    // Signed in. Now is the moment the question makes sense. The router has
+    // already been told; nothing to navigate here.
     void registerForPush();
-
-    // Back, not replace. This screen was pushed on top of the tabs, so the
-    // portal is already underneath — replacing this route with one already
-    // in the stack does nothing at all, which looked from the outside like
-    // signing in had silently failed. The portal reads the auth context, so
-    // it is already showing the signed-in view by the time we land on it.
-    if (router.canGoBack()) router.back();
-    else router.replace("/(tabs)/portal");
   };
 
   if (choices) {
     return (
-      <ScrollView contentContainerStyle={styles.body}>
+      <Screen scroll>
         <Heading>Which portal?</Heading>
         <Body muted>You belong to more than one. Choose the one you want to open.</Body>
 
-        {/* This screen used to render neither of these, so a second sign-in
-            that failed — a portal the account turns out not to have, a
-            connection that dropped — looked like the tap had done nothing. */}
-        {problem && (
-          <Text accessibilityRole="alert" style={styles.problem}>
-            {problem}
-          </Text>
-        )}
+        <FormAlert message={problem} />
 
         {choices.map((choice) => (
           <Card
             key={choice.audience}
-            onPress={() => {
-              if (busy) return;
-              void attempt(choice.audience);
-            }}
-            accessibilityLabel={`Sign in to the ${choice.label} as ${choice.name}`}
+            onPress={() => void attempt(choice.audience)}
+            accessibilityLabel={`Open the ${choice.label} as ${choice.name}`}
           >
             <Text style={styles.choiceTitle}>{choice.label}</Text>
             <Text style={styles.muted}>{choice.name}</Text>
@@ -97,10 +94,9 @@ export default function SignInScreen() {
         ))}
 
         {busy && (
-          <View style={styles.working} accessibilityRole="progressbar" accessibilityLabel="Signing you in">
-            <ActivityIndicator size="small" color={colours.primary} />
-            <Text style={styles.muted}>Signing you in…</Text>
-          </View>
+          <Text accessibilityLiveRegion="polite" style={styles.working}>
+            Signing you in…
+          </Text>
         )}
 
         <Button
@@ -112,64 +108,46 @@ export default function SignInScreen() {
             setChoices(null);
           }}
         />
-      </ScrollView>
+      </Screen>
     );
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <Screen scroll>
         <Heading>Sign in</Heading>
 
         {endedMessage && (
-          <View style={styles.notice} accessibilityRole="alert">
-            <Text style={styles.noticeText}>{endedMessage}</Text>
+          <View style={styles.notice}>
+            <Text accessibilityRole="alert" style={styles.noticeText}>
+              {endedMessage}
+            </Text>
           </View>
         )}
 
-        <View>
-          <Text nativeID="identifier-label" style={styles.label}>
-            Index number or email address
-          </Text>
-          <TextInput
-            accessibilityLabelledBy="identifier-label"
-            accessibilityLabel="Index number or email address"
-            value={identifier}
-            onChangeText={setIdentifier}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="username"
-            inputMode="email"
-            style={styles.input}
-            placeholder="220010345 or you@example.com"
-            placeholderTextColor={colours.slateLight}
-          />
-        </View>
+        <TextField
+          label="Index number or email address"
+          value={identifier}
+          onChange={setIdentifier}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="username"
+          inputMode="email"
+          placeholder="220010345 or you@example.com"
+          required
+        />
 
-        <View>
-          <Text nativeID="password-label" style={styles.label}>
-            Password
-          </Text>
-          <TextInput
-            accessibilityLabelledBy="password-label"
-            accessibilityLabel="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
-            autoComplete="current-password"
-            style={styles.input}
-          />
-        </View>
+        <TextField
+          label="Password"
+          value={password}
+          onChange={setPassword}
+          secret
+          autoCapitalize="none"
+          autoComplete="current-password"
+          required
+        />
 
-        {problem && (
-          <Text accessibilityRole="alert" style={styles.problem}>
-            {problem}
-          </Text>
-        )}
+        <FormAlert message={problem} />
 
         <Button
           label="Sign in"
@@ -178,36 +156,10 @@ export default function SignInScreen() {
           onPress={() => void attempt()}
         />
 
-        <Text style={styles.muted}>
-          Forgotten your password? Reset it on the association&apos;s website, then sign in here.
-        </Text>
-      </ScrollView>
+        <Body muted>Forgotten your password? Reset it on the association&apos;s website, then sign in here.</Body>
+
+        <Button label="Not a member yet? Join" variant="outline" onPress={() => router.push("/join")} />
+      </Screen>
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colours.surfaceMuted },
-  body: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
-  label: { fontSize: type.small, fontWeight: "700", color: colours.primary, marginBottom: spacing.xs },
-  input: {
-    minHeight: TOUCH_TARGET,
-    borderWidth: 1.5,
-    borderColor: colours.line,
-    borderRadius: radius.md,
-    backgroundColor: colours.surface,
-    paddingHorizontal: spacing.lg,
-    fontSize: type.body,
-    color: colours.ink,
-  },
-  problem: { fontSize: type.body, color: colours.danger, lineHeight: type.body * 1.5 },
-  notice: {
-    backgroundColor: colours.warningLight,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-  },
-  noticeText: { fontSize: type.small, color: colours.ink, lineHeight: type.small * 1.5 },
-  working: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  choiceTitle: { fontSize: type.subheading, fontWeight: "700", color: colours.primary },
-  muted: { fontSize: type.small, color: colours.slate, lineHeight: type.small * 1.5 },
-});

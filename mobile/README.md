@@ -5,6 +5,34 @@ website's own API at `/api/v1/app/` and keeps no data of its own, so
 anything an administrator publishes on the website appears here without a
 new release.
 
+## What it is
+
+**Signed out**, it is a welcome screen, signing in, and the four ways to
+join: undergraduate, postgraduate, alumni and patron. The forms are the
+website's own, field for field and in its words, and the server checks them
+with the same code (`src/lib/services/registration-service.ts`). A
+student's passport photo and medical report go straight from the phone to
+storage, as on the website.
+
+**Signed in**, it is the member's dashboard, with News, Events and More
+along the bottom.
+
+The two halves are guarded in `app/_layout.tsx` (`Stack.Protected`): when
+a session starts or ends, the router moves to the half that now applies.
+No screen navigates by hand on signing in or out — keep it that way.
+
+**On every screen**, the website's accessibility controls, in the header:
+
+- **Read Aloud** reads the screen in front — its words, its buttons and its
+  boxes — in the website's own wording ("First name, text box, empty.").
+  See `src/a11y/reading.tsx` for how; the short version is that everything
+  that says something registers what it would say, through the `Text`
+  component and the controls in `src/ui/`. **Use `src/ui/Text`, never
+  React Native's `Text`**, or Read Aloud will skip it.
+- **Display**: three text sizes, high contrast, dark mode, saved on the
+  phone. Every colour comes from `src/theme.ts`, and
+  `tests/theme.test.ts` holds each palette to its contrast floor.
+
 ## Running it
 
 You do not need Android Studio or a Java installation. Expo builds in the
@@ -50,8 +78,10 @@ uninstall and reinstall by hand.
 | `src/auth/` | Signing in, and where tokens are kept |
 | `src/push/` | Asking for notifications and registering this phone |
 | `src/update/` | Checking for, verifying and installing a new APK |
-| `src/ui/` | The pieces every screen is built from |
-| `tests/` | `npm test` — the hash and the API client |
+| `src/ui/` | The pieces every screen is built from, and the form controls |
+| `src/a11y/` | Read Aloud, and the display settings |
+| `src/join/` | Signing up: the options, attachments, drafts |
+| `tests/` | `npm test` — contrast, Read Aloud's wording, photo sizing, the API client, the hash |
 
 ## Three things that are not obvious
 
@@ -83,8 +113,6 @@ worth keeping, since a cloud build is twenty minutes to discover otherwise.
 
 ## Still to do
 
-- No dark mode. The website has one and several members use it, so this is
-  worth doing rather than an oversight.
 - Mentorship, barrier reports and support requests are phase two.
-- CVs, letters and enrollment stay on the website, where the long forms and
-  file uploads already work.
+- CVs, letters, dues payments and the further-studies form stay on the
+  website.

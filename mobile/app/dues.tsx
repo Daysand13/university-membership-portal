@@ -1,9 +1,9 @@
-import { ScrollView, StyleSheet, Text } from "react-native";
 import { useApi } from "../src/data/useApi";
 import { useAuth } from "../src/auth/AuthContext";
 import type { DuesSummary } from "../src/api/types";
-import { Badge, Card, Empty, Heading, Loading, Problem } from "../src/ui/components";
-import { colours, spacing, type } from "../src/theme";
+import { makeStyles } from "../src/a11y/preferences";
+import { Badge, Card, Empty, Heading, Loading, Problem, Screen } from "../src/ui/components";
+import { Text } from "../src/ui/Text";
 
 const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "long", year: "numeric" });
 
@@ -14,18 +14,42 @@ const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "lo
  * Paystack callback and the webhook already land — a second payment path
  * would be a second place to get a receipt wrong.
  */
-export default function DuesScreen() {
-  const { signedIn, identity } = useAuth();
-  const isMember = identity?.audience === "MEMBER";
-  const { data, error, loading, refresh } = useApi<DuesSummary>("/dues", { enabled: signedIn && isMember });
 
-  if (!signedIn) return <Empty title="Sign in to see your dues" />;
-  if (!isMember) return <Empty title="Dues are for students" description="Graduates and patrons don't pay dues." />;
-  if (loading) return <Loading what="your dues" />;
-  if (error || !data) return <Problem message={error ?? "We couldn't load your dues."} onRetry={refresh} />;
+const useStyles = makeStyles((t) => ({
+  amount: { fontSize: t.type.heading, fontWeight: "700", color: t.colours.heading },
+  muted: { fontSize: t.type.small, color: t.colours.muted, lineHeight: t.type.small * 1.5 },
+}));
+
+export default function DuesScreen() {
+  const styles = useStyles();
+  const { identity } = useAuth();
+  const isMember = identity?.audience === "MEMBER";
+  const { data, error, loading, refresh } = useApi<DuesSummary>("/dues", { enabled: isMember });
+
+  if (!isMember) {
+    return (
+      <Screen>
+        <Empty title="Dues are for students" description="Graduates and patrons don't pay dues." />
+      </Screen>
+    );
+  }
+  if (loading) {
+    return (
+      <Screen>
+        <Loading what="your dues" />
+      </Screen>
+    );
+  }
+  if (error || !data) {
+    return (
+      <Screen>
+        <Problem message={error ?? "We couldn't load your dues."} onRetry={refresh} />
+      </Screen>
+    );
+  }
 
   return (
-    <ScrollView contentContainerStyle={styles.body}>
+    <Screen scroll>
       <Heading>{data.academicYear}</Heading>
 
       <Card>
@@ -49,8 +73,7 @@ export default function DuesScreen() {
           <Card key={payment.id}>
             <Text style={styles.amount}>{payment.amountLabel}</Text>
             <Text style={styles.muted}>
-              {payment.academicYear} ·{" "}
-              {payment.paidAt ? dateFormat.format(new Date(payment.paidAt)) : "not completed"}
+              {payment.academicYear} · {payment.paidAt ? dateFormat.format(new Date(payment.paidAt)) : "not completed"}
             </Text>
             <Badge
               label={payment.status === "SUCCESS" ? "Received" : payment.status === "PENDING" ? "Unfinished" : "Failed"}
@@ -59,12 +82,6 @@ export default function DuesScreen() {
           </Card>
         ))
       )}
-    </ScrollView>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  body: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
-  amount: { fontSize: type.heading, fontWeight: "700", color: colours.primary },
-  muted: { fontSize: type.small, color: colours.slate, lineHeight: type.small * 1.5 },
-});

@@ -1,23 +1,13 @@
-import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { FlatList, RefreshControl } from "react-native";
 import { useApi } from "../src/data/useApi";
-import { useAuth } from "../src/auth/AuthContext";
 import type { Announcement } from "../src/api/types";
-import { Card, Empty, Loading, Problem } from "../src/ui/components";
-import { colours, spacing, type } from "../src/theme";
+import { makeStyles, useTheme } from "../src/a11y/preferences";
+import { Card, Empty, Loading, Problem, Screen } from "../src/ui/components";
+import { Text } from "../src/ui/Text";
+import { readable } from "../src/ui/html";
+import { spacing } from "../src/theme";
 
 const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "long", year: "numeric" });
-
-function readable(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|h[1-6]|li)>/gi, "\n\n")
-    .replace(/<li>/gi, "• ")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
 
 /**
  * What the association has sent this person.
@@ -25,30 +15,48 @@ function readable(html: string): string {
  * Not cached: an announcement is addressed to somebody, and a shared phone
  * should not keep one person's post for the next person to find.
  */
-export default function AnnouncementsScreen() {
-  const { signedIn } = useAuth();
-  const { data, error, loading, refreshing, refresh } = useApi<{ announcements: Announcement[] }>(
-    "/announcements",
-    { enabled: signedIn },
-  );
 
-  if (!signedIn) return <Empty title="Sign in to see your announcements" />;
-  if (loading) return <Loading what="your announcements" />;
-  if (error && !data) return <Problem message={error} onRetry={refresh} />;
+const useStyles = makeStyles((t) => ({
+  list: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
+  subject: { fontSize: t.type.subheading, fontWeight: "700", color: t.colours.heading, lineHeight: t.type.subheading * 1.4 },
+  meta: { fontSize: t.type.small, color: t.colours.muted },
+  body: { fontSize: t.type.body, color: t.colours.ink, lineHeight: t.type.body * 1.6 },
+}));
+
+export default function AnnouncementsScreen() {
+  const styles = useStyles();
+  const theme = useTheme();
+  const { data, error, loading, refreshing, refresh } = useApi<{ announcements: Announcement[] }>("/announcements");
+
+  if (loading) {
+    return (
+      <Screen>
+        <Loading what="your announcements" />
+      </Screen>
+    );
+  }
+  if (error && !data) {
+    return (
+      <Screen>
+        <Problem message={error} onRetry={refresh} />
+      </Screen>
+    );
+  }
 
   return (
-    <View style={styles.screen}>
+    <Screen>
       <FlatList
         data={data?.announcements ?? []}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colours.primary} />}
-        ListEmptyComponent={
-          <Empty title="Nothing yet" description="Announcements the association sends you will appear here." />
-        }
+        initialNumToRender={20}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.colours.accentText} />}
+        ListEmptyComponent={<Empty title="Nothing yet" description="Announcements the association sends you will appear here." />}
         renderItem={({ item }) => (
           <Card>
-            <Text style={styles.subject}>{item.subject}</Text>
+            <Text accessibilityRole="header" style={styles.subject}>
+              {item.subject}
+            </Text>
             <Text style={styles.meta}>
               {item.authorName}
               {item.sentAt ? ` · ${dateFormat.format(new Date(item.sentAt))}` : ""}
@@ -58,14 +66,6 @@ export default function AnnouncementsScreen() {
           </Card>
         )}
       />
-    </View>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colours.surfaceMuted },
-  list: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
-  subject: { fontSize: type.subheading, fontWeight: "700", color: colours.primary, lineHeight: type.subheading * 1.4 },
-  meta: { fontSize: type.small, color: colours.slate },
-  body: { fontSize: type.body, color: colours.ink, lineHeight: type.body * 1.6 },
-});

@@ -1,49 +1,48 @@
-import { ScrollView, StyleSheet, Text } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useApi } from "../../src/data/useApi";
 import type { NewsArticle } from "../../src/api/types";
-import { CoverImage, Loading, Problem } from "../../src/ui/components";
-import { colours, spacing, type } from "../../src/theme";
+import { makeStyles } from "../../src/a11y/preferences";
+import { CoverImage, Loading, Problem, Screen } from "../../src/ui/components";
+import { Text } from "../../src/ui/Text";
+import { readable } from "../../src/ui/html";
 
 const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "long", year: "numeric" });
 
-/**
- * One article.
- *
- * The body arrives as HTML from a rich text editor. Rather than render it
- * with a web view — heavy, and a way for markup to misbehave — the tags
- * are stripped and the words kept. Plain text reads better aloud anyway,
- * which is how several members will meet it.
- */
-function readable(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|h[1-6]|li)>/gi, "\n\n")
-    .replace(/<li>/gi, "• ")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
+/** One article. The body arrives as HTML and is shown as plain words (src/ui/html.ts). */
+
+const useStyles = makeStyles((t) => ({
+  title: { fontSize: t.type.title, fontWeight: "700", color: t.colours.heading, lineHeight: t.type.title * 1.3 },
+  meta: { fontSize: t.type.small, color: t.colours.muted },
+  excerpt: { fontSize: t.type.subheading, color: t.colours.ink, lineHeight: t.type.subheading * 1.5 },
+  content: { fontSize: t.type.body, color: t.colours.ink, lineHeight: t.type.body * 1.7 },
+}));
 
 export default function ArticleScreen() {
+  const styles = useStyles();
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const { data, error, loading, refresh } = useApi<{ article: NewsArticle }>(`/news/${slug}`, {
     cacheKey: `news-${slug}`,
   });
 
-  if (loading) return <Loading what="this article" />;
-  if (error || !data) return <Problem message={error ?? "We couldn't find that article."} onRetry={refresh} />;
+  if (loading) {
+    return (
+      <Screen>
+        <Loading what="this article" />
+      </Screen>
+    );
+  }
+  if (error || !data) {
+    return (
+      <Screen>
+        <Problem message={error ?? "We couldn't find that article."} onRetry={refresh} />
+      </Screen>
+    );
+  }
 
   const { article } = data;
 
   return (
-    <ScrollView contentContainerStyle={styles.body}>
+    <Screen scroll>
       <CoverImage url={article.coverImageUrl} />
       <Text accessibilityRole="header" style={styles.title}>
         {article.title}
@@ -54,14 +53,6 @@ export default function ArticleScreen() {
       </Text>
       {article.excerpt && <Text style={styles.excerpt}>{article.excerpt}</Text>}
       <Text style={styles.content}>{readable(article.content)}</Text>
-    </ScrollView>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  body: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
-  title: { fontSize: type.title, fontWeight: "700", color: colours.primary, lineHeight: type.title * 1.3 },
-  meta: { fontSize: type.small, color: colours.slate },
-  excerpt: { fontSize: type.subheading, color: colours.ink, lineHeight: type.subheading * 1.5 },
-  content: { fontSize: type.body, color: colours.ink, lineHeight: type.body * 1.7 },
-});

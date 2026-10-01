@@ -13,6 +13,8 @@ export interface ApiFailure {
   ok: false;
   error: string;
   code?: string;
+  /** A form that needs correcting: the message for each box, by field name. */
+  fieldErrors?: Record<string, string[]>;
 }
 
 export interface Paged {

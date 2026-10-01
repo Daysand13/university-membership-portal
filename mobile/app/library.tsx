@@ -1,8 +1,10 @@
-import { FlatList, Linking, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { FlatList, Linking, RefreshControl } from "react-native";
 import { useApi } from "../src/data/useApi";
 import type { LibraryDocument, Paged } from "../src/api/types";
-import { Card, Empty, Loading, OfflineNotice, Problem } from "../src/ui/components";
-import { colours, spacing, type } from "../src/theme";
+import { makeStyles, useTheme } from "../src/a11y/preferences";
+import { Card, Empty, Loading, OfflineNotice, Problem, Screen } from "../src/ui/components";
+import { Text } from "../src/ui/Text";
+import { spacing } from "../src/theme";
 
 function sizeLabel(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -16,47 +18,67 @@ function sizeLabel(bytes: number): string {
  * Android, which opens it in whatever reads PDFs there. Downloading every
  * document to a phone with little storage would be the wrong favour.
  */
-export default function LibraryScreen() {
-  const { data, error, loading, refreshing, fromCache, refresh } = useApi<
-    { documents: LibraryDocument[] } & Paged
-  >("/library?pageSize=30", { cacheKey: "library" });
 
-  if (loading) return <Loading what="the library" />;
-  if (error && !data) return <Problem message={error} onRetry={refresh} />;
+const useStyles = makeStyles((t) => ({
+  list: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
+  title: { fontSize: t.type.subheading, fontWeight: "700", color: t.colours.heading, lineHeight: t.type.subheading * 1.4 },
+  body: { fontSize: t.type.body, color: t.colours.ink, lineHeight: t.type.body * 1.5 },
+  muted: { fontSize: t.type.small, color: t.colours.muted },
+}));
+
+export default function LibraryScreen() {
+  const styles = useStyles();
+  const theme = useTheme();
+  const { data, error, loading, refreshing, fromCache, refresh } = useApi<{ documents: LibraryDocument[] } & Paged>(
+    "/library?pageSize=30",
+    { cacheKey: "library" },
+  );
+
+  if (loading) {
+    return (
+      <Screen>
+        <Loading what="the library" />
+      </Screen>
+    );
+  }
+  if (error && !data) {
+    return (
+      <Screen>
+        <Problem message={error} onRetry={refresh} />
+      </Screen>
+    );
+  }
 
   return (
-    <View style={styles.screen}>
+    <Screen>
       {fromCache && <OfflineNotice />}
       <FlatList
         data={data?.documents ?? []}
         keyExtractor={(doc) => doc.id}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colours.primary} />}
+        initialNumToRender={30}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.colours.accentText} />}
         ListEmptyComponent={<Empty title="Nothing published yet" />}
-        renderItem={({ item }) => (
-          <Card
-            onPress={item.fileUrl ? () => Linking.openURL(item.fileUrl as string) : undefined}
-            accessibilityLabel={
-              item.fileUrl ? `${item.title}, ${sizeLabel(item.fileSize)}. Opens the document.` : item.title
-            }
-          >
-            <Text style={styles.title}>{item.title}</Text>
-            {item.description && <Text style={styles.body}>{item.description}</Text>}
-            <Text style={styles.muted}>
-              {[item.category, sizeLabel(item.fileSize), item.version].filter(Boolean).join(" · ")}
-            </Text>
-            {!item.fileUrl && <Text style={styles.muted}>This one isn&apos;t available to download.</Text>}
-          </Card>
-        )}
+        renderItem={({ item }) =>
+          item.fileUrl ? (
+            <Card
+              onPress={() => void Linking.openURL(item.fileUrl as string)}
+              accessibilityLabel={`${item.title}, ${sizeLabel(item.fileSize)}.`}
+              accessibilityHint="Opens the document"
+            >
+              <Text style={styles.title}>{item.title}</Text>
+              {item.description && <Text style={styles.body}>{item.description}</Text>}
+              <Text style={styles.muted}>{[item.category, sizeLabel(item.fileSize), item.version].filter(Boolean).join(" · ")}</Text>
+            </Card>
+          ) : (
+            <Card>
+              <Text style={styles.title}>{item.title}</Text>
+              {item.description && <Text style={styles.body}>{item.description}</Text>}
+              <Text style={styles.muted}>This one isn&apos;t available to download.</Text>
+            </Card>
+          )
+        }
       />
-    </View>
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colours.surfaceMuted },
-  list: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
-  title: { fontSize: type.subheading, fontWeight: "700", color: colours.primary, lineHeight: type.subheading * 1.4 },
-  body: { fontSize: type.body, color: colours.ink, lineHeight: type.body * 1.5 },
-  muted: { fontSize: type.small, color: colours.slate },
-});

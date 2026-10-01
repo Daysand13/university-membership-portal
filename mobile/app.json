@@ -3,12 +3,12 @@
     "name": "ASSN",
     "slug": "assn",
     "scheme": "assn",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "android": {
       "package": "com.assnuew.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -17,7 +17,8 @@
       },
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
-        "android.permission.REQUEST_INSTALL_PACKAGES"
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.CAMERA"
       ]
     },
     "plugins": [
@@ -37,7 +38,15 @@
           }
         }
       ],
-      "expo-splash-screen"
+      "expo-splash-screen",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "ASSN uses the camera to take your passport photo, or a photo of your medical report, when you apply.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-font"
     ],
     "extra": {
       "router": {},

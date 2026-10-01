@@ -1,73 +1,87 @@
-import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
-import { useApi } from "../../src/data/useApi";
-import type { NewsSummary, Paged } from "../../src/api/types";
-import { Badge, Card, CoverImage, Empty, Loading, OfflineNotice, Problem } from "../../src/ui/components";
-import { colours, spacing, type } from "../../src/theme";
+import { useAuth } from "../../src/auth/AuthContext";
+import { makeStyles } from "../../src/a11y/preferences";
+import { Badge, Card, Heading, Loading, Screen, SectionLabel } from "../../src/ui/components";
+import { Text } from "../../src/ui/Text";
 
 /**
- * The association's news, which is what most people open the app for.
+ * The member's dashboard — what they signed in for.
  *
- * Open without signing in, exactly as the website's news page is.
+ * Who they are and their record first, then the things people come back
+ * for. It differs by portal: a graduate has no dues, a patron no directory.
+ * News and events are the tabs beside this, not a section of it.
  */
 
-const dateFormat = new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "long", year: "numeric" });
+const useStyles = makeStyles((t) => ({
+  cardTitle: { fontSize: t.type.subheading, fontWeight: "700", color: t.colours.heading },
+  paragraph: { fontSize: t.type.body, color: t.colours.ink, lineHeight: t.type.body * 1.5 },
+  muted: { fontSize: t.type.small, color: t.colours.muted, lineHeight: t.type.small * 1.5 },
+}));
 
-function when(iso: string | null): string {
-  if (!iso) return "Not yet published";
-  return dateFormat.format(new Date(iso));
+function firstName(name: string | undefined): string {
+  return name?.trim().split(/\s+/)[0] ?? "";
 }
 
-export default function NewsScreen() {
-  const { data, error, loading, refreshing, fromCache, refresh } = useApi<{ news: NewsSummary[] } & Paged>(
-    "/news?pageSize=20",
-    { cacheKey: "news" },
+export default function HomeScreen() {
+  const styles = useStyles();
+  const { identity, me } = useAuth();
+
+  if (!identity) {
+    return (
+      <Screen>
+        <Loading what="your details" />
+      </Screen>
+    );
+  }
+
+  const isMember = identity.audience === "MEMBER";
+  const isAlumni = identity.audience === "ALUMNI";
+
+  const shortcut = (title: string, text: string, href: string) => (
+    <Card key={href} onPress={() => router.push(href as never)} accessibilityLabel={`${title}. ${text}`}>
+      <Text style={styles.cardTitle}>{title}</Text>
+      <Text style={styles.muted}>{text}</Text>
+    </Card>
   );
-
-  if (loading) return <Loading what="the news" />;
-  if (error && !data) return <Problem message={error} onRetry={refresh} />;
-
-  const articles = data?.news ?? [];
 
   return (
-    <View style={styles.screen}>
-      {fromCache && <OfflineNotice />}
-      <FlatList
-        data={articles}
-        keyExtractor={(article) => article.id}
-        contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colours.primary} />}
-        ListEmptyComponent={
-          <Empty title="No news yet" description="Anything the association publishes will appear here." />
-        }
-        renderItem={({ item }) => (
-          <Card
-            onPress={() => router.push(`/news/${item.slug}`)}
-            accessibilityLabel={`${item.title}. ${when(item.publishedAt)}. Opens the full article.`}
-          >
-            <CoverImage url={item.coverImageUrl} />
-            {item.featured && <Badge label="Featured" tone="warn" />}
-            <Text style={styles.title}>{item.title}</Text>
-            {item.excerpt && (
-              <Text style={styles.excerpt} numberOfLines={3}>
-                {item.excerpt}
-              </Text>
-            )}
-            <Text style={styles.meta}>
-              {when(item.publishedAt)}
-              {item.category ? ` · ${item.category}` : ""}
-            </Text>
-          </Card>
-        )}
-      />
-    </View>
+    <Screen scroll>
+      <Heading>{firstName(identity.name) ? `Hello, ${firstName(identity.name)}` : "Your portal"}</Heading>
+      <Badge label={identity.label} />
+
+      {me?.audience === "MEMBER" && (
+        <Card>
+          <Text style={styles.cardTitle}>Your membership</Text>
+          <Text style={styles.paragraph}>{me.profile.programme}</Text>
+          <Text style={styles.muted}>
+            {me.profile.level} · {me.profile.campus}
+          </Text>
+          <Text style={styles.muted}>Index number {me.profile.indexNumber}</Text>
+        </Card>
+      )}
+
+      {me?.audience === "ALUMNI" && (
+        <Card>
+          <Text style={styles.cardTitle}>Your record</Text>
+          <Text style={styles.paragraph}>{me.profile.programme}</Text>
+          <Text style={styles.muted}>Class of {me.profile.graduationYear}</Text>
+        </Card>
+      )}
+
+      {me?.audience === "PATRON" && (
+        <Card>
+          <Text style={styles.cardTitle}>Patron</Text>
+          <Text style={styles.paragraph}>{me.profile.occupation}</Text>
+          {me.profile.organization ? <Text style={styles.muted}>{me.profile.organization}</Text> : null}
+        </Card>
+      )}
+
+      <SectionLabel>Shortcuts</SectionLabel>
+      {shortcut("Announcements", "What the association has sent you.", "/announcements")}
+      {isMember && shortcut("Dues", "What you owe this year, and what you have paid.", "/dues")}
+      {(isMember || isAlumni) && shortcut("Alumni directory", "Graduates who chose to be listed.", "/directory")}
+      {shortcut("Library", "Documents the association has published.", "/library")}
+      {shortcut("Elections", "Who is standing, and results once they are published.", "/elections")}
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colours.surfaceMuted },
-  list: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
-  title: { fontSize: type.subheading, fontWeight: "700", color: colours.primary, lineHeight: type.subheading * 1.4 },
-  excerpt: { fontSize: type.body, color: colours.ink, lineHeight: type.body * 1.5 },
-  meta: { fontSize: type.small, color: colours.slate },
-});
