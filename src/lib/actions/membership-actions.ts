@@ -4,11 +4,9 @@ import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-err
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { enrollmentSchema, applicationReviewSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, memberAdminEditSchema, academicChoiceErrors, specialNeedsCategoryErrors } from "@/lib/validations/membership";
-import { getAcademicOptions } from "@/lib/services/academic-options-service";
-import { getSpecialNeedsCategories } from "@/lib/services/special-needs-category-service";
+import { applicationReviewSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, memberAdminEditSchema } from "@/lib/validations/membership";
+import { enrollStudent } from "@/lib/services/registration-service";
 import {
-  submitApplication,
   approveApplication,
   rejectApplication,
   requestApplicationChanges,
@@ -33,13 +31,7 @@ import { requireMember } from "@/lib/auth/member";
 import { detectBot } from "@/lib/bot-protection";
 import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { ApplicationStatus, AdminRole } from "@/generated/prisma/client";
-import { isR2Configured } from "@/lib/storage/r2";
-import { domainCanReceiveMail } from "@/lib/email-domain-check";
-import {
-  adoptEnrollmentUpload,
-  EnrollmentUploadError,
-  isGenuineEnrollmentTicket,
-} from "@/lib/services/enrollment-upload-service";
+import { isGenuineEnrollmentTicket } from "@/lib/services/enrollment-upload-service";
 import { logFlaggedSubmission } from "@/lib/services/flagged-submission-service";
 import type { ActionState } from "./types";
 
@@ -81,84 +73,15 @@ async function submitEnrollmentActionImpl(
   const limit = await checkRateLimit(`enroll:ip:${ip}`, { max: 30, windowSeconds: 3600 });
   if (!limit.allowed) return { error: RATE_LIMIT_MESSAGE };
 
-  const candidate = {
-    ...entries,
-    agreedToTerms: entries.agreedToTerms === "on" || entries.agreedToTerms === "true",
-    specificSupportNeeds: formData.getAll("specificSupportNeeds"),
-  };
-  delete (candidate as Record<string, unknown>).profilePictureToken;
-  delete (candidate as Record<string, unknown>).medicalReportToken;
-  // medicalReportKey exists so the schema can enforce "a medical report was
-  // attached"; the real value is resolved from the ticket below. Where R2
-  // isn't configured at all (local development) uploads are skipped entirely,
-  // so requiring a ticket there would make the form impossible to submit.
-  (candidate as Record<string, unknown>).medicalReportKey =
-    medicalToken || !isR2Configured() ? "pending" : "";
+  const fields: Record<string, unknown> = { ...entries, specificSupportNeeds: formData.getAll("specificSupportNeeds") };
+  delete fields.profilePictureToken;
+  delete fields.medicalReportToken;
 
-  const parsed = enrollmentSchema.safeParse(candidate);
-  if (!parsed.success) {
-    return { fieldErrors: parsed.error.flatten().fieldErrors };
-  }
-
-  // Department, programme and category of special needs must be ones
-  // administrators currently offer.
-  const [academicOptions, specialNeedsCategories] = await Promise.all([getAcademicOptions(), getSpecialNeedsCategories()]);
-  const choiceErrors = {
-    ...academicChoiceErrors(academicOptions, parsed.data.track, parsed.data),
-    ...specialNeedsCategoryErrors(specialNeedsCategories, parsed.data.department),
-  };
-  if (Object.keys(choiceErrors).length > 0) return { fieldErrors: choiceErrors };
-
-  // Catches the exact mistake that locked a real member out of email-only
-  // login elsewhere in this system (gmail.cim instead of gmail.com) — a
-  // domain that can't receive mail at all, before an application is ever
-  // saved under it. See email-domain-check.ts for what this can and can't
-  // actually confirm.
-  if (!(await domainCanReceiveMail(parsed.data.email))) {
-    return {
-      fieldErrors: {
-        email: [
-          "We couldn't find a mail server for this email address — please check for a typo (for example, .com instead of .cim) and try again.",
-        ],
-      },
-    };
-  }
-
-  // Verify each upload against what was actually authorised: the object has
-  // to exist, be within its size limit, and carry magic bytes matching the
-  // Content-Type pinned into its presigned URL. Anything that doesn't match
-  // is deleted rather than saved — see enrollment-upload-service.ts for why
-  // that check is what replaces "the bytes passed through our server".
-  let profileImageUrl: string | null = null;
-  let medicalReportUrl: string | null = null;
-
-  try {
-    profileImageUrl = await adoptEnrollmentUpload("passport", passportToken);
-  } catch (err) {
-    if (err instanceof EnrollmentUploadError) {
-      return { fieldErrors: { profilePicture: [err.message] } };
-    }
-    throw err;
-  }
-
-  try {
-    medicalReportUrl = await adoptEnrollmentUpload("medical", medicalToken);
-  } catch (err) {
-    if (err instanceof EnrollmentUploadError) {
-      return { fieldErrors: { medicalReportKey: [err.message] } };
-    }
-    throw err;
-  }
-
-  try {
-    await submitApplication(parsed.data, profileImageUrl, medicalReportUrl);
-  } catch (err) {
-    if (err instanceof DuplicateIndexNumberError) {
-      return { fieldErrors: { indexNumber: [err.message] } };
-    }
-    console.error("[enroll]", err);
-    return { error: "We couldn't submit your application. Please try again in a moment." };
-  }
+  // The checks themselves — the schema, the programmes administrators
+  // currently offer, the mail server, and the uploads read back from
+  // storage — are shared with the Android app. See registration-service.
+  const outcome = await enrollStudent(fields, { passport: passportToken, medical: medicalToken });
+  if (!outcome.ok) return { fieldErrors: outcome.fieldErrors, error: outcome.error };
 
   redirect("/membership/enroll/success");
 }

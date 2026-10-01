@@ -7,11 +7,16 @@ export const alumniRegisterSchema = z.object({
   fullName: z.string().trim().min(1, "Full name is required").max(150),
   email: z.string().trim().toLowerCase().email("Enter a valid email address"),
   phone: z.string().trim().regex(phoneRegex, "Enter a valid phone / WhatsApp number"),
-  graduationYear: z.coerce
-    .number()
-    .int()
-    .min(1960)
-    .max(new Date().getFullYear() + 1, "Enter a valid graduation year"),
+  // "" is what an empty number box sends, and z.coerce would turn it into 0
+  // and answer "Too small: expected number to be >=1960".
+  graduationYear: z.preprocess(
+    (value) => (value === "" || value === null ? undefined : value),
+    z.coerce
+      .number({ error: "Enter the year you graduated" })
+      .int("Enter a valid graduation year")
+      .min(1960, "Enter a valid graduation year")
+      .max(new Date().getFullYear() + 1, "Enter a valid graduation year"),
+  ),
   programme: z.string().trim().min(1, "Programme is required").max(200),
   profession: z.string().trim().max(150).optional().or(z.literal("")),
   currentLocation: z.string().trim().max(150).optional().or(z.literal("")),

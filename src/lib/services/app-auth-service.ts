@@ -48,7 +48,8 @@ export type AppLoginOutcome =
   | { ok: true; chooseFrom: AppIdentitySummary[] }
   | { ok: false; error: string };
 
-const LABELS: Record<AppAudience, string> = {
+/** Exported for the sign-up routes, which hand back the same identity a sign-in does. */
+export const LABELS: Record<AppAudience, string> = {
   MEMBER: "Student Portal",
   ALUMNI: "Alumni Portal",
   PATRON: "Patrons' Portal",

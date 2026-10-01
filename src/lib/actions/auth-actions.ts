@@ -5,17 +5,16 @@ import { withActionErrorHandling, withVoidActionErrorHandling } from "./with-err
 import { redirect } from "next/navigation";
 import { adminLoginSchema } from "@/lib/validations/content";
 import { memberLoginSchema, unifiedLoginSchema } from "@/lib/validations/membership";
-import { alumniLoginSchema, alumniRegisterSchema } from "@/lib/validations/alumni";
+import { alumniLoginSchema } from "@/lib/validations/alumni";
 import { authenticateAdmin } from "@/lib/services/admin-auth-service";
 import { authenticateMember, AccountNotActiveError, InvalidCredentialsError } from "@/lib/services/membership-service";
 import {
   authenticateAlumni,
-  registerAlumni,
   InvalidAlumniCredentialsError,
   AlumniAccountNotActiveError,
   AlumniPasswordNotSetError,
-  DuplicateAlumniEmailError,
 } from "@/lib/services/alumni-service";
+import { signUpAlumnus } from "@/lib/services/registration-service";
 import {
   authenticateUser,
   getActiveRolesForUser,
@@ -35,7 +34,6 @@ import {
 import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import { detectBot } from "@/lib/bot-protection";
 import { logFlaggedSubmission } from "@/lib/services/flagged-submission-service";
-import { domainCanReceiveMail } from "@/lib/email-domain-check";
 import type { ActionState } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -238,35 +236,11 @@ async function alumniRegisterActionImpl(
   const limit = await checkRateLimit(`alumni-register:ip:${ip}`, { max: 10, windowSeconds: 3600 });
   if (!limit.allowed) return { error: RATE_LIMIT_MESSAGE };
 
-  const entries = Object.fromEntries(formData.entries());
-  const candidate = { ...entries, consent: entries.consent === "on" || entries.consent === "true" };
-  const parsed = alumniRegisterSchema.safeParse(candidate);
-  if (!parsed.success) {
-    return { fieldErrors: parsed.error.flatten().fieldErrors };
-  }
+  // Shared with the Android app's sign-up. See registration-service.
+  const outcome = await signUpAlumnus(Object.fromEntries(formData.entries()));
+  if (!outcome.ok) return { fieldErrors: outcome.fieldErrors, error: outcome.error };
 
-  if (!(await domainCanReceiveMail(parsed.data.email))) {
-    return {
-      fieldErrors: {
-        email: [
-          "We couldn't find a mail server for this email address — please check for a typo (for example, .com instead of .cim) and try again.",
-        ],
-      },
-    };
-  }
-
-  let alumni;
-  try {
-    alumni = await registerAlumni(parsed.data);
-  } catch (err) {
-    if (err instanceof DuplicateAlumniEmailError) {
-      return { fieldErrors: { email: [err.message] } };
-    }
-    console.error("[alumni-register]", err);
-    return { error: "Something went wrong. Please try again." };
-  }
-
-  await createAlumniSession(alumni);
+  await createAlumniSession(outcome.value);
   redirect("/alumni/dashboard");
 }
 

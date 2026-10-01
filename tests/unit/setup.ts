@@ -68,3 +68,23 @@ if (process.env.TEST_DATABASE_URL) {
 
   process.env.DATABASE_URL = BLOCKED_URL;
 }
+
+/**
+ * GUARD: the test suite must never reach the other live services either.
+ *
+ * The `import "dotenv/config"` above loads `.env`, and `.env` is production:
+ * it carries the live R2 bucket's credentials and the live Resend key. The
+ * database guard above catches DATABASE_URL, but nothing caught these — so a
+ * test that reached an email-sending flow tried to send for real, and a test
+ * that reached the upload code would have issued presigned URLs against, read
+ * from, and on rejection DELETED from, the production bucket.
+ *
+ * Every test that needs one of these services mocks it, and every service
+ * here degrades deliberately when its key is missing: email is logged rather
+ * than sent, uploads report "storage not configured", push reports "not
+ * configured". So removing them costs no test anything, and makes the worst
+ * case of a careless new test a skipped email rather than a real one.
+ */
+for (const name of Object.keys(process.env)) {
+  if (/^(R2_|RESEND_|PAYSTACK_|FIREBASE_)/.test(name)) delete process.env[name];
+}

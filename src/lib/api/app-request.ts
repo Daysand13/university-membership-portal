@@ -37,6 +37,30 @@ export function appJson<T>(data: T, init?: ResponseInit): NextResponse {
 }
 
 /**
+ * A form the app sent that needs correcting — which fields, and why, in
+ * the words the website's own form uses, so the app can put each message
+ * under the box it belongs to rather than in one lump at the top.
+ */
+export function appFieldErrors(
+  fieldErrors: Record<string, string[] | undefined> | undefined,
+  error?: string,
+): NextResponse {
+  const cleaned: Record<string, string[]> = {};
+  for (const [field, messages] of Object.entries(fieldErrors ?? {})) {
+    if (messages && messages.length > 0) cleaned[field] = messages;
+  }
+  return NextResponse.json(
+    {
+      ok: false,
+      error: error ?? "Some details need correcting — see the messages under each box.",
+      code: "invalid_fields",
+      fieldErrors: cleaned,
+    },
+    { status: 422 },
+  );
+}
+
+/**
  * `code: "session_expired"` is the app's cue to use its refresh token and
  * try once more. Anything else it should treat as "sign in again".
  */

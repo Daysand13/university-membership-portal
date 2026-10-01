@@ -4,6 +4,31 @@ import { isPasswordStrongEnough, PASSWORD_REQUIREMENTS_MESSAGE } from "@/lib/aut
 
 const phoneRegex = /^[0-9+()\-\s]{7,20}$/;
 
+/**
+ * A number box left empty arrives from a browser as "" — and z.coerce turns
+ * "" into 0, not into "left blank". So an OPTIONAL year that somebody
+ * skipped was refused with "Too small: expected number to be >=2000", and a
+ * student who left Expected Graduation Year empty could not submit their
+ * application at all. A required year left empty got the same message,
+ * which is a refusal nobody could make sense of.
+ */
+const blankAsMissing = (value: unknown) => (value === "" || value === null ? undefined : value);
+
+/** A year that must be given — admission, say. */
+function requiredYear(what: string, max: number) {
+  const valid = `Enter a valid ${what}`;
+  return z.preprocess(
+    blankAsMissing,
+    z.coerce.number({ error: `Enter your ${what}` }).int(valid).min(2000, valid).max(max, valid),
+  );
+}
+
+/** A year that may be left empty, and is simply absent when it is. */
+function optionalYear(what: string) {
+  const valid = `Enter a valid ${what}`;
+  return z.preprocess(blankAsMissing, z.coerce.number().int(valid).min(2000, valid).max(2100, valid).optional());
+}
+
 export const APPLICATION_TRACKS = ["UNDERGRADUATE", "POSTGRADUATE"] as const;
 export type ApplicationTrack = (typeof APPLICATION_TRACKS)[number];
 
@@ -431,12 +456,8 @@ export const enrollmentSchema = z
     programme: z.string().trim().min(1, "Select your program of study"),
     level: z.string().trim().min(1, "Select your level"),
     indexNumber: z.string().trim().min(3, "Index number is required").max(50),
-    yearOfAdmission: z.coerce
-      .number()
-      .int()
-      .min(2000)
-      .max(new Date().getFullYear() + 1),
-    expectedGraduationYear: z.coerce.number().int().min(2000).max(2100).optional(),
+    yearOfAdmission: requiredYear("year of admission", new Date().getFullYear() + 1),
+    expectedGraduationYear: optionalYear("expected graduation year"),
 
     // Section C: Category of Special Needs — checked against the list
     // administrators currently offer with specialNeedsCategoryErrors below.
@@ -570,12 +591,8 @@ export const alumniFurtherStudiesSchema = z
     programme: z.string().trim().min(1, "Select your program of study"),
     level: z.string().trim().min(1, "Select your level"),
     indexNumber: z.string().trim().min(3, "Index number is required").max(50),
-    yearOfAdmission: z.coerce
-      .number()
-      .int()
-      .min(2000)
-      .max(new Date().getFullYear() + 1),
-    expectedGraduationYear: z.coerce.number().int().min(2000).max(2100).optional(),
+    yearOfAdmission: requiredYear("year of admission", new Date().getFullYear() + 1),
+    expectedGraduationYear: optionalYear("expected graduation year"),
 
     // Checked against the list administrators currently offer with
     // specialNeedsCategoryErrors below.
@@ -622,22 +639,28 @@ export const memberLoginSchema = z.object({
 
 export const pushToAlumniArchiveSchema = z.object({
   userId: z.string().min(1),
-  graduationYear: z.coerce
-    .number()
-    .int()
-    .min(1980)
-    .max(new Date().getFullYear() + 10),
+  graduationYear: z.preprocess(
+    blankAsMissing,
+    z.coerce
+      .number({ error: "Enter the graduation year" })
+      .int("Enter a valid graduation year")
+      .min(1980, "Enter a valid graduation year")
+      .max(new Date().getFullYear() + 10, "Enter a valid graduation year"),
+  ),
 });
 
 export const grantDualStatusSchema = z.object({
   userId: z.string().min(1),
   role: z.enum(["MEMBER", "ALUMNI"]),
-  graduationYear: z.coerce
-    .number()
-    .int()
-    .min(1980)
-    .max(new Date().getFullYear() + 10)
-    .optional(),
+  graduationYear: z.preprocess(
+    blankAsMissing,
+    z.coerce
+      .number()
+      .int("Enter a valid graduation year")
+      .min(1980, "Enter a valid graduation year")
+      .max(new Date().getFullYear() + 10, "Enter a valid graduation year")
+      .optional(),
+  ),
 });
 
 // Admin-entered, so limits sit well above anything real — see the note on
@@ -651,11 +674,7 @@ export const newEnrollmentCycleSchema = z.object({
   level: z.string().trim().min(1, "Level is required").max(100),
   campus: z.string().trim().min(1, "Campus is required").max(200),
   department: z.string().trim().min(1, "Category of special needs is required").max(500),
-  yearOfAdmission: z.coerce
-    .number()
-    .int()
-    .min(2000)
-    .max(new Date().getFullYear() + 1),
+  yearOfAdmission: requiredYear("year of admission", new Date().getFullYear() + 1),
 });
 
 /**
@@ -739,8 +758,8 @@ export const memberAdminEditSchema = z.object({
   academicDepartment: z.string().trim().max(500).optional().or(z.literal("")),
   programme: z.string().trim().min(1, "Programme is required").max(500),
   level: z.string().trim().min(1, "Level is required").max(100),
-  yearOfAdmission: z.coerce.number().int().min(2000).max(new Date().getFullYear() + 1),
-  expectedGraduationYear: z.coerce.number().int().min(2000).max(2100).optional(),
+  yearOfAdmission: requiredYear("year of admission", new Date().getFullYear() + 1),
+  expectedGraduationYear: optionalYear("expected graduation year"),
 
   department: z.string().trim().min(1, "Select a category of special needs").max(500),
   specificSupportNeeds: z.array(z.string()).optional().default([]),

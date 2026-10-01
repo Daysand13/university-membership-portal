@@ -8,15 +8,14 @@ import { createPatronSession, destroyPatronSession, requirePatron } from "@/lib/
 import { AdminRole } from "@/generated/prisma/client";
 import { detectBot } from "@/lib/bot-protection";
 import { checkRateLimit, getClientIp, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
-import { domainCanReceiveMail } from "@/lib/email-domain-check";
 import { logFlaggedSubmission } from "@/lib/services/flagged-submission-service";
+import { signUpPatron } from "@/lib/services/registration-service";
 import {
   patronChangePasswordSchema,
   patronForgotPasswordSchema,
   patronResetPasswordSchema,
   patronLoginSchema,
   patronProfileUpdateSchema,
-  patronRegisterSchema,
   patronReviewSchema,
 } from "@/lib/validations/patron";
 import {
@@ -27,12 +26,10 @@ import {
   PatronDeleteError,
   requestPatronPasswordReset,
   resetPatronPassword,
-  DuplicatePatronEmailError,
   IncorrectPatronPasswordError,
   InvalidPatronCredentialsError,
   PatronNotApprovedError,
   PatronReviewError,
-  registerPatron,
   reviewPatron,
   updatePatronProfile,
 } from "@/lib/services/patron-service";
@@ -50,24 +47,9 @@ async function patronRegisterActionImpl(_prevState: ActionState, formData: FormD
   const limit = await checkRateLimit(`patron-register:ip:${ip}`, { max: 10, windowSeconds: 3600 });
   if (!limit.allowed) return { error: RATE_LIMIT_MESSAGE };
 
-  const entries = Object.fromEntries(formData);
-  const parsed = patronRegisterSchema.safeParse({ ...entries, consent: entries.consent === "on" });
-  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
-
-  if (!(await domainCanReceiveMail(parsed.data.email))) {
-    return {
-      fieldErrors: {
-        email: ["We couldn't find a mail server for this email address — please check it for a typo and try again."],
-      },
-    };
-  }
-
-  try {
-    await registerPatron(parsed.data);
-  } catch (err) {
-    if (err instanceof DuplicatePatronEmailError) return { fieldErrors: { email: [err.message] } };
-    throw err;
-  }
+  // Shared with the Android app's sign-up. See registration-service.
+  const outcome = await signUpPatron(Object.fromEntries(formData));
+  if (!outcome.ok) return { fieldErrors: outcome.fieldErrors, error: outcome.error };
   return { success: true };
 }
 

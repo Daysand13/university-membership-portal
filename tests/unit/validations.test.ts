@@ -53,6 +53,30 @@ describe("enrollmentSchema", () => {
     const result = enrollmentSchema.safeParse({ ...validEnrollment, yearOfAdmission: "1950" });
     expect(result.success).toBe(false);
   });
+
+  it("accepts Expected Graduation Year left empty, as a browser sends it", () => {
+    // It is optional, but an empty number box arrives as "" and z.coerce
+    // turned that into 0 — so every student who skipped it was refused
+    // with "Too small: expected number to be >=2000" and could not apply.
+    const result = enrollmentSchema.safeParse({ ...validEnrollment, expectedGraduationYear: "" });
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.expectedGraduationYear).toBeUndefined();
+  });
+
+  it("still checks Expected Graduation Year when one is given", () => {
+    const result = enrollmentSchema.safeParse({ ...validEnrollment, expectedGraduationYear: "1990" });
+    expect(result.success).toBe(false);
+    expect(!result.success && result.error.flatten().fieldErrors.expectedGraduationYear?.[0]).toBe(
+      "Enter a valid expected graduation year",
+    );
+  });
+
+  it("asks for a year of admission left empty in words, not 'Too small'", () => {
+    const result = enrollmentSchema.safeParse({ ...validEnrollment, yearOfAdmission: "" });
+    expect(!result.success && result.error.flatten().fieldErrors.yearOfAdmission?.[0]).toBe(
+      "Enter your year of admission",
+    );
+  });
 });
 
 describe("changePasswordSchema", () => {
