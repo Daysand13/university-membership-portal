@@ -65,6 +65,8 @@ export const R2_PREFIXES = {
   // Evidence attached to a student's barrier report. Its own folder because
   // nothing in it is ever served publicly.
   reports: "reports",
+  // Builds of the Android app, which every phone with it downloads from here.
+  app: "app",
 } as const;
 
 export type R2Prefix = (typeof R2_PREFIXES)[keyof typeof R2_PREFIXES];

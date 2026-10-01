@@ -72,12 +72,14 @@ if (process.env.TEST_DATABASE_URL) {
 /**
  * GUARD: the test suite must never reach the other live services either.
  *
- * The `import "dotenv/config"` above loads `.env`, and `.env` is production:
- * it carries the live R2 bucket's credentials and the live Resend key. The
- * database guard above catches DATABASE_URL, but nothing caught these — so a
- * test that reached an email-sending flow tried to send for real, and a test
- * that reached the upload code would have issued presigned URLs against, read
- * from, and on rejection DELETED from, the production bucket.
+ * The `import "dotenv/config"` above loads `.env`, and `.env` is production.
+ * Today its storage, email and payment values are blank on the developer's
+ * machine — the live ones are only in Vercel — so nothing has been at risk.
+ * But nothing stopped them being filled in locally, and the database guard
+ * above only catches DATABASE_URL. With them filled in, a test reaching an
+ * email flow would send for real, and one reaching the upload code would
+ * issue presigned URLs against, read from, and on rejection DELETE from, the
+ * production bucket.
  *
  * Every test that needs one of these services mocks it, and every service
  * here degrades deliberately when its key is missing: email is logged rather

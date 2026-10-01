@@ -2,6 +2,76 @@ import "server-only";
 import { db } from "@/lib/db";
 import type { AdminUser } from "@/generated/prisma/client";
 import { SHA256_PATTERN, VERSION_PATTERN } from "@/lib/app-release";
+import {
+  buildPublicUrl,
+  extractObjectKeyFromPublicUrl,
+  getObjectMetadata,
+  getPresignedUploadUrl,
+  isR2Configured,
+  R2_PREFIXES,
+} from "@/lib/storage/r2";
+import { sanitizeFilenameStem } from "@/lib/storage/validation";
+
+/** What Android expects an APK to be served as. */
+export const APK_CONTENT_TYPE = "application/vnd.android.package-archive";
+
+/** Comfortably above a real build (about 100MB), well below anything silly. */
+export const MAX_APK_BYTES = 250 * 1024 * 1024;
+
+/**
+ * A place in the association's storage for a new build, and its address.
+ *
+ * The file goes straight from the administrator's browser to storage, with
+ * a short-lived signed address — a 100MB APK cannot pass through the
+ * website's server, which refuses requests over 4.5MB. The object name is
+ * made here, never taken from the browser, so nobody can choose where in
+ * the bucket to write. Before this existed, recording a release meant
+ * somebody with the storage keys uploading the file by hand.
+ */
+export async function requestApkUpload(params: {
+  filename: string;
+  fileSize: number;
+}): Promise<{ uploadUrl: string; apkUrl: string; contentType: string }> {
+  if (!isR2Configured()) throw new ReleaseError("File storage isn't set up on this site, so a build can't be uploaded here.");
+  if (!/\.apk$/i.test(params.filename)) throw new ReleaseError("Choose the .apk file that EAS built.");
+  if (!Number.isFinite(params.fileSize) || params.fileSize < 1) throw new ReleaseError("That file appears to be empty.");
+  if (params.fileSize > MAX_APK_BYTES) {
+    throw new ReleaseError(`That file is larger than ${Math.round(MAX_APK_BYTES / 1024 / 1024)}MB, which no build of this app should be.`);
+  }
+
+  const objectKey = `${R2_PREFIXES.app}/${Date.now()}-${sanitizeFilenameStem(params.filename)}.apk`;
+  return {
+    // Thirty minutes: a 100MB upload on a slow connection takes a while.
+    uploadUrl: await getPresignedUploadUrl({ objectKey, contentType: APK_CONTENT_TYPE, expiresInSeconds: 30 * 60 }),
+    apkUrl: buildPublicUrl(objectKey),
+    contentType: APK_CONTENT_TYPE,
+  };
+}
+
+/**
+ * For a build in the association's own storage, that the stored file is
+ * really there and really the size being recorded.
+ *
+ * An upload that stopped half way leaves a short file behind. Recorded as
+ * if it were whole, every phone would download it, find its hash wrong, and
+ * refuse it — safely, but the release would be dead on arrival. An address
+ * somewhere else is left to the administrator; there is nothing here to
+ * check it against.
+ */
+export async function checkStoredApk(apkUrl: string, sizeBytes: number): Promise<void> {
+  const objectKey = extractObjectKeyFromPublicUrl(apkUrl);
+  if (!objectKey) return;
+
+  const stored = await getObjectMetadata(objectKey);
+  if (!stored) {
+    throw new ReleaseError("There's no file at that address in the association's storage. Upload the APK again.");
+  }
+  if (stored.size !== sizeBytes) {
+    throw new ReleaseError(
+      `The stored file is ${stored.size.toLocaleString("en-GB")} bytes, not ${sizeBytes.toLocaleString("en-GB")}. The upload may not have finished — upload the APK again.`,
+    );
+  }
+}
 
 /**
  * Releases of the Android app.
@@ -59,6 +129,7 @@ function check(input: ReleaseInput): void {
 
 export async function createRelease(input: ReleaseInput, admin: Pick<AdminUser, "id">) {
   check(input);
+  await checkStoredApk(input.apkUrl, input.sizeBytes);
 
   const highest = await db.appRelease.findFirst({ orderBy: { buildNumber: "desc" }, select: { buildNumber: true } });
   if (highest && input.buildNumber <= highest.buildNumber) {

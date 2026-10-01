@@ -111,7 +111,7 @@ export default async function AppReleasesPage() {
         <EmptyState
           icon={<Smartphone size={28} aria-hidden="true" />}
           title="No builds recorded yet"
-          description="Build the app with EAS, upload the APK to the association's storage, then record it above."
+          description="Build the app with EAS, then choose the APK in the form above — it uploads and fills itself in."
         />
       ) : (
         <DataTable caption="App releases" rows={releases} rowKey={(release) => release.id} columns={columns} />
