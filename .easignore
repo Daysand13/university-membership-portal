@@ -1,0 +1,27 @@
+# What EAS uploads to build the Android app.
+#
+# EAS archives the whole repository from its root, and the app needs
+# nothing outside mobile/. Without this file EAS falls back to the
+# .gitignore files - but on Windows it fails to apply the ones in
+# subfolders (it compares "ballot/" against "ballot\dist\..."), so the
+# ballot's installers and mobile/'s signing keystore went up with every
+# build. While this file exists, EAS reads no .gitignore at all, so
+# everything that must stay home is listed here.
+
+# Everything at the root except the app.
+/*
+!/mobile
+
+# Inside the app: secrets, the keystore EAS already holds, build output.
+/mobile/node_modules
+/mobile/.expo
+/mobile/dist
+/mobile/android
+/mobile/ios
+/mobile/**/*.jks
+/mobile/**/*.keystore
+/mobile/**/*.p8
+/mobile/**/*.p12
+/mobile/**/*.pem
+/mobile/**/.env*
+!/mobile/**/.env.example
