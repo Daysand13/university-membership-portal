@@ -9,6 +9,7 @@ import type {
   NotificationType,
 } from "@/generated/prisma/client";
 import { deliver, firstNameOf } from "@/lib/services/account-notification-service";
+import { isPushConfigured, sendPush } from "@/lib/push/fcm";
 import type { EmailBrand, NoticeDetail } from "@/lib/email/templates";
 import { formatCedis, issueCategoryLabel } from "@/lib/patron-portal-options";
 import { barrierStatusLabel, supportRequestTypeLabel, supportStatusLabel } from "@/lib/portal-options";
@@ -351,6 +352,105 @@ export async function notifyOfMentorshipSession(params: {
         ...(session.topic ? [{ label: "About", value: session.topic }] : []),
       ],
       cta: { path: toStudent ? "/membership/dashboard/mentorship" : "/alumni/mentorship", label: "Open Mentorship" },
+    }),
+  });
+}
+
+/** Every phone a person is signed in on that can be reached. */
+async function phonesOf(person: { memberId: string } | { alumniProfileId: string }): Promise<string[]> {
+  const rows = await db.mobileDevice.findMany({
+    where: { ...person, revokedAt: null, pushToken: { not: null } },
+    select: { pushToken: true },
+  });
+  return [...new Set(rows.map((row) => row.pushToken).filter((token): token is string => Boolean(token)))];
+}
+
+/**
+ * Somebody has started a call and is waiting in it. The other side hears
+ * about it at once — on their phone if they have the app, and by email —
+ * with the way straight into the call.
+ */
+export async function notifyOfMentorshipCall(params: {
+  mentorship: { id: string };
+  member: StudentRecipient & Pick<Member, "lastName">;
+  mentor: Pick<AlumniProfile, "id" | "fullName" | "email">;
+  startedBy: MentorshipSender;
+  withVideo: boolean;
+}): Promise<void> {
+  const { mentorship, member, mentor, startedBy, withVideo } = params;
+  const toStudent = startedBy === "MENTOR";
+  const caller = toStudent ? mentor.fullName : `${member.firstName} ${member.lastName}`;
+  const path = toStudent
+    ? `/membership/dashboard/mentorship/${mentorship.id}/call`
+    : `/alumni/mentorship/${mentorship.id}/call`;
+  const kind = withVideo ? "video call" : "voice call";
+
+  try {
+    const tokens = await phonesOf(toStudent ? { memberId: member.id } : { alumniProfileId: mentor.id });
+    if (tokens.length > 0 && isPushConfigured()) {
+      const result = await sendPush(tokens, {
+        title: `${caller} is calling`,
+        body: `Your mentorship ${kind} has started. Tap to join.`,
+        path,
+      });
+      if (result.deadTokens.length) {
+        await db.mobileDevice.updateMany({ where: { pushToken: { in: result.deadTokens } }, data: { pushToken: null } });
+      }
+    }
+  } catch (err) {
+    console.error("[portal-notification] could not send the call notification to a phone", err);
+  }
+
+  await deliver({
+    to: toStudent
+      ? { email: member.email, firstName: member.firstName }
+      : { email: mentor.email, firstName: firstNameOf(mentor.fullName) },
+    template: "mentorship-call",
+    entityType: "Mentorship",
+    entityId: mentorship.id,
+    build: () => ({
+      subject: `${caller} is calling you now`,
+      paragraphs: [
+        `${caller} has started a mentorship ${kind} and is waiting for you in it.`,
+        "If you've missed it, you can call back from the conversation whenever suits you both.",
+      ],
+      cta: { path, label: "Join the Call" },
+    }),
+  });
+}
+
+/** The morning of a booked session, both sides are reminded of it. */
+export async function notifyOfSessionReminder(params: {
+  mentorshipId: string;
+  member: StudentRecipient & Pick<Member, "lastName">;
+  mentor: Pick<AlumniProfile, "fullName" | "email">;
+  session: { id: string; scheduledFor: Date; topic: string | null };
+}): Promise<void> {
+  const { mentorshipId, member, mentor, session } = params;
+  const when = dateTimeFormat.format(session.scheduledFor);
+  const details = [{ label: "When", value: when }, ...(session.topic ? [{ label: "About", value: session.topic }] : [])];
+  await deliver({
+    to: { email: member.email, firstName: member.firstName },
+    template: "mentorship-session-reminder",
+    entityType: "MentorshipSession",
+    entityId: session.id,
+    build: () => ({
+      subject: `Mentorship session today — ${when}`,
+      paragraphs: [`You have a mentorship session with ${mentor.fullName} today.`],
+      details,
+      cta: { path: `/membership/dashboard/mentorship/${mentorshipId}/call`, label: "Open the Call" },
+    }),
+  });
+  await deliver({
+    to: { email: mentor.email, firstName: firstNameOf(mentor.fullName) },
+    template: "mentorship-session-reminder",
+    entityType: "MentorshipSession",
+    entityId: session.id,
+    build: () => ({
+      subject: `Mentorship session today — ${when}`,
+      paragraphs: [`You have a mentorship session with ${member.firstName} ${member.lastName} today.`],
+      details,
+      cta: { path: `/alumni/mentorship/${mentorshipId}/call`, label: "Open the Call" },
     }),
   });
 }

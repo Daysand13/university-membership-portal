@@ -2047,6 +2047,7 @@ model Mentorship {
 
   sessions MentorshipSession[]
   messages MentorshipMessage[]
+  calls    MentorshipCall[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2074,12 +2075,50 @@ model MentorshipSession {
   note            String?
   /// True when the student booked it, false when the mentor did.
   bookedByStudent Boolean                 @default(true)
+  /// When both sides were reminded on the morning of the session. Set once,
+  /// so a reminder run that repeats does not email anybody twice.
+  reminderSentAt  DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([mentorshipId, scheduledFor])
+  @@index([status, scheduledFor])
   @@map("mentorship_sessions")
+}
+
+/// One call between a student and their mentor: who started it, when, and
+/// how long it went on. Never what was said — nothing is recorded.
+///
+/// A call is over when nobody in it has checked in for a couple of minutes
+/// - whether they pressed Leave or simply closed the browser - and it ended
+/// at the last check-in (see src/lib/mentorship-call.ts). There is no time
+/// limit on a call itself.
+model MentorshipCall {
+  id           String     @id @default(cuid())
+  mentorshipId String
+  mentorship   Mentorship @relation(fields: [mentorshipId], references: [id], onDelete: Cascade)
+  /// The booked session it was for, if it was started from one.
+  sessionId    String?
+
+  startedBy       MentorshipSender
+  /// Whoever started it asked for video, or only voice.
+  withVideo       Boolean          @default(true)
+  startedAt       DateTime         @default(now())
+  /// When the other side came in. Null for a call nobody answered.
+  answeredAt      DateTime?
+  /// The last time anybody in the call checked in.
+  lastSeenAt      DateTime         @default(now())
+  /// Each side's own last check-in, cleared the moment they leave, so the
+  /// other side is never told somebody is waiting in a call they have left.
+  studentSeenAt   DateTime?
+  mentorSeenAt    DateTime?
+  /// Set only when a call is closed off deliberately; otherwise the end is
+  /// worked out from lastSeenAt.
+  endedAt         DateTime?
+
+  @@index([mentorshipId, startedAt])
+  @@map("mentorship_calls")
 }
 
 enum MentorshipSender {

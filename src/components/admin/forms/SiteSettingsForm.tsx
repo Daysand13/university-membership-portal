@@ -105,9 +105,11 @@ export function SiteSettingsForm({ settings }: { settings: SiteSettingsInput }) 
               className={inputClasses}
             />
             <p id="meetingDomain-help" className="mt-1.5 text-xs text-slate">
-              Where a mentor and student talk when they join a session&apos;s call. Left blank it uses{" "}
-              <strong>meet.jit.si</strong>, which is free and needs no account. If that instance starts asking people to
-              sign in, put another Jitsi address here and the calls move with it — nothing else changes.
+              Where a mentor and student talk. Left blank it uses <strong>meet.jit.si</strong>, which is free, but cuts
+              off calls built into other websites after five minutes — so with it, calls open on meet.jit.si in a new
+              tab. Put the address of the association&apos;s own Jitsi server here to have calls inside the portal. Once
+              Jitsi as a Service (8x8) is set up on the server, calls use that instead and this is ignored; see
+              docs/mentorship-calls.md.
             </p>
             <FieldError messages={fe.meetingDomain} />
           </div>

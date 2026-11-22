@@ -11,6 +11,8 @@ import {
 } from "@/lib/actions/alumni-portal-actions";
 import { PortalPageHeader } from "@/components/portal/PortalPageHeader";
 import { DashboardCard } from "@/components/portal/DashboardCard";
+import { MentorshipCalls } from "@/components/portal/MentorshipCalls";
+import { listMentorshipCalls } from "@/lib/services/mentorship-call-service";
 import {
   MentorshipThread,
   MessageComposer,
@@ -37,6 +39,7 @@ export default async function AlumniMentorshipThreadPage({ params }: { params: P
   const upcoming = mentorship.sessions.filter((s) => s.status === "SCHEDULED");
   const finished = mentorship.sessions.filter((s) => s.status !== "SCHEDULED");
   const active = mentorship.status === "ACTIVE";
+  const calls = await listMentorshipCalls(mentorship.id);
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -74,6 +77,14 @@ export default async function AlumniMentorshipThreadPage({ params }: { params: P
         </div>
       </DashboardCard>
 
+      <MentorshipCalls
+        calls={calls}
+        viewer="MENTOR"
+        otherName={name}
+        callHref={`/alumni/mentorship/${mentorship.id}/call`}
+        active={active}
+      />
+
       <DashboardCard id="sessions" title="Sessions" icon={<CalendarClock size={20} />} readAloud>
         {upcoming.length === 0 && finished.length === 0 && (
           <p className="text-slate mb-4">No sessions yet. Offer a time that suits you both.</p>
@@ -90,7 +101,7 @@ export default async function AlumniMentorshipThreadPage({ params }: { params: P
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Link
-                    href={`/alumni/mentorship/${mentorship.id}/call/${session.id}`}
+                    href={`/alumni/mentorship/${mentorship.id}/call?session=${session.id}`}
                     className={buttonClasses("primary", "sm")}
                   >
                     <Video size={15} aria-hidden="true" /> Join the call

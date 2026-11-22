@@ -11,6 +11,8 @@ import {
 } from "@/lib/actions/student-portal-actions";
 import { PortalPageHeader } from "@/components/portal/PortalPageHeader";
 import { DashboardCard } from "@/components/portal/DashboardCard";
+import { MentorshipCalls } from "@/components/portal/MentorshipCalls";
+import { listMentorshipCalls } from "@/lib/services/mentorship-call-service";
 import {
   MentorshipThread,
   MessageComposer,
@@ -40,6 +42,7 @@ export default async function StudentMentorshipThreadPage({ params }: { params: 
   const upcoming = mentorship.sessions.filter((s) => s.status === "SCHEDULED");
   const finished = mentorship.sessions.filter((s) => s.status !== "SCHEDULED");
   const active = mentorship.status === "ACTIVE";
+  const calls = await listMentorshipCalls(mentorship.id);
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -77,11 +80,19 @@ export default async function StudentMentorshipThreadPage({ params }: { params: 
         </div>
       </DashboardCard>
 
+      <MentorshipCalls
+        calls={calls}
+        viewer="STUDENT"
+        otherName={mentor.fullName}
+        callHref={`/membership/dashboard/mentorship/${mentorship.id}/call`}
+        active={active}
+      />
+
       <DashboardCard id="sessions" title="Sessions" icon={<CalendarClock size={20} />} readAloud>
         {upcoming.length === 0 && finished.length === 0 && (
           <p className="text-slate mb-4">
-            No sessions yet. Book one at a time that suits you both — you can talk by voice or video here when it
-            comes round.
+            No sessions yet. Booking one puts a time in both your diaries, and you both get a reminder that
+            morning. You can call at any time anyway.
           </p>
         )}
 
@@ -98,7 +109,7 @@ export default async function StudentMentorshipThreadPage({ params }: { params: 
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <Link
-                    href={`/membership/dashboard/mentorship/${mentorship.id}/call/${session.id}`}
+                    href={`/membership/dashboard/mentorship/${mentorship.id}/call?session=${session.id}`}
                     className={buttonClasses("primary", "sm")}
                   >
                     <Video size={15} aria-hidden="true" /> Join the call
