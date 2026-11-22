@@ -1,29 +1,21 @@
 /**
- * Publishes a build of the Android app, exactly as Admin -> App Releases
- * does: the APK goes to the association's storage through a short-lived
- * signed address, the release is recorded through createRelease (build
- * numbers only go up, the stored file must be whole), and only then is it
- * offered to phones. Every check is the website's own; this only saves
- * somebody uploading 100MB through a browser.
+ * Publishes a build of the Android app to Admin -> App Releases.
  *
- *   npx dotenv -e .env -- npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/publish-app-release.ts \
- *     --apk C:/Users/.../builds/assn-1.2.0.apk --version 1.2.0 --build 4 --notes notes.txt
+ *   npx dotenv -e .env -- npx tsx scripts/publish-app-release.ts \
+ *     --artifact https://expo.dev/artifacts/eas/<id>.apk \
+ *     --apk C:/Users/<you>/Downloads/builds/assn-1.2.0.apk \
+ *     --version 1.2.0 --build 4 --notes notes.txt [--draft] [--site https://www.assnuew.com]
  *
- * It needs the storage keys (R2_*) in the environment. They live in Vercel;
- * `vercel env pull .env.vercel.local --environment=production` fetches them,
- * then add `-e .env.vercel.local` to the dotenv call.
+ * --apk is the copy already downloaded and checked (size, ZIP, signing
+ * key); its SHA-256 is sent along, and the website fetches the artifact
+ * itself and refuses it unless the two match and the build is signed with
+ * the association's key. The storage keys never leave Vercel: the website
+ * does the upload, through POST /api/admin/app-releases/publish.
  *
- * Optional: --minimum-build N (default: the previous release's), --min-sdk N
- * (default: the previous release's, else 26), --draft (record, don't offer).
- *
- * The release is recorded in the name of whoever published the previous
- * one - the association's own administrator - and the audit log says so.
+ * Needs APP_RELEASE_TOKEN, the same value as in the Vercel project.
  */
 import { createHash } from "node:crypto";
-import { readFileSync, statSync } from "node:fs";
-import { basename } from "node:path";
-import { db } from "../src/lib/db";
-import { createRelease, requestApkUpload, setReleasePublished } from "../src/lib/services/app-release-service";
+import { readFileSync } from "node:fs";
 
 function flag(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -31,49 +23,39 @@ function flag(name: string): string | undefined {
 }
 
 async function main() {
+  const artifactUrl = flag("artifact");
   const apk = flag("apk");
   const version = flag("version");
-  const build = Number(flag("build"));
-  const notesFile = flag("notes");
-  if (!apk || !version || !build || !notesFile) {
-    throw new Error("Usage: --apk <file.apk> --version <x.y.z> --build <n> --notes <changelog.txt> [--minimum-build n] [--min-sdk n] [--draft]");
+  const buildNumber = Number(flag("build"));
+  const notes = flag("notes");
+  const site = (flag("site") ?? "https://www.assnuew.com").replace(/\/+$/, "");
+  const token = process.env.APP_RELEASE_TOKEN;
+  if (!artifactUrl || !apk || !version || !buildNumber || !notes) {
+    throw new Error("Usage: --artifact <expo .apk link> --apk <verified copy> --version <x.y.z> --build <n> --notes <file> [--draft]");
   }
-  const changelog = readFileSync(notesFile, "utf8").trim();
-  const bytes = readFileSync(apk);
-  const sizeBytes = statSync(apk).size;
-  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  if (!token) throw new Error("APP_RELEASE_TOKEN isn't set (it lives in .env and in Vercel).");
 
-  const previous = await db.appRelease.findFirst({ orderBy: { buildNumber: "desc" } });
-  if (!previous?.publishedById) throw new Error("No earlier release to take the publishing administrator from.");
-  const admin = await db.adminUser.findUnique({ where: { id: previous.publishedById }, select: { id: true, isActive: true } });
-  if (!admin?.isActive) throw new Error("The administrator who published the last release is no longer active.");
+  const sha256 = createHash("sha256").update(readFileSync(apk)).digest("hex");
+  console.log(`Publishing ${version} (build ${buildNumber}), sha256 ${sha256}`);
 
-  console.log(`Uploading ${basename(apk)} (${sizeBytes.toLocaleString("en-GB")} bytes, sha256 ${sha256})`);
-  const upload = await requestApkUpload({ filename: basename(apk), fileSize: sizeBytes });
-  const put = await fetch(upload.uploadUrl, { method: "PUT", headers: { "Content-Type": upload.contentType }, body: bytes });
-  if (!put.ok) throw new Error(`Storage refused the upload: ${put.status} ${await put.text()}`);
-
-  const release = await createRelease(
-    {
-      version,
-      buildNumber: build,
-      apkUrl: upload.apkUrl,
+  const response = await fetch(`${site}/api/admin/app-releases/publish`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      artifactUrl,
       sha256,
-      sizeBytes,
-      changelog,
-      minimumBuild: flag("minimum-build") ? Number(flag("minimum-build")) : previous.minimumBuild,
-      minAndroidSdk: flag("min-sdk") ? Number(flag("min-sdk")) : previous.minAndroidSdk || 26,
-    },
-    admin,
+      version,
+      buildNumber,
+      changelog: readFileSync(notes, "utf8").trim(),
+      publish: !process.argv.includes("--draft"),
+    }),
+  });
+  const reply = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!response.ok || !reply.ok) throw new Error(`${response.status}: ${String(reply.error ?? "no answer")}`);
+  console.log(
+    `${reply.published ? "Published" : "Recorded as a draft"}: ${String(reply.version)} (build ${String(reply.buildNumber)}), ` +
+      `${Number(reply.sizeBytes).toLocaleString("en-GB")} bytes, release ${String(reply.id)}`,
   );
-  console.log(`Recorded ${release.version} (build ${release.buildNumber}) as ${release.id}`);
-
-  if (process.argv.includes("--draft")) {
-    console.log("Left as a draft: publish it from Admin -> App Releases.");
-    return;
-  }
-  await setReleasePublished({ id: release.id, published: true, admin });
-  console.log(`Published. Phones on older builds will be offered ${release.version}.`);
 }
 
 main().then(
