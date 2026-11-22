@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { createElectionAction, updateElectionAction } from "@/lib/actions/election-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert, SavedNotice } from "@/components/ui/Common";
+import { DateInput } from "@/components/ui/DateInput";
 import { SuccessDialog, useResettableForm } from "@/components/ui/SuccessDialog";
 import { Button } from "@/components/ui/Button";
 import type { Election } from "@/generated/prisma/client";
@@ -38,18 +39,24 @@ export function ElectionForm({ election }: { election?: Election }) {
         </div>
 
         <div className="grid sm:grid-cols-2 gap-5">
-          <div>
-            <Label htmlFor="nominationStart">Nominations Open</Label>
-            <input id="nominationStart" name="nominationStart" type="date" defaultValue={toDateInputValue(election?.nominationStart)} className={inputClasses} />
-          </div>
-          <div>
-            <Label htmlFor="nominationEnd">Nominations Close</Label>
-            <input id="nominationEnd" name="nominationEnd" type="date" defaultValue={toDateInputValue(election?.nominationEnd)} className={inputClasses} />
-          </div>
-          <div>
-            <Label htmlFor="votingDate">Voting Date</Label>
-            <input id="votingDate" name="votingDate" type="date" defaultValue={toDateInputValue(election?.votingDate)} className={inputClasses} />
-          </div>
+          <DateInput
+            id="nominationStart"
+            name="nominationStart"
+            label="Nominations open"
+            defaultValue={toDateInputValue(election?.nominationStart)}
+          />
+          <DateInput
+            id="nominationEnd"
+            name="nominationEnd"
+            label="Nominations close"
+            defaultValue={toDateInputValue(election?.nominationEnd)}
+          />
+          <DateInput
+            id="votingDate"
+            name="votingDate"
+            label="Voting date"
+            defaultValue={toDateInputValue(election?.votingDate)}
+          />
           <div>
             <Label htmlFor="venueOrMethod">Venue / Method</Label>
             <input id="venueOrMethod" name="venueOrMethod" defaultValue={election?.venueOrMethod ?? ""} className={inputClasses} />

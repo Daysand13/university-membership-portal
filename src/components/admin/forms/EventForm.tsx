@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { createEventAction, updateEventAction } from "@/lib/actions/event-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert, SavedNotice } from "@/components/ui/Common";
+import { DateInput } from "@/components/ui/DateInput";
 import { SuccessDialog, useResettableForm } from "@/components/ui/SuccessDialog";
 import { Button } from "@/components/ui/Button";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
@@ -51,24 +52,24 @@ export function EventForm({ event, categories }: { event?: Event; categories: Ev
         </div>
 
         <div className="bg-white rounded-lg border border-line p-6 grid sm:grid-cols-2 gap-5">
-          <div>
-            <Label htmlFor="startDate" required>Start Date</Label>
-            <input id="startDate" name="startDate" type="date" required defaultValue={toDateInputValue(event?.startDate)} className={inputClasses} />
-            <FieldError messages={fe.startDate} />
-          </div>
-          <div>
-            <Label htmlFor="endDate" required>End Date</Label>
-            <input id="endDate" name="endDate" type="date" required defaultValue={toDateInputValue(event?.endDate)} className={inputClasses} />
-            <FieldError messages={fe.endDate} />
-          </div>
-          <div>
-            <Label htmlFor="startTime">Start Time</Label>
-            <input id="startTime" name="startTime" type="time" defaultValue={event?.startTime ?? ""} className={inputClasses} />
-          </div>
-          <div>
-            <Label htmlFor="endTime">End Time</Label>
-            <input id="endTime" name="endTime" type="time" defaultValue={event?.endTime ?? ""} className={inputClasses} />
-          </div>
+          <DateInput
+            id="startDate"
+            name="startDate"
+            label="Start date"
+            required
+            defaultValue={toDateInputValue(event?.startDate)}
+            error={fe.startDate}
+          />
+          <DateInput
+            id="endDate"
+            name="endDate"
+            label="End date"
+            required
+            defaultValue={toDateInputValue(event?.endDate)}
+            error={fe.endDate}
+          />
+          <DateInput id="startTime" name="startTime" label="Start time" mode="time" defaultValue={event?.startTime ?? ""} />
+          <DateInput id="endTime" name="endTime" label="End time" mode="time" defaultValue={event?.endTime ?? ""} />
           <div className="sm:col-span-2">
             <Label htmlFor="venue" required>Venue</Label>
             <input id="venue" name="venue" required defaultValue={event?.venue} className={inputClasses} />

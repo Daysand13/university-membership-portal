@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { saveCampaignAction, saveIssueAction } from "@/lib/actions/patron-admin-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { FieldError, FormAlert, Label, inputClasses } from "@/components/ui/Common";
+import { DateInput } from "@/components/ui/DateInput";
 import { SuccessDialog, useResettableForm } from "@/components/ui/SuccessDialog";
 import { Button } from "@/components/ui/Button";
 import { CAMPAIGN_STATUSES, ISSUE_CATEGORIES, ISSUE_STAGES } from "@/lib/patron-portal-options";
@@ -187,19 +188,15 @@ export function IssueForm({ issue, today }: { issue?: IssueFormValues; today: st
             </select>
           </div>
           <div>
-            <Label htmlFor="i-reported" required>
-              Reported on
-            </Label>
-            <input
+            <DateInput
               id="i-reported"
               name="reportedOn"
-              type="date"
+              label="Reported on"
               required
               max={today}
               defaultValue={issue?.reportedOn ?? today}
-              className={inputClasses}
+              error={fe.reportedOn}
             />
-            <FieldError messages={fe.reportedOn} />
           </div>
         </div>
         <div>

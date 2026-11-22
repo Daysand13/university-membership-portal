@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { FormAlert, Label, SavedNotice, inputClasses } from "@/components/ui/Common";
+import { DateInput } from "@/components/ui/DateInput";
 import { saveCvAction } from "@/lib/actions/cv-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { SignatureKind } from "@/generated/prisma/enums";
@@ -109,25 +110,21 @@ function DateRange({
 }) {
   return (
     <>
+      <DateInput
+        id={`${idPrefix}-start`}
+        label="From"
+        mode="month"
+        value={start}
+        onChange={(value) => onChange("startMonth", value)}
+      />
       <div>
-        <Label htmlFor={`${idPrefix}-start`}>From</Label>
-        <input
-          id={`${idPrefix}-start`}
-          type="month"
-          value={start}
-          onChange={(e) => onChange("startMonth", e.target.value)}
-          className={inputClasses}
-        />
-      </div>
-      <div>
-        <Label htmlFor={`${idPrefix}-end`}>To</Label>
-        <input
+        <DateInput
           id={`${idPrefix}-end`}
-          type="month"
+          label="To"
+          mode="month"
           value={current ? "" : end}
           disabled={current}
-          onChange={(e) => onChange("endMonth", e.target.value)}
-          className={`${inputClasses} disabled:bg-surface-muted disabled:text-slate-light`}
+          onChange={(value) => onChange("endMonth", value)}
         />
         <label htmlFor={`${idPrefix}-current`} className="flex items-center gap-2 mt-2 text-sm text-ink cursor-pointer">
           <input

@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { FieldError, FormAlert, Label, inputClasses } from "@/components/ui/Common";
+import { DateInput } from "@/components/ui/DateInput";
 import type { ActionState } from "@/lib/actions/types";
 
 const timeFormat = new Intl.DateTimeFormat("en-GH", {
@@ -130,13 +131,16 @@ export function SessionBookingForm({
     <form action={formAction} className="space-y-3" key={resetKey}>
       {state.success ? <FormAlert variant="success" message="Session booked. The other side has been told." /> : <FormAlert message={state.error} />}
       <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="session-when" required>
-            When
-          </Label>
-          <input id="session-when" name="scheduledFor" type="datetime-local" required className={inputClasses} />
-          <FieldError messages={state.fieldErrors?.scheduledFor} />
-        </div>
+        <DateInput
+          id="session-when"
+          name="scheduledFor"
+          label="When"
+          mode="datetime"
+          required
+          min={new Date().toISOString().slice(0, 10)}
+          hint="Ghana time."
+          error={state.fieldErrors?.scheduledFor}
+        />
         <div>
           <Label htmlFor="session-topic">What it&apos;s about</Label>
           <input

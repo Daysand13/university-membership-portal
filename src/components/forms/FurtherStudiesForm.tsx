@@ -5,6 +5,7 @@ import { Loader2, ImagePlus, FileText, CheckCircle2 } from "lucide-react";
 import { submitFurtherStudiesAction } from "@/lib/actions/alumni-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
+import { DateInput } from "@/components/ui/DateInput";
 import { Button } from "@/components/ui/Button";
 import {
   SUPPORT_NEEDS,
@@ -360,11 +361,17 @@ export function FurtherStudiesForm({
         <p className="sm:col-span-3 text-xs text-slate-light -mt-2">
           Pre-filled from your Alumni account name — correct it above if it&apos;s not split quite right.
         </p>
-        <div>
-          <Label htmlFor="dateOfBirth" required>Date of Birth</Label>
-          <input id="dateOfBirth" name="dateOfBirth" type="date" required value={values.dateOfBirth} onChange={handleChange} className={inputClasses} />
-          <FieldError messages={fe.dateOfBirth} />
-        </div>
+        <DateInput
+          id="dateOfBirth"
+          name="dateOfBirth"
+          label="Date of birth"
+          required
+          birthday
+          max={new Date().toISOString().slice(0, 10)}
+          value={values.dateOfBirth}
+          onChange={(dateOfBirth) => setValues((prev) => ({ ...prev, dateOfBirth }))}
+          error={fe.dateOfBirth}
+        />
         <div>
           <Label htmlFor="gender" required>Gender</Label>
           <select id="gender" name="gender" required className={inputClasses} value={values.gender} onChange={handleChange}>

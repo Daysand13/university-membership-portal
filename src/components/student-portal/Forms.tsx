@@ -4,6 +4,7 @@ import { useActionState, useState, useTransition, type ReactNode } from "react";
 import { Loader2, Send, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { FieldError, FormAlert, Label, inputClasses } from "@/components/ui/Common";
+import { DateInput } from "@/components/ui/DateInput";
 import { ISSUE_CATEGORIES } from "@/lib/patron-portal-options";
 import { SUPPORT_REQUEST_TYPES } from "@/lib/portal-options";
 import {
@@ -132,11 +133,13 @@ export function BarrierReportForm() {
           />
           <FieldError messages={fe.location} />
         </div>
-        <div>
-          <Label htmlFor="report-date">When it happened</Label>
-          <input id="report-date" name="occurredOn" type="date" className={inputClasses} />
-          <FieldError messages={fe.occurredOn} />
-        </div>
+        <DateInput
+          id="report-date"
+          name="occurredOn"
+          label="When it happened"
+          max={new Date().toISOString().slice(0, 10)}
+          error={fe.occurredOn}
+        />
       </div>
 
       <EvidenceField errors={fe.evidence} />
@@ -234,11 +237,7 @@ export function SupportRequestForm() {
             <FieldError messages={fe.amount} />
           </div>
         )}
-        <div>
-          <Label htmlFor="support-needed-by">Needed by</Label>
-          <input id="support-needed-by" name="neededBy" type="date" className={inputClasses} />
-          <FieldError messages={fe.neededBy} />
-        </div>
+        <DateInput id="support-needed-by" name="neededBy" label="Needed by" error={fe.neededBy} />
       </div>
 
       <Button type="submit" disabled={isPending}>

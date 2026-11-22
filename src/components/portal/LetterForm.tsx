@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { FieldError, FormAlert, Label, SavedNotice, inputClasses } from "@/components/ui/Common";
+import { DateInput } from "@/components/ui/DateInput";
 import { SignaturePad } from "@/components/portal/SignaturePad";
 import { saveLetterAction } from "@/lib/actions/letter-actions";
 import { initialActionState } from "@/lib/actions/types";
@@ -148,14 +149,13 @@ export function LetterForm({
           defaultValue={letter.senderEmail}
           errors={fe.senderEmail}
         />
-        <Field
+        <DateInput
           id="letter-date"
           name="letterDate"
           label="Date on the letter"
-          type="date"
-          hint="Leave blank and it uses the day you download it."
+          hint="Leave it blank and it uses the day you download it."
           defaultValue={letter.letterDate}
-          errors={fe.letterDate}
+          error={fe.letterDate}
         />
         <Field
           id="letter-sender-address"

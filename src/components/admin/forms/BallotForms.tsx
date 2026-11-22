@@ -4,6 +4,7 @@ import { useActionState, useState, useTransition } from "react";
 import { Check, Clock, Loader2, Megaphone, Plus, Save, TimerReset, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { FieldError, FormAlert, Label, SavedNotice, inputClasses } from "@/components/ui/Common";
+import { DateInput } from "@/components/ui/DateInput";
 import { SuccessDialog, useResettableForm } from "@/components/ui/SuccessDialog";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import {
@@ -74,32 +75,24 @@ export function VotingWindowForm({
     <form action={formAction} className="space-y-4">
       <FormAlert message={state.error} />
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="opensAt" required>
-            Voting opens
-          </Label>
-          <input
-            id="opensAt"
-            name="opensAt"
-            type="datetime-local"
-            defaultValue={dateToAccraInput(opensAt)}
-            className={inputClasses}
-          />
-          <FieldError messages={fe.opensAt} />
-        </div>
-        <div>
-          <Label htmlFor="closesAt" required>
-            Voting closes
-          </Label>
-          <input
-            id="closesAt"
-            name="closesAt"
-            type="datetime-local"
-            defaultValue={dateToAccraInput(closesAt)}
-            className={inputClasses}
-          />
-          <FieldError messages={fe.closesAt} />
-        </div>
+        <DateInput
+          id="opensAt"
+          name="opensAt"
+          label="Voting opens"
+          mode="datetime"
+          required
+          defaultValue={dateToAccraInput(opensAt)}
+          error={fe.opensAt}
+        />
+        <DateInput
+          id="closesAt"
+          name="closesAt"
+          label="Voting closes"
+          mode="datetime"
+          required
+          defaultValue={dateToAccraInput(closesAt)}
+          error={fe.closesAt}
+        />
       </div>
       <p className="text-xs text-slate">
         Ghana time. The terminals count down to the closing time and announce it aloud at two hours, one hour, forty,

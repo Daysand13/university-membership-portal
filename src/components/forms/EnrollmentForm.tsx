@@ -5,6 +5,7 @@ import { Loader2, ImagePlus, AlertCircle, CheckCircle2, GraduationCap } from "lu
 import { submitEnrollmentAction } from "@/lib/actions/membership-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
+import { DateInput } from "@/components/ui/DateInput";
 import { Button } from "@/components/ui/Button";
 import { BotProtectionFields } from "@/components/forms/BotProtectionFields";
 import {
@@ -511,11 +512,17 @@ export function EnrollmentForm({
             <input id="lastName" name="lastName" required className={inputClasses} value={values.lastName} onChange={handleChange} />
             <FieldError messages={fe.lastName} />
           </div>
-          <div>
-            <Label htmlFor="dateOfBirth" required>Date of Birth</Label>
-            <input id="dateOfBirth" name="dateOfBirth" type="date" required className={inputClasses} value={values.dateOfBirth} onChange={handleChange} />
-            <FieldError messages={fe.dateOfBirth} />
-          </div>
+          <DateInput
+            id="dateOfBirth"
+            name="dateOfBirth"
+            label="Date of birth"
+            required
+            birthday
+            max={new Date().toISOString().slice(0, 10)}
+            value={values.dateOfBirth}
+            onChange={(dateOfBirth) => setValues((prev) => ({ ...prev, dateOfBirth }))}
+            error={fe.dateOfBirth}
+          />
           <div>
             <Label htmlFor="gender" required>Gender</Label>
             <select id="gender" name="gender" required className={inputClasses} value={values.gender} onChange={handleChange}>

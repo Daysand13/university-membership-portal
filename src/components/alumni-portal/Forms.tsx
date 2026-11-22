@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { BadgeCheck, Briefcase, HandHeart, Loader2, Lock, Save } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { FieldError, FormAlert, Label, SavedNotice, inputClasses } from "@/components/ui/Common";
+import { DateInput } from "@/components/ui/DateInput";
 import {
   DONATION_FUNDS,
   DONATION_PRESETS_CEDIS,
@@ -188,11 +189,7 @@ export function OpportunityForm() {
           <input id="opp-location" name="location" maxLength={200} className={inputClasses} placeholder="e.g. Accra, or Remote" />
           <FieldError messages={fe.location} />
         </div>
-        <div>
-          <Label htmlFor="opp-closing">Closing date</Label>
-          <input id="opp-closing" name="closingDate" type="date" className={inputClasses} />
-          <FieldError messages={fe.closingDate} />
-        </div>
+        <DateInput id="opp-closing" name="closingDate" label="Closing date" error={fe.closingDate} />
       </div>
 
       <div>

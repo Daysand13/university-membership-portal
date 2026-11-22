@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { recordDonationAction, saveExpenseAction } from "@/lib/actions/patron-admin-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { FieldError, FormAlert, Label, inputClasses } from "@/components/ui/Common";
+import { DateInput } from "@/components/ui/DateInput";
 import { Button } from "@/components/ui/Button";
 import { DONATION_FUNDS, EXPENSE_CATEGORIES } from "@/lib/patron-portal-options";
 
@@ -66,21 +67,15 @@ export function ExpenseForm({ expense, today }: { expense?: ExpenseFormValues; t
           />
           <FieldError messages={fe.amount} />
         </div>
-        <div>
-          <Label htmlFor="e-date" required>
-            Date
-          </Label>
-          <input
-            id="e-date"
-            name="spentOn"
-            type="date"
-            required
-            max={today}
-            defaultValue={expense?.spentOn ?? today}
-            className={inputClasses}
-          />
-          <FieldError messages={fe.spentOn} />
-        </div>
+        <DateInput
+          id="e-date"
+          name="spentOn"
+          label="Date spent"
+          required
+          max={today}
+          defaultValue={expense?.spentOn ?? today}
+          error={fe.spentOn}
+        />
       </div>
       <Button type="submit" disabled={isPending}>
         {isPending && <Loader2 size={15} className="animate-spin" aria-hidden="true" />}
@@ -117,13 +112,15 @@ export function RecordDonationForm({ today }: { today: string }) {
           <input id="d-amount" name="amount" required inputMode="decimal" className={inputClasses} />
           <FieldError messages={fe.amount} />
         </div>
-        <div>
-          <Label htmlFor="d-date" required>
-            Received on
-          </Label>
-          <input id="d-date" name="receivedOn" type="date" required max={today} defaultValue={today} className={inputClasses} />
-          <FieldError messages={fe.receivedOn} />
-        </div>
+        <DateInput
+          id="d-date"
+          name="receivedOn"
+          label="Received on"
+          required
+          max={today}
+          defaultValue={today}
+          error={fe.receivedOn}
+        />
         <div className="sm:col-span-2">
           <Label htmlFor="d-fund" required>
             Given to

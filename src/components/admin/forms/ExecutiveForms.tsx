@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Check, Loader2, Send, Siren, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { FieldError, FormAlert, Label, SavedNotice, inputClasses } from "@/components/ui/Common";
+import { DateInput } from "@/components/ui/DateInput";
 import { SuccessDialog, useResettableForm } from "@/components/ui/SuccessDialog";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { PatronFileField } from "@/components/patron-portal/PatronFileField";
@@ -341,13 +342,7 @@ export function SupportPayoutForm({
           />
           <FieldError messages={fe.amount} />
         </div>
-        <div>
-          <Label htmlFor="payout-date" required>
-            Date
-          </Label>
-          <input id="payout-date" name="spentOn" type="date" required defaultValue={today()} className={inputClasses} />
-          <FieldError messages={fe.spentOn} />
-        </div>
+        <DateInput id="payout-date" name="spentOn" label="Date paid" required defaultValue={today()} error={fe.spentOn} />
       </div>
 
       <div>

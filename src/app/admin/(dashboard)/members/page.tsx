@@ -7,6 +7,7 @@ import { DataTable, type Column } from "@/components/admin/DataTable";
 import { FilterActions, FilterBar, FilterField, FilterSearch, filterControlClasses } from "@/components/admin/FilterBar";
 import { TrackLevelFilter } from "@/components/admin/TrackLevelFilter";
 import { CategoryFilter } from "@/components/admin/CategoryFilter";
+import { DateInput } from "@/components/ui/DateInput";
 import { listMembers, getMemberFilterOptions } from "@/lib/services/membership-service";
 import {
   describeMemberFilter,
@@ -196,12 +197,8 @@ export default async function AdminMembersPage({ searchParams }: { searchParams:
             <option value="INACTIVE">Inactive</option>
           </select>
         </FilterField>
-        <FilterField id="members-from" label="Joined from">
-          <input id="members-from" type="date" name="from" defaultValue={sp.from} className={filterControlClasses} />
-        </FilterField>
-        <FilterField id="members-to" label="Joined up to">
-          <input id="members-to" type="date" name="to" defaultValue={sp.to} className={filterControlClasses} />
-        </FilterField>
+        <DateInput id="members-from" name="from" label="Joined from" defaultValue={sp.from} compact />
+        <DateInput id="members-to" name="to" label="Joined up to" defaultValue={sp.to} compact />
         <FilterField id="members-sort" label="Order">
           <select id="members-sort" name="sort" defaultValue={sort} className={filterControlClasses}>
             {MEMBER_SORT_OPTIONS.map((s) => (

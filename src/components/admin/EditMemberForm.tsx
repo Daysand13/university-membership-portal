@@ -6,6 +6,7 @@ import { Pencil, X, Loader2, Save } from "lucide-react";
 import { updateMemberAdminAction } from "@/lib/actions/membership-actions";
 import { initialActionState } from "@/lib/actions/types";
 import { Label, inputClasses, FieldError, FormAlert } from "@/components/ui/Common";
+import { DateInput } from "@/components/ui/DateInput";
 import { Button } from "@/components/ui/Button";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import {
@@ -288,10 +289,13 @@ export function EditMemberForm({
             <input id="lastName" name="lastName" required defaultValue={member.lastName} className={inputClasses} />
             <FieldError messages={fe.lastName} />
           </div>
-          <div>
-            <Label htmlFor="dateOfBirth">Date of Birth</Label>
-            <input id="dateOfBirth" name="dateOfBirth" type="date" defaultValue={toDateInputValue(member.dateOfBirth)} className={inputClasses} />
-          </div>
+          <DateInput
+            id="dateOfBirth"
+            name="dateOfBirth"
+            label="Date of birth"
+            defaultValue={toDateInputValue(member.dateOfBirth)}
+            error={fe.dateOfBirth}
+          />
           <div>
             <Label htmlFor="gender">Gender</Label>
             <select id="gender" name="gender" defaultValue={member.gender ?? ""} className={inputClasses}>
