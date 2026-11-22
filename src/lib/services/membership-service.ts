@@ -26,7 +26,9 @@ import {
   adminNewApplicationNotificationEmail,
 } from "@/lib/email/templates";
 import type { EnrollmentInput, MemberAdminEditInput, AlumniFurtherStudiesInput } from "@/lib/validations/membership";
-import { uewAlumnusDetailsFrom, uewAlumnusFieldsFor } from "@/lib/validations/membership";
+import { LEVELS, POSTGRAD_LEVELS, uewAlumnusDetailsFrom, uewAlumnusFieldsFor } from "@/lib/validations/membership";
+import { categoryOptions, levelOptions, type MemberListFilter, type MemberSort } from "@/lib/member-filters";
+import { getSpecialNeedsCategories } from "@/lib/services/special-needs-category-service";
 import { formatFullName } from "@/lib/format";
 import {
   notifyAccountRemoved,
@@ -994,24 +996,9 @@ export async function updateMemberProfile(
   return updated;
 }
 
-export interface MemberListFilter {
-  search?: string;
-  academicDepartment?: string;
-  programme?: string;
-  membershipType?: string;
-  gender?: string;
-  applicationTrack?: string;
-  /** "Level 200" for an undergraduate, "Year 2" for a postgraduate. */
-  level?: string;
-  campus?: string;
-  status?: string;
-  dateFrom?: string;
-  dateTo?: string;
-  sort?: MemberSort;
-}
-
-export const MEMBER_SORT_OPTIONS = ["newest", "oldest", "name"] as const;
-export type MemberSort = (typeof MEMBER_SORT_OPTIONS)[number];
+// The filter's shape and its reading from the address bar live in
+// member-filters.ts, shared by the page and its PDF export.
+export { MEMBER_SORT_OPTIONS, type MemberListFilter, type MemberSort } from "@/lib/member-filters";
 
 const MEMBER_ORDER_BY: Record<MemberSort, Prisma.MemberOrderByWithRelationInput | Prisma.MemberOrderByWithRelationInput[]> = {
   newest: { createdAt: "desc" },
@@ -1041,6 +1028,9 @@ function buildMemberWhere(filter?: MemberListFilter): Prisma.MemberWhereInput {
   if (filter?.gender) and.push({ gender: filter.gender as Gender });
   if (filter?.applicationTrack) and.push({ applicationTrack: filter.applicationTrack as ApplicationTrack });
   if (filter?.level) and.push({ level: filter.level });
+  // A member's special needs category is kept in `department` — the
+  // column predates the academic department, which has its own.
+  if (filter?.categories?.length) and.push({ department: { in: filter.categories } });
   if (filter?.campus) and.push({ campus: filter.campus });
   if (filter?.status) and.push({ status: filter.status as MemberStatus });
   if (filter?.dateFrom) and.push({ createdAt: { gte: new Date(filter.dateFrom) } });
@@ -1065,7 +1055,7 @@ export async function listMembers(filter?: MemberListFilter) {
  * dropdowns — reflects real data rather than a static list that could
  * drift out of sync with what members actually have on file. */
 export async function getMemberFilterOptions() {
-  const [departments, programmes, campuses] = await Promise.all([
+  const [departments, programmes, campuses, categories, levels, managedCategories] = await Promise.all([
     db.member.findMany({
       where: { academicDepartment: { not: null } },
       distinct: ["academicDepartment"],
@@ -1082,11 +1072,28 @@ export async function getMemberFilterOptions() {
       select: { campus: true },
       orderBy: { campus: "asc" },
     }),
+    db.member.findMany({ distinct: ["department"], select: { department: true } }),
+    db.member.findMany({ distinct: ["applicationTrack", "level"], select: { applicationTrack: true, level: true } }),
+    getSpecialNeedsCategories(),
   ]);
+
+  const onFile = (track: string) =>
+    levels.filter((row) => (row.applicationTrack ?? "UNDERGRADUATE") === track).map((row) => row.level);
+
   return {
     departments: departments.map((d) => d.academicDepartment).filter((d): d is string => !!d),
     programmes: programmes.map((p) => p.programme),
     campuses: campuses.map((c) => c.campus),
+    // The administrators' list first, then anything members still have on
+    // file that has since been renamed or retired — they are still members.
+    categories: categoryOptions(
+      managedCategories,
+      categories.map((c) => c.department),
+    ),
+    levels: {
+      UNDERGRADUATE: levelOptions(LEVELS, onFile("UNDERGRADUATE")),
+      POSTGRADUATE: levelOptions(POSTGRAD_LEVELS, onFile("POSTGRADUATE")),
+    },
   };
 }
 

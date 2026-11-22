@@ -6,7 +6,15 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { DataTable, type Column } from "@/components/admin/DataTable";
 import { FilterActions, FilterBar, FilterField, FilterSearch, filterControlClasses } from "@/components/admin/FilterBar";
 import { TrackLevelFilter } from "@/components/admin/TrackLevelFilter";
-import { listMembers, getMemberFilterOptions, MEMBER_SORT_OPTIONS, type MemberSort } from "@/lib/services/membership-service";
+import { CategoryFilter } from "@/components/admin/CategoryFilter";
+import { listMembers, getMemberFilterOptions } from "@/lib/services/membership-service";
+import {
+  describeMemberFilter,
+  memberFilterFrom,
+  memberFilterQuery,
+  MEMBER_SORT_OPTIONS,
+  type MemberSort,
+} from "@/lib/member-filters";
 import { deleteMemberAction } from "@/lib/actions/membership-actions";
 import { getCurrentAdmin, requireCapability } from "@/lib/auth/admin";
 import { MEMBERSHIP_TYPE_LABELS } from "@/lib/validations/membership";
@@ -21,19 +29,11 @@ const SORT_LABELS: Record<MemberSort, string> = {
 export const metadata = { title: "Members" };
 export const dynamic = "force-dynamic";
 
-interface MembersSearchParams {
-  q?: string;
-  department?: string;
-  programme?: string;
-  membershipType?: string;
-  gender?: string;
-  track?: string;
-  level?: string;
-  campus?: string;
-  status?: string;
-  from?: string;
-  to?: string;
-  sort?: string;
+type MembersSearchParams = Record<string, string | string[] | undefined>;
+
+/** A single value from the address bar, for a control that takes one. */
+function single(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }
 
 function formatDate(date: Date): string {
@@ -42,37 +42,35 @@ function formatDate(date: Date): string {
 
 export default async function AdminMembersPage({ searchParams }: { searchParams: Promise<MembersSearchParams> }) {
   await requireCapability("members.records");
-  const sp = await searchParams;
-  const sort: MemberSort = (MEMBER_SORT_OPTIONS as readonly string[]).includes(sp.sort ?? "")
-    ? (sp.sort as MemberSort)
-    : "newest";
+  const raw = await searchParams;
+  // Every filter is read once, the same way the PDF export reads it.
+  const filter = memberFilterFrom(raw);
+  const sp = {
+    q: single(raw.q),
+    department: single(raw.department),
+    programme: single(raw.programme),
+    membershipType: single(raw.membershipType),
+    gender: single(raw.gender),
+    track: single(raw.track),
+    level: single(raw.level),
+    campus: single(raw.campus),
+    status: single(raw.status),
+    from: single(raw.from),
+    to: single(raw.to),
+  };
+  const sort: MemberSort = filter.sort ?? "newest";
   const [members, filterOptions, currentAdmin] = await Promise.all([
-    listMembers({
-      search: sp.q,
-      academicDepartment: sp.department,
-      programme: sp.programme,
-      membershipType: sp.membershipType,
-      gender: sp.gender,
-      applicationTrack: sp.track,
-      level: sp.level,
-      campus: sp.campus,
-      status: sp.status,
-      dateFrom: sp.from,
-      dateTo: sp.to,
-      sort,
-    }),
+    listMembers(filter),
     getMemberFilterOptions(),
     getCurrentAdmin(),
   ]);
 
   const canDelete = currentAdmin?.role === "SUPER_ADMIN";
+  const described = describeMemberFilter(filter);
 
-  // Preserve every active filter when linking to the PDF export, so
-  // "Export PDF" always reflects exactly what's on screen.
-  const exportParams = new URLSearchParams();
-  for (const [key, value] of Object.entries(sp)) {
-    if (value) exportParams.set(key, value);
-  }
+  // Every active filter, repeated categories and all, so "Export PDF" is
+  // always exactly the list on screen.
+  const exportQuery = memberFilterQuery(raw);
 
   const columns: Column<(typeof members)[number]>[] = [
     {
@@ -127,10 +125,15 @@ export default async function AdminMembersPage({ searchParams }: { searchParams:
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-display font-bold text-2xl text-primary-950">Members</h1>
-          <p className="text-sm text-slate mt-1">{members.length} member{members.length === 1 ? "" : "s"}</p>
+          {/* Said as one sentence, so a screen reader user hears how many and
+              of what without going back through every control. */}
+          <p role="status" className="text-sm text-slate mt-1">
+            {members.length} member{members.length === 1 ? "" : "s"}
+            {described.length > 0 ? ` · ${described.join(" · ")}` : ""}
+          </p>
         </div>
         <a
-          href={`/api/admin/members/export?${exportParams.toString()}`}
+          href={`/api/admin/members/export?${exportQuery}`}
           className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-3.5 py-2 text-sm font-semibold text-primary-800 hover:border-primary-600 hover:text-accent-600"
         >
           <FileDown size={15} /> Export PDF
@@ -175,7 +178,8 @@ export default async function AdminMembersPage({ searchParams }: { searchParams:
             <option value="FEMALE">Female</option>
           </select>
         </FilterField>
-        <TrackLevelFilter idPrefix="members" track={sp.track} level={sp.level} />
+        <TrackLevelFilter idPrefix="members" track={sp.track} level={sp.level} levelsByTrack={filterOptions.levels} />
+        <CategoryFilter idPrefix="members" options={filterOptions.categories} chosen={filter.categories ?? []} />
         <FilterField id="members-campus" label="Campus">
           <select id="members-campus" name="campus" defaultValue={sp.campus ?? ""} className={filterControlClasses}>
             <option value="">All campuses</option>

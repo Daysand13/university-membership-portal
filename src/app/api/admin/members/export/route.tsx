@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { getCurrentAdmin } from "@/lib/auth/admin";
-import { listMembers, MEMBER_SORT_OPTIONS, type MemberSort } from "@/lib/services/membership-service";
+import { adminCan, getCurrentAdmin } from "@/lib/auth/admin";
+import { listMembers } from "@/lib/services/membership-service";
 import { getEmailBrand } from "@/lib/services/content-service";
-import { MEMBERSHIP_TYPE_LABELS } from "@/lib/validations/membership";
+import { describeMemberFilter, memberFilterFrom } from "@/lib/member-filters";
 import { MemberListPdf } from "@/lib/pdf/MemberListPdf";
 import { loadLogoDataUri } from "@/lib/pdf/logo";
 
@@ -15,22 +15,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function buildFilterSummary(sp: URLSearchParams): string {
-  const parts: string[] = [];
-  if (sp.get("q")) parts.push(`Search: "${sp.get("q")}"`);
-  if (sp.get("department")) parts.push(`Department: ${sp.get("department")}`);
-  if (sp.get("programme")) parts.push(`Programme: ${sp.get("programme")}`);
-  if (sp.get("membershipType")) {
-    const key = sp.get("membershipType") as keyof typeof MEMBERSHIP_TYPE_LABELS;
-    parts.push(`Membership Type: ${MEMBERSHIP_TYPE_LABELS[key] ?? key}`);
-  }
-  if (sp.get("gender")) parts.push(`Gender: ${sp.get("gender") === "MALE" ? "Male" : "Female"}`);
-  if (sp.get("track")) parts.push(`Track: ${sp.get("track") === "UNDERGRADUATE" ? "Undergraduate" : "Postgraduate"}`);
-  if (sp.get("level")) parts.push(`Level: ${sp.get("level")}`);
-  if (sp.get("campus")) parts.push(`Campus: ${sp.get("campus")}`);
-  if (sp.get("status")) parts.push(`Status: ${sp.get("status")}`);
-  if (sp.get("from")) parts.push(`From: ${sp.get("from")}`);
-  if (sp.get("to")) parts.push(`To: ${sp.get("to")}`);
+function buildFilterSummary(parts: string[]): string {
   return parts.length ? `Filters applied — ${parts.join(" · ")}` : "No filters applied — full member list";
 }
 
@@ -39,30 +24,17 @@ export async function GET(request: NextRequest) {
   if (!admin) {
     return new Response("Unauthorized", { status: 401 });
   }
+  // The same permission the Members page itself needs. Being signed in as
+  // an administrator was all this used to ask — so a role with no access to
+  // member records could still download every member's email address.
+  if (!adminCan(admin, "members.records")) {
+    return new Response("You do not have permission to execute this action.", { status: 403 });
+  }
 
-  const sp = request.nextUrl.searchParams;
-  const rawSort = sp.get("sort");
-  const sort: MemberSort | undefined = (MEMBER_SORT_OPTIONS as readonly string[]).includes(rawSort ?? "")
-    ? (rawSort as MemberSort)
-    : undefined;
+  // Read exactly as the page reads it, so the PDF is the list on screen.
+  const filter = memberFilterFrom(request.nextUrl.searchParams);
 
-  const [members, brand] = await Promise.all([
-    listMembers({
-      search: sp.get("q") ?? undefined,
-      academicDepartment: sp.get("department") ?? undefined,
-      programme: sp.get("programme") ?? undefined,
-      membershipType: sp.get("membershipType") ?? undefined,
-      gender: sp.get("gender") ?? undefined,
-      applicationTrack: sp.get("track") ?? undefined,
-      level: sp.get("level") ?? undefined,
-      campus: sp.get("campus") ?? undefined,
-      status: sp.get("status") ?? undefined,
-      dateFrom: sp.get("from") ?? undefined,
-      dateTo: sp.get("to") ?? undefined,
-      sort,
-    }),
-    getEmailBrand(),
-  ]);
+  const [members, brand] = await Promise.all([listMembers(filter), getEmailBrand()]);
 
   // Loaded before the render rather than during it, so a logo that can't be
   // fetched costs the export its letterhead mark and nothing more.
@@ -74,7 +46,7 @@ export async function GET(request: NextRequest) {
   const pdfBuffer = await renderToBuffer(
     <MemberListPdf
       members={members}
-      filterSummary={buildFilterSummary(sp)}
+      filterSummary={buildFilterSummary(describeMemberFilter(filter))}
       logoDataUri={logoDataUri}
       universityLogoDataUri={universityLogoDataUri}
     />,

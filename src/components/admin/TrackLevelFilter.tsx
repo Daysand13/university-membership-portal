@@ -21,16 +21,24 @@ export function TrackLevelFilter({
   idPrefix,
   track,
   level,
+  levelsByTrack,
 }: {
   idPrefix: string;
   track?: string;
   level?: string;
+  /**
+   * What to offer under each track — the standard year groups plus any
+   * others members actually have on file. Defaults to the standard ones.
+   */
+  levelsByTrack?: { UNDERGRADUATE: readonly string[]; POSTGRADUATE: readonly string[] };
 }) {
   const [chosenTrack, setChosenTrack] = useState(track ?? "");
   const [chosenLevel, setChosenLevel] = useState(level ?? "");
 
   const isPostgraduate = chosenTrack === "POSTGRADUATE";
-  const levels = isPostgraduate ? POSTGRAD_LEVELS : chosenTrack === "UNDERGRADUATE" ? LEVELS : [];
+  const undergraduate = levelsByTrack?.UNDERGRADUATE ?? LEVELS;
+  const postgraduate = levelsByTrack?.POSTGRADUATE ?? POSTGRAD_LEVELS;
+  const levels = isPostgraduate ? postgraduate : chosenTrack === "UNDERGRADUATE" ? undergraduate : [];
 
   return (
     <>
