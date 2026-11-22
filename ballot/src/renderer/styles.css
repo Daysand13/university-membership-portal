@@ -456,3 +456,104 @@ fieldset {
   font-size: 0.95rem;
   padding: 0.7rem 1.1rem;
 }
+
+/* --- The announcement speaker, in the officer controls -------------------- */
+
+.officer-dialog {
+  width: min(40rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+.officer-section {
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+.officer-section h3 {
+  font-size: 1.15rem;
+  margin: 0 0 0.35rem;
+  color: var(--navy);
+}
+
+.officer-dialog select,
+.officer-dialog input[type="password"] {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  font-size: 1rem;
+  border: 2px solid var(--line);
+  border-radius: 0.6rem;
+  background: #fff;
+}
+
+.officer-dialog input[type="range"] {
+  width: 100%;
+  accent-color: var(--navy);
+}
+
+select:focus-visible,
+input[type="range"]:focus-visible,
+input[type="checkbox"]:focus-visible {
+  outline: 4px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.inline {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.inline select {
+  flex: 1;
+}
+
+.ghost.small {
+  padding: 0.55rem 0.8rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.check input {
+  width: 1.3rem;
+  height: 1.3rem;
+  margin-top: 0.15rem;
+  accent-color: var(--navy);
+  flex: none;
+}
+
+.check label {
+  margin: 0;
+}
+
+.hint.block {
+  display: block;
+  font-weight: 400;
+  font-size: 0.85rem;
+  margin-top: 0.2rem;
+}
+
+.voice-status {
+  background: #eef2f8;
+  border-left: 4px solid var(--ok);
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.4rem;
+  font-size: 0.95rem;
+}
+
+.voice-status.warn {
+  border-left-color: var(--danger);
+  background: #fbeceb;
+}
+
+.voice-status:empty {
+  display: none;
+}

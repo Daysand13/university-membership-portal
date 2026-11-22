@@ -1,14 +1,16 @@
 "use strict";
 
-const { app, BrowserWindow, globalShortcut, ipcMain, safeStorage } = require("electron");
+const { app, BrowserWindow, globalShortcut, ipcMain, safeStorage, session } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs/promises");
 const { randomUUID } = require("node:crypto");
+const { pathToFileURL } = require("node:url");
 
 const { BallotQueue } = require("./lib/queue");
 const { ServerClock } = require("./lib/clock");
 const { CountdownAnnouncer } = require("./lib/announcements");
 const { createPortalClient, OfflineError } = require("./lib/portal");
+const { createVoiceLibrary } = require("./lib/voices");
 
 /**
  * ASSN Ballot — the desktop process.
@@ -44,7 +46,72 @@ let state = {
   queued: 0,
   msRemaining: null,
   lastError: null,
+  /** The hall speaker's settings. Nothing secret; the window needs them to play. */
+  voice: null,
 };
+
+// --- The hall speaker ------------------------------------------------------
+
+/** What the announcement speaker does until an officer says otherwise. */
+const VOICE_DEFAULTS = {
+  enabled: true,
+  /** The hall speaker, as the window's audio devices name it; null = not chosen yet. */
+  deviceId: null,
+  deviceLabel: "",
+  /** 0–1. A hall is loud; most of the way up. */
+  volume: 0.9,
+  voiceId: null,
+  fallbackVoiceId: null,
+  /**
+   * An officer's word that Windows' default output is the voter's
+   * headphones. Until it is given, the voter's spoken ballot stays off —
+   * see privateVoiceAllowed in renderer/voice-policy.js.
+   */
+  defaultIsHeadphones: false,
+};
+
+let voices = null;
+
+function voicePath() {
+  return path.join(app.getPath("userData"), "announcements.json");
+}
+
+async function loadVoiceSettings() {
+  let saved = {};
+  try {
+    saved = JSON.parse(await fs.readFile(voicePath(), "utf8"));
+  } catch {
+    // First run: the defaults below.
+  }
+  const picked = { ...VOICE_DEFAULTS, ...(await voices.defaults()) };
+  return sanitiseVoiceSettings({ ...picked, ...saved });
+}
+
+/** Only the fields we know, each in range — whatever the window sent. */
+function sanitiseVoiceSettings(input) {
+  const volume = Number(input.volume);
+  return {
+    enabled: input.enabled !== false,
+    deviceId: typeof input.deviceId === "string" && input.deviceId ? input.deviceId.slice(0, 200) : null,
+    deviceLabel: typeof input.deviceLabel === "string" ? input.deviceLabel.slice(0, 200) : "",
+    volume: Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : VOICE_DEFAULTS.volume,
+    voiceId: typeof input.voiceId === "string" ? input.voiceId.slice(0, 200) : null,
+    fallbackVoiceId: typeof input.fallbackVoiceId === "string" ? input.fallbackVoiceId.slice(0, 200) : null,
+    defaultIsHeadphones: input.defaultIsHeadphones === true,
+  };
+}
+
+/** Renders the fallback voice's missing phrases ahead of time, so the first announcement isn't late. */
+function warmFallback(settings) {
+  const name = (settings.fallbackVoiceId || "").replace(/^windows:/, "");
+  if (!name || !settings.fallbackVoiceId?.startsWith("windows:")) return;
+  voices.prepareWindowsVoice(name).catch((err) => console.error("[ballot] could not prepare the fallback voice:", err.message));
+}
+
+/** The officer's key, checked. Before the terminal is set up there is none to ask for. */
+function keyAccepted(key) {
+  return !config || String(key || "").trim() === config.stationKey;
+}
 
 // --- What the terminal was set up with -------------------------------------
 
@@ -368,6 +435,38 @@ function registerHandlers() {
     return { ok: true };
   });
 
+  // --- The hall speaker ---
+
+  /** The officer's key, checked once to open the controls. */
+  ipcMain.handle("ballot:checkKey", async (_event, key) => ({ ok: keyAccepted(key) }));
+
+  ipcMain.handle("ballot:voices", async () => voices.list());
+
+  /**
+   * One phrase's recording, as audio data the window can send to the hall
+   * speaker. Asked for by key only — there is no way to ask for anything
+   * that is not on the fixed list.
+   */
+  ipcMain.handle("ballot:clip", async (_event, key) => {
+    try {
+      const clip = await voices.clip(String(key), state.voice ?? {});
+      if (!clip) return { ok: false, error: "No voice is available on this computer to say that." };
+      return { ok: true, mime: clip.mime, base64: clip.data.toString("base64"), voiceId: clip.voiceId, fallback: clip.fallback };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  /** Changing what the hall hears takes the officer key, like everything else an officer does. */
+  ipcMain.handle("ballot:setVoice", async (_event, { key, settings }) => {
+    if (!keyAccepted(key)) return { ok: false, error: "That key was not accepted." };
+    const next = sanitiseVoiceSettings({ ...state.voice, ...settings });
+    await fs.writeFile(voicePath(), JSON.stringify(next, null, 2), "utf8");
+    publish({ voice: next });
+    if (next.fallbackVoiceId !== state.voice?.fallbackVoiceId) warmFallback(next);
+    return { ok: true };
+  });
+
   ipcMain.handle("ballot:quit", async (_event, key) => {
     // Leaving kiosk mode takes the terminal's own key, so a voter cannot
     // walk out of the ballot into the desktop. Before the terminal has
@@ -414,10 +513,33 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  // The fixed phrases come from the same list the window checks against, so
+  // there is one list of what the hall can ever hear, not two to keep alike.
+  const { PUBLIC_ANNOUNCEMENTS } = await import(pathToFileURL(path.join(__dirname, "renderer", "voice-policy.js")).href);
+  voices = createVoiceLibrary({
+    assetsDir: path.join(__dirname, "..", "assets"),
+    cacheDir: path.join(app.getPath("userData"), "voice-cache"),
+    scripts: PUBLIC_ANNOUNCEMENTS,
+  });
+
+  // Choosing which speaker plays an announcement needs Chromium's
+  // speaker-selection permission, and the speakers' names need its media
+  // permission. Both for this application's own pages only; nothing here
+  // ever opens a microphone or a camera.
+  const ours = (url) => typeof url === "string" && url.startsWith("file://");
+  session.defaultSession.setPermissionCheckHandler((_wc, permission, origin) =>
+    ["media", "speaker-selection"].includes(permission) ? ours(origin) : false,
+  );
+  session.defaultSession.setPermissionRequestHandler((wc, permission, callback) =>
+    callback(["speaker-selection"].includes(permission) && ours(wc.getURL())),
+  );
+
   // Before anything can open a window and ask: a page that loads while
   // these are still being registered gets an error instead of a state,
   // and then renders nothing at all.
   registerHandlers();
+  state.voice = await loadVoiceSettings();
+  warmFallback(state.voice);
 
   queue = new BallotQueue(path.join(app.getPath("userData"), "queued-ballots.json"));
   await queue.load();

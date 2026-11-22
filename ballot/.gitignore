@@ -1,2 +1,4 @@
 node_modules/
 dist/
+# Piper and its voice models: only used to make the recordings, never shipped.
+.voice-tools/

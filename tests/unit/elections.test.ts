@@ -183,3 +183,18 @@ describe("a nomination", () => {
     expect(withCv.success && withCv.data.supportingChoice).toBe("portal-cv");
   });
 });
+
+describe("the secrecy of a ballot paper", () => {
+  // A cuid starts with the millisecond it was made. The voter's row on the
+  // roll is written in the same transaction as their paper, so a time-based
+  // id on the paper would pair the two exactly, whatever castHour hides.
+  it("gives papers and their marks ids that carry no time", async () => {
+    const { readFileSync } = await import("node:fs");
+    const schema = readFileSync("prisma/schema.prisma", "utf8");
+    for (const model of ["ElectionBallot", "ElectionVoteChoice"]) {
+      const body = schema.slice(schema.indexOf(`model ${model} {`));
+      const idLine = body.split("\n").find((line) => /^\s+id\s/.test(line)) ?? "";
+      expect(idLine, model).toMatch(/@default\(uuid\(4\)\)/);
+    }
+  });
+});

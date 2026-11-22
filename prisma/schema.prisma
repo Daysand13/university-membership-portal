@@ -629,7 +629,10 @@ model ElectionVoter {
 
 /// One completed ballot paper, with nobody's name on it.
 model ElectionBallot {
-  id         String   @id @default(cuid())
+  /// Random, not cuid(): a cuid begins with the millisecond it was made,
+  /// which would undo castHour's rounding and line this paper up against
+  /// the voter's row on the roll, written in the same instant.
+  id         String   @id @default(uuid(4))
   electionId String
   election   Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
   /// The terminal's own id for this paper. A vote that was queued offline
@@ -649,7 +652,8 @@ model ElectionBallot {
 }
 
 model ElectionVoteChoice {
-  id          String            @id @default(cuid())
+  /// Random for the same reason as ElectionBallot.id.
+  id          String            @id @default(uuid(4))
   ballotId    String
   ballot      ElectionBallot    @relation(fields: [ballotId], references: [id], onDelete: Cascade)
   candidateId String

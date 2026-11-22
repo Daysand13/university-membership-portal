@@ -146,27 +146,101 @@
 
     <footer class="bar foot">
       <p id="queued" class="pill quiet"></p>
+      <!-- The hall speaker's state, where an officer walking past sees it.
+           Not announced: a voter has no use for it. -->
+      <p id="speaker" class="pill quiet" aria-live="off"></p>
       <p id="association-name" class="quiet">Association of Students with Special Needs · University of Education, Winneba</p>
       <button type="button" id="officer" class="officer-button">Officer</button>
     </footer>
 
-    <!-- What an officer with several terminals to run needs: this one
-         closed, or pointed at a different station. Both take the key. -->
+    <!-- Everything an officer does takes the terminal's key: the hall speaker,
+         pointing the terminal at another station, closing it. The key is
+         asked for once, and forgotten when this closes. -->
     <dialog id="officer-dialog" class="officer-dialog" aria-labelledby="officer-heading">
       <h2 id="officer-heading">Officer controls</h2>
-      <p class="hint">
-        This terminal is <strong id="officer-station">not set up</strong>. Enter its key to close it or point it at a
-        different station.
-      </p>
-      <div class="field">
-        <label for="officer-key">Officer key</label>
-        <input id="officer-key" type="password" autocomplete="off" />
+
+      <div id="officer-lock">
+        <p class="hint">
+          This terminal is <strong id="officer-station">not set up</strong>. Enter its key to open the controls.
+        </p>
+        <div class="field">
+          <label for="officer-key">Officer key</label>
+          <input id="officer-key" type="password" autocomplete="off" />
+        </div>
+        <p id="officer-error" class="error" role="alert"></p>
+        <div class="actions">
+          <button type="button" id="officer-cancel" class="ghost">Back to the ballot</button>
+          <button type="button" id="officer-unlock" class="primary">Open the controls</button>
+        </div>
       </div>
-      <p id="officer-error" class="error" role="alert"></p>
-      <div class="actions">
-        <button type="button" id="officer-cancel" class="ghost">Back to the ballot</button>
-        <button type="button" id="officer-switch" class="ghost">Change station</button>
-        <button type="button" id="officer-quit" class="primary">Close ASSN Ballot</button>
+
+      <div id="officer-panel" hidden>
+        <section aria-labelledby="speaker-heading" class="officer-section">
+          <h3 id="speaker-heading">Announcement speaker</h3>
+          <p class="hint">
+            The hall hears general status only — "Member verification successful", "Voting is currently closed". Never a
+            candidate, a choice, or who is voting.
+          </p>
+          <p id="voice-status" class="voice-status" role="status"></p>
+
+          <div class="check">
+            <input id="voice-enabled" type="checkbox" />
+            <label for="voice-enabled">Make announcements on the hall speaker</label>
+          </div>
+
+          <div class="field">
+            <label for="voice-device">Hall speaker</label>
+            <div class="inline">
+              <select id="voice-device"></select>
+              <button type="button" id="voice-refresh" class="ghost small">Look again</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="voice-volume">Volume: <output id="voice-volume-value" for="voice-volume"></output></label>
+            <input id="voice-volume" type="range" min="0" max="100" step="5" />
+          </div>
+
+          <div class="field">
+            <label for="voice-voice">Voice</label>
+            <select id="voice-voice"></select>
+          </div>
+
+          <div class="field">
+            <label for="voice-fallback">If that voice is missing a phrase, use</label>
+            <select id="voice-fallback"></select>
+          </div>
+
+          <div class="check">
+            <input id="voice-headphones" type="checkbox" />
+            <label for="voice-headphones">
+              Windows' default sound output on this terminal is the voter's headphones
+              <span class="hint block">Tick only once you have checked the cables. This is what lets the ballot be read to the voter — privately.</span>
+            </label>
+          </div>
+          <p id="private-status" class="hint" role="status"></p>
+
+          <p id="voice-error" class="error" role="alert"></p>
+          <div class="actions">
+            <button type="button" id="voice-test" class="ghost">Test the speaker</button>
+            <button type="button" id="voice-repeat" class="ghost">Repeat the last announcement</button>
+            <button type="button" id="voice-save" class="primary">Save speaker settings</button>
+          </div>
+        </section>
+
+        <section aria-labelledby="terminal-heading" class="officer-section">
+          <h3 id="terminal-heading">This terminal</h3>
+          <p class="hint">Neither loses a vote: anything waiting to be sent goes first.</p>
+          <p id="terminal-error" class="error" role="alert"></p>
+          <div class="actions">
+            <button type="button" id="officer-switch" class="ghost">Change station</button>
+            <button type="button" id="officer-quit" class="ghost">Close ASSN Ballot</button>
+          </div>
+        </section>
+
+        <div class="actions">
+          <button type="button" id="officer-done" class="primary">Back to the ballot</button>
+        </div>
       </div>
     </dialog>
 
