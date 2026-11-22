@@ -1,0 +1,7 @@
+{
+  "name": "Cori (en GB, neural)",
+  "description": "Recorded ahead of time with the Piper voice en_GB-cori-high. Needs no internet on polling day.",
+  "licence": "License: public domain",
+  "source": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_GB/cori/high/en_GB-cori-high.onnx",
+  "renderedAt": "2026-11-22T20:04:08.971Z"
+}
