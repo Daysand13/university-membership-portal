@@ -10,7 +10,7 @@ export default function MembershipLandingPage() {
     <div className="bg-white">
       <div className="bg-primary-950 text-white">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16 text-center">
-          <SectionHeading kicker="Membership Portal" title="Join or Sign In" align="center" onDark />
+          <SectionHeading as="h1" kicker="Membership Portal" title="Join or Sign In" align="center" onDark />
         </div>
       </div>
 

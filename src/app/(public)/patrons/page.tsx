@@ -47,7 +47,7 @@ export default async function PatronsPage() {
           <div className="w-14 h-14 rounded-full bg-accent-500 text-primary-950 flex items-center justify-center mx-auto mb-5">
             <Award size={26} aria-hidden="true" />
           </div>
-          <SectionHeading
+          <SectionHeading as="h1"
             kicker="Patrons"
             title="Our Patrons"
             description="Lecturers, professionals, benefactors and friends of the association who stand with students with special needs at the University of Education, Winneba."

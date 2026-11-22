@@ -25,12 +25,16 @@
   --color-accent-200: #edd9a5;
   --color-accent-400: #d9ac3e;
   --color-accent-500: #c9971f;
-  --color-accent-600: #a87d18;
+  /* Darkened from #a87d18 (3.7:1 on white) so small gold text - kickers,
+     link hovers - passes WCAG AA: 5.3:1 on white, 4.9:1 on surface-muted. */
+  --color-accent-600: #8a6612;
   --color-accent-700: #97730a;
 
   --color-ink: #131b23;
   --color-slate: #5b6b7c;
-  --color-slate-light: #8b98a6;
+  /* Darkened from #8b98a6 (2.9:1): hints and placeholders are text too.
+     5.0:1 on white, 4.7:1 on surface-muted. */
+  --color-slate-light: #64717f;
   --color-line: #e2e8f0;
   --color-surface-muted: #f6f8fb;
 
@@ -232,6 +236,15 @@
 
 :root[data-theme="dark"] .bg-white {
   background-color: #0f121a;
+}
+
+/* The darker gold that small text needs on white is too dark on these
+   backgrounds (3.6:1), so gold TEXT takes the light end of the scale here.
+   Gold backgrounds are left alone. */
+:root[data-theme="dark"] .kicker,
+:root[data-theme="dark"] .text-accent-600,
+:root[data-theme="dark"] .hover\:text-accent-600:hover {
+  color: var(--color-accent-400);
 }
 
 :root[data-theme="dark"] .text-primary-950 {

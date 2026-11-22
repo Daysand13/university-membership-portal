@@ -33,7 +33,7 @@ export default async function LibraryPage({
     <div className="bg-white">
       <div className="bg-surface-muted border-b border-line">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14">
-          <SectionHeading
+          <SectionHeading as="h1"
             kicker="Resource Library"
             title="Documents & Resources"
             description="Official forms, publications, and past materials."

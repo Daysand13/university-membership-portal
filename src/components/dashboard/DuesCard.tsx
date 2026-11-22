@@ -34,7 +34,7 @@ export function DuesCard({
 
   return (
     <div className={bare ? "" : "bg-white rounded-lg border border-line p-6"}>
-      {!bare && <h3 className="text-xs font-semibold uppercase tracking-wide text-slate mb-4">Membership Dues</h3>}
+      {!bare && <h2 className="text-xs font-semibold uppercase tracking-wide text-slate mb-4">Membership Dues</h2>}
 
       {paidAt ? (
         <div className="flex items-start gap-3">

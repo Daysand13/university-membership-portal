@@ -18,7 +18,7 @@ export default async function AlumniLoginPage({
     <div className="bg-surface-muted min-h-[70vh]">
       <div className="bg-primary-950 text-white">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12 text-center">
-          <SectionHeading
+          <SectionHeading as="h1"
             kicker="Alumni Network"
             title="Sign in to your alumni account"
             description="Reach the alumni directory, mentor current students, and keep your profile up to date."

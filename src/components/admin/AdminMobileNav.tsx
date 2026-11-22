@@ -44,7 +44,7 @@ export function AdminMobileNav({ capabilities }: { capabilities: string[] }) {
                 return (
                   <div key={group.title || "root"} className="mb-4">
                     {group.title && (
-                      <p className="px-3 mb-1 text-[11px] font-semibold uppercase tracking-wider text-primary-400">
+                      <p className="px-3 mb-1 text-[11px] font-semibold uppercase tracking-wider text-primary-300">
                         {group.title}
                       </p>
                     )}

@@ -17,7 +17,18 @@ function DateBlock({ date }: { date: Date }) {
   );
 }
 
-export function EventCard({ event, isPast = false, imageAlt }: { event: EventCardData; isPast?: boolean; imageAlt?: string }) {
+export function EventCard({
+  event,
+  isPast = false,
+  imageAlt,
+  headingLevel: Heading = "h3",
+}: {
+  event: EventCardData;
+  isPast?: boolean;
+  imageAlt?: string;
+  /** "h2" on a page where the cards come straight after its title. */
+  headingLevel?: "h2" | "h3";
+}) {
   return (
     <article className="group flex flex-col bg-white rounded-lg border border-line overflow-hidden hover:shadow-[var(--shadow-card-hover)] transition-shadow">
       <Link href={`/events/${event.slug}`} className="block aspect-[16/10] bg-primary-50 relative overflow-hidden">
@@ -42,11 +53,11 @@ export function EventCard({ event, isPast = false, imageAlt }: { event: EventCar
       </Link>
       <div className="flex-1 flex flex-col p-5">
         {event.category && <p className="kicker mb-1.5">{event.category.name}</p>}
-        <h3 className="font-display font-bold text-lg leading-snug text-primary-950">
+        <Heading className="font-display font-bold text-lg leading-snug text-primary-950">
           <Link href={`/events/${event.slug}`} className="hover:text-primary-700">
             {event.title}
           </Link>
-        </h3>
+        </Heading>
         {event.shortDescription && (
           <p className="mt-2 text-sm text-slate leading-relaxed line-clamp-2">{event.shortDescription}</p>
         )}

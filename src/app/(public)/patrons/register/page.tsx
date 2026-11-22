@@ -9,7 +9,7 @@ export default function PatronRegisterPage() {
     <div className="bg-surface-muted">
       <div className="bg-white border-b border-line">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12">
-          <SectionHeading
+          <SectionHeading as="h1"
             kicker="Patrons"
             title="Apply to Become a Patron"
             description="Tell us about yourself and your work. Our team reviews every application and will email you with the decision — once approved, you can sign in to the Patrons' Portal."

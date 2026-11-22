@@ -17,7 +17,9 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center text-center py-16 px-6 rounded-lg border border-dashed border-line bg-surface-muted">
       {icon && <div className="mb-4 text-slate-light">{icon}</div>}
-      <h3 className="text-lg font-semibold text-primary-950">{title}</h3>
+      {/* A paragraph, not a heading: an empty state sits at different depths
+          on different pages, and as a heading it skipped levels on most. */}
+      <p className="text-lg font-semibold text-primary-950">{title}</p>
       {description && <p className="mt-1.5 text-sm text-slate max-w-sm">{description}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
@@ -79,23 +81,31 @@ export function Pagination({
  * The "Saved" line beside a submit button. Every admin form that saves in
  * place shows one, so pressing Save always visibly does something.
  */
-export function FieldError({ messages }: { messages?: string[] }) {
-  if (!messages?.length) return null;
-  return <p className="mt-1 text-sm text-danger">{messages[0]}</p>;
-}
+// Tied to its field and announced; see FieldError.tsx.
+export { FieldError } from "./FieldError";
 
 export function FormAlert({ message, variant = "error" }: { message?: string; variant?: "error" | "success" }) {
   if (!message) return null;
   const styles =
     variant === "error" ? "bg-danger-light text-danger border-danger/20" : "bg-success-light text-success border-success/20";
-  return <div className={`rounded-md border px-4 py-3 text-sm ${styles}`}>{message}</div>;
+  // Announced as it appears: an error interrupts, a success waits its turn.
+  return (
+    <div role={variant === "error" ? "alert" : "status"} className={`rounded-md border px-4 py-3 text-sm ${styles}`}>
+      {message}
+    </div>
+  );
 }
 
 export function Label({ htmlFor, children, required }: { htmlFor: string; children: ReactNode; required?: boolean }) {
   return (
     <label htmlFor={htmlFor} className="block text-sm font-medium text-primary-950 mb-1.5">
       {children}
-      {required && <span className="text-danger ml-0.5">*</span>}
+      {required && (
+        <>
+          <span aria-hidden="true" className="text-danger ml-0.5">*</span>
+          <span className="sr-only"> (required)</span>
+        </>
+      )}
     </label>
   );
 }

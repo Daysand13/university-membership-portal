@@ -24,7 +24,7 @@ export function AdminSidebar({ capabilities }: { capabilities: Set<string> }) {
           return (
             <div key={group.title || "root"} className="mb-5">
               {group.title && (
-                <p className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary-400">
+                <p className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary-300">
                   {group.title}
                 </p>
               )}

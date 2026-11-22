@@ -26,7 +26,7 @@ export default async function EventsPage({
     <div className="bg-white">
       <div className="bg-surface-muted border-b border-line">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14">
-          <SectionHeading kicker="Mark Your Calendar" title="Events" description="What's happening across the association." />
+          <SectionHeading as="h1" kicker="Mark Your Calendar" title="Events" description="What's happening across the association." />
         </div>
       </div>
 
@@ -55,6 +55,7 @@ export default async function EventsPage({
             {items.map((event) => (
               <EventCard
                 key={event.id}
+                headingLevel="h2"
                 event={event}
                 isPast={when === "past"}
                 imageAlt={altTextFor(imageDescriptions, event.imageUrl, event.title)}

@@ -35,7 +35,7 @@ export async function Footer() {
         </div>
 
         <div>
-          <h3 className="kicker-on-dark text-xs font-semibold uppercase tracking-wider mb-4">Quick Links</h3>
+          <h2 className="kicker-on-dark text-xs font-semibold uppercase tracking-wider mb-4">Quick Links</h2>
           <ul className="space-y-2.5 text-sm">
             {[
               ["/about", "About Us"],
@@ -56,7 +56,7 @@ export async function Footer() {
         </div>
 
         <div>
-          <h3 className="kicker-on-dark text-xs font-semibold uppercase tracking-wider mb-4">Membership</h3>
+          <h2 className="kicker-on-dark text-xs font-semibold uppercase tracking-wider mb-4">Membership</h2>
           <ul className="space-y-2.5 text-sm">
             {[
               ["/membership/enroll", "Enroll Now"],
@@ -75,7 +75,7 @@ export async function Footer() {
         </div>
 
         <div>
-          <h3 className="kicker-on-dark text-xs font-semibold uppercase tracking-wider mb-4">Get in Touch</h3>
+          <h2 className="kicker-on-dark text-xs font-semibold uppercase tracking-wider mb-4">Get in Touch</h2>
           <ul className="space-y-3 text-sm text-primary-200">
             {settings.physicalAddress && (
               <li className="flex gap-2.5">

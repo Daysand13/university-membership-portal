@@ -12,7 +12,7 @@ export default function AlumniRegisterPage() {
     <div className="bg-surface-muted min-h-[70vh]">
       <div className="bg-primary-950 text-white">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-12 text-center">
-          <SectionHeading
+          <SectionHeading as="h1"
             kicker="Alumni Network"
             title="Join the alumni community"
             description="Register to join fellow graduates of the association — reach the alumni directory, offer mentorship to current students, and stay part of the community after graduation."

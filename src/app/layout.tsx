@@ -3,6 +3,7 @@ import "./globals.css";
 import { getSiteSettings } from "@/lib/services/content-service";
 import { AccessibilityWidget } from "@/components/a11y/AccessibilityWidget";
 import { Toaster } from "@/components/ui/Toast";
+import { FormSafety } from "@/components/ui/FormSafety";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {children}
         <AccessibilityWidget />
         <Toaster />
+        <FormSafety />
       </body>
     </html>
   );

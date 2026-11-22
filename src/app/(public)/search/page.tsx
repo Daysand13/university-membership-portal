@@ -37,7 +37,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     <div className="bg-white">
       <div className="bg-surface-muted border-b border-line">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-14">
-          <SectionHeading kicker="Search" title="Search the Portal" description="Find news, events, and library documents." />
+          <SectionHeading as="h1" kicker="Search" title="Search the Portal" description="Find news, events, and library documents." />
           <form action="/search" className="mt-6 relative">
             <label htmlFor="site-search" className="sr-only">
               Search news, events and documents

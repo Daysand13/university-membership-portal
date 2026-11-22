@@ -27,6 +27,7 @@ export default async function SpecialNeedsCategoriesPage() {
 
       <div className="max-w-2xl">
         <OptionListEditor
+          headingLevel="h2"
           title="Categories of Special Needs"
           noun="category of special needs"
           items={categories}

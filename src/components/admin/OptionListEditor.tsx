@@ -25,6 +25,7 @@ export function OptionListEditor({
   placeholder,
   addedMessage,
   removeWarning,
+  headingLevel: Heading = "h3",
 }: {
   title: string;
   /** Singular, lower case — "academic department". */
@@ -37,6 +38,8 @@ export function OptionListEditor({
   addedMessage: string;
   /** Shown in the confirmation before an option is removed. */
   removeWarning: string;
+  /** "h2" where the list sits straight under the page's title. */
+  headingLevel?: "h2" | "h3";
 }) {
   const [addState, submitAdd, isAdding] = useActionState(addAction, initialActionState);
   const [removeState, submitRemove, isRemoving] = useActionState(removeAction, initialActionState);
@@ -62,9 +65,9 @@ export function OptionListEditor({
   return (
     <section aria-labelledby={`${baseId}-title`} className="bg-white rounded-lg border border-line p-5 flex flex-col min-w-0">
       <div className="flex items-baseline justify-between gap-3 mb-4">
-        <h3 id={`${baseId}-title`} className="font-display font-bold text-base text-primary-950">
+        <Heading id={`${baseId}-title`} className="font-display font-bold text-base text-primary-950">
           {title}
-        </h3>
+        </Heading>
         <span className="text-xs font-semibold text-slate shrink-0">
           {items.length} {items.length === 1 ? "option" : "options"}
         </span>

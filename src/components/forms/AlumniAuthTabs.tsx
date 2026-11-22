@@ -41,7 +41,7 @@ function SignInForm() {
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             aria-label={showPassword ? "Hide password" : "Show password"}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-light hover:text-slate"
+            className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-light hover:text-slate"
           >
             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
@@ -71,9 +71,9 @@ function RegisterForm() {
       <BotProtectionFields />
 
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-light mb-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-light mb-3">
           Personal & Contact Information
-        </h3>
+        </h2>
         <div className="grid sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <Label htmlFor="reg-fullName" required>Full Name</Label>
@@ -94,9 +94,9 @@ function RegisterForm() {
       </div>
 
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-light mb-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-light mb-3">
           Academic Background (UEW)
-        </h3>
+        </h2>
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="reg-graduationYear" required>Graduation Year</Label>
@@ -120,9 +120,9 @@ function RegisterForm() {
       </div>
 
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-light mb-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-light mb-3">
           Current Professional Status
-        </h3>
+        </h2>
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="reg-profession">Profession / Job Title</Label>
@@ -149,7 +149,7 @@ function RegisterForm() {
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             aria-label={showPassword ? "Hide password" : "Show password"}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-light hover:text-slate"
+            className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-light hover:text-slate"
           >
             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>

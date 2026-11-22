@@ -37,7 +37,7 @@ export default async function NewsPage({
     <div className="bg-white">
       <div className="bg-surface-muted border-b border-line">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14">
-          <SectionHeading kicker="Stay Informed" title="News" description="Announcements and updates from the association." />
+          <SectionHeading as="h1" kicker="Stay Informed" title="News" description="Announcements and updates from the association." />
         </div>
       </div>
 
@@ -73,6 +73,7 @@ export default async function NewsPage({
             {items.map((article) => (
               <NewsCard
                 key={article.id}
+                headingLevel="h2"
                 article={article}
                 imageAlt={altTextFor(imageDescriptions, article.coverImageUrl, article.title)}
               />

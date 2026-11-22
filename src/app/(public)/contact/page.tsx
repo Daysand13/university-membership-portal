@@ -19,7 +19,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
     <div className="bg-white">
       <div className="bg-surface-muted border-b border-line">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14">
-          <SectionHeading kicker="We'd Love to Hear From You" title="Contact Us" />
+          <SectionHeading as="h1" kicker="We'd Love to Hear From You" title="Contact Us" />
         </div>
       </div>
 

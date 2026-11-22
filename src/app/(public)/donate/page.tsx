@@ -14,7 +14,7 @@ export default async function DonatePage() {
       <div className="bg-primary-950 text-white">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16 text-center">
           <HandHeart size={30} className="mx-auto text-accent-400 mb-4" />
-          <SectionHeading
+          <SectionHeading as="h1"
             kicker="Support Our Work"
             title={donate.title || "Donate to the Association"}
             align="center"
@@ -41,7 +41,7 @@ export default async function DonatePage() {
             <div className="rounded-lg border border-line p-6">
               <div className="flex items-center gap-2.5 mb-3">
                 <Landmark size={18} className="text-primary-800" />
-                <h3 className="font-display font-bold text-base text-primary-950">Bank Transfer</h3>
+                <h2 className="font-display font-bold text-base text-primary-950">Bank Transfer</h2>
               </div>
               <p className="text-sm text-slate whitespace-pre-line font-data">{donate.bankDetails}</p>
             </div>
@@ -50,7 +50,7 @@ export default async function DonatePage() {
             <div className="rounded-lg border border-line p-6">
               <div className="flex items-center gap-2.5 mb-3">
                 <Smartphone size={18} className="text-primary-800" />
-                <h3 className="font-display font-bold text-base text-primary-950">Mobile Money</h3>
+                <h2 className="font-display font-bold text-base text-primary-950">Mobile Money</h2>
               </div>
               <p className="text-sm text-slate whitespace-pre-line font-data">{donate.mobileMoneyDetails}</p>
             </div>

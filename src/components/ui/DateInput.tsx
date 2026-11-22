@@ -106,7 +106,9 @@ export function DateInput({
   useEffect(() => {
     const form = fieldset.current?.form;
     if (!form) return;
-    const onReset = () => {
+    const onReset = (event: Event) => {
+      // Cancelled when the form came back with a problem: keep what was typed.
+      if (event.defaultPrevented) return;
       setParts(partsFrom(controlled ? value : defaultValue, mode));
       setTouched(false);
     };

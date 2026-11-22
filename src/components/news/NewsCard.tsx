@@ -9,7 +9,16 @@ function formatDate(date: Date | null): string {
   return new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "short", year: "numeric" }).format(date);
 }
 
-export function NewsCard({ article, imageAlt }: { article: NewsCardData; imageAlt?: string }) {
+export function NewsCard({
+  article,
+  imageAlt,
+  headingLevel: Heading = "h3",
+}: {
+  article: NewsCardData;
+  imageAlt?: string;
+  /** "h2" on a page where the cards come straight after its title. */
+  headingLevel?: "h2" | "h3";
+}) {
   return (
     <article className="group flex flex-col bg-white rounded-lg border border-line overflow-hidden hover:shadow-[var(--shadow-card-hover)] transition-shadow">
       <Link href={`/news/${article.slug}`} className="block aspect-[16/10] bg-primary-50 relative overflow-hidden">
@@ -36,11 +45,11 @@ export function NewsCard({ article, imageAlt }: { article: NewsCardData; imageAl
           <CalendarDays size={13} />
           {formatDate(article.publishedAt)}
         </div>
-        <h3 className="font-display font-bold text-lg leading-snug text-primary-950">
+        <Heading className="font-display font-bold text-lg leading-snug text-primary-950">
           <Link href={`/news/${article.slug}`} className="hover:text-primary-700">
             {article.title}
           </Link>
-        </h3>
+        </Heading>
         <p className="mt-2 text-sm text-slate leading-relaxed line-clamp-3">{article.excerpt}</p>
         <Link
           href={`/news/${article.slug}`}

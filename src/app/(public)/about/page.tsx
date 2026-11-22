@@ -58,7 +58,7 @@ export default async function AboutPage() {
     <div className="bg-white">
       <div className="bg-primary-950 text-white">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16 text-center">
-          <SectionHeading kicker="Who We Are" title="About the Association" align="center" onDark />
+          <SectionHeading as="h1" kicker="Who We Are" title="About the Association" align="center" onDark />
         </div>
       </div>
 
