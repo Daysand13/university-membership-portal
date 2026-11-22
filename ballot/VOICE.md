@@ -110,9 +110,12 @@ the roll, so the two could be paired exactly. New papers now get random ids
 (no database change was needed). Two things remain, for the association to
 decide:
 
-1. Papers recorded before this change still carry those ids. Replacing them
-   means rewriting election records, so it has not been done without the
-   association's say-so.
+1. Papers recorded before this change still carry those ids. The
+   association agreed to replace them; the migration that does it
+   (`prisma/migrations/20261122200000_random_ballot_ids`) checks every tally
+   before and after and undoes itself on any difference. It was rehearsed on
+   staging (30 papers, 60 marks, identical results) and is applied to the
+   live database with `npx prisma migrate deploy`.
 2. A terminal that takes a single vote in an hour has, in effect, a paper
    that can be matched to the roll by station and hour. Coarser hours, or
    recording the station on only one side, would close it at the cost of
