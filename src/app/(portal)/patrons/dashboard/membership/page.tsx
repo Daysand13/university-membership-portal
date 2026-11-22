@@ -92,7 +92,7 @@ export default async function PatronMembershipPage({
         <StatTile label="Alumni Mentors" value={count.format(overview.mentors)} icon={<HeartHandshake size={18} />} />
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-2">
         <DashboardCard id="growth" title="Membership Growth" icon={<TrendingUp size={20} />}>
           <p className="text-sm text-slate mb-3">New students by year of admission, and new alumni by graduation year.</p>
           <LineChart

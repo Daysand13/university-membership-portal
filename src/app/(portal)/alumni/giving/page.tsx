@@ -61,7 +61,7 @@ export default async function AlumniGivingPage({
         </PortalNotice>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start mt-6">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start mt-6">
         <DashboardCard id="give" title="Give to the Association" icon={<HandHeart size={20} />}>
           {!isPaystackConfigured() && (
             <div className="mb-4 rounded-lg border border-accent-400 bg-accent-50 px-4 py-3 text-[15px] text-primary-950">

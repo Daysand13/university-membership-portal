@@ -31,7 +31,7 @@ export default async function MemberAcademicPage() {
         description="Your academic details as the association holds them, and the study groups members are running. Academic details are managed by the association — if anything is wrong, tell us and we'll correct it."
       />
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-2">
         <DashboardCard id="current-studies" title="Current Studies" icon={<BookOpen size={20} />} readAloud className="xl:col-span-2">
           <dl>
             <Row label="Programme" value={member.programme} />

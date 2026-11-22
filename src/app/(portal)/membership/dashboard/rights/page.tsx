@@ -35,7 +35,7 @@ export default async function StudentRightsPage() {
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
         <DashboardCard id="my-reports" title="Your Reports" icon={<Scale size={20} />} readAloud>
           {reports.length === 0 ? (
             <EmptyState

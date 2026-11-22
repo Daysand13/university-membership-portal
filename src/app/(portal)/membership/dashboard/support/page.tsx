@@ -28,7 +28,7 @@ export default async function StudentSupportPage() {
         description="Ask the association for what you need to study on equal terms. Requests go to the executives, who decide and write back — you'll see every decision here."
       />
 
-      <div className="grid gap-6 xl:grid-cols-2 items-start">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-2 items-start">
         <DashboardCard id="new-request" title="Ask for Support" icon={<LifeBuoy size={20} />}>
           <SupportRequestForm />
         </DashboardCard>

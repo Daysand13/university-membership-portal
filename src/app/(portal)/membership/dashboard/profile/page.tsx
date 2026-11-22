@@ -16,7 +16,7 @@ export default async function MemberAccountSettingsPage() {
     <>
       <PortalPageHeader title="Account Settings" description="Keep your contact details up to date and manage how you sign in." />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <DashboardCard id="contact-details" title="Contact Details" icon={<MapPin size={20} />}>
           <MemberProfileForm member={member} />
         </DashboardCard>

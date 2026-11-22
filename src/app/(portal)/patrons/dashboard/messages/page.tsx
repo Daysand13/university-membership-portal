@@ -65,7 +65,7 @@ async function BroadcastTab({ patronId }: { patronId: string }) {
   const [mine, announcements] = await Promise.all([listBroadcastsForPatron(patronId), listAllAnnouncements(5)]);
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
       <section id="compose" aria-labelledby="compose-heading" className="bg-white rounded-xl border border-line shadow-card p-5 sm:p-6 scroll-mt-24">
         <div className="flex items-center gap-3 mb-5">
           <span aria-hidden="true" className="w-10 h-10 rounded-lg bg-primary-50 text-primary-800 flex items-center justify-center">
@@ -131,7 +131,7 @@ async function ExecutiveTab({ patronId }: { patronId: string }) {
   const [threads, contacts] = await Promise.all([listThreadsForPatron(patronId), listExecutiveContacts()]);
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-start">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-start">
       <section aria-labelledby="new-thread-heading" className="bg-white rounded-xl border border-line shadow-card p-5 sm:p-6">
         <h2 id="new-thread-heading" className="font-display font-bold text-xl text-primary-950 mb-1">
           Write to the Executive

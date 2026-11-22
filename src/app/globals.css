@@ -62,6 +62,12 @@
 
   html {
     scroll-behavior: smooth;
+    /* Every header here is sticky. Whatever the browser scrolls into view -
+       a field reached by Tab or Shift+Tab, a #link target, the first
+       problem in a form - stops below it instead of underneath it
+       (WCAG 2.4.11, Focus Not Obscured). */
+    scroll-padding-top: 6rem;
+    scroll-padding-bottom: 1.5rem;
   }
 
   @media (prefers-reduced-motion: reduce) {

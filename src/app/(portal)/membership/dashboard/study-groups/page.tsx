@@ -36,7 +36,7 @@ export default async function StudyGroupsPage() {
         description="Groups other members are running, and one you can start yourself. Joining puts your name and level on the group's list so the others know who's coming."
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
         <DashboardCard id="groups" title="Open Groups" icon={<Users size={20} />} readAloud>
           {groups.length === 0 ? (
             <EmptyState

@@ -133,7 +133,7 @@ export default async function PatronDashboardPage() {
         />
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-2">
         <DashboardCard
           id="growth-chart"
           title="Membership Growth"

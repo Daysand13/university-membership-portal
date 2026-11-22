@@ -45,7 +45,7 @@ export default async function PatronDocumentsPage({
         description="Executive reports, financial audits, the constitution, rights charters and minutes of executive–patron briefings."
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
         <section aria-labelledby="library-heading" className="bg-white rounded-xl border border-line shadow-card p-5 sm:p-6">
           <div className="flex items-center gap-3 mb-4">
             <span aria-hidden="true" className="w-10 h-10 rounded-lg bg-primary-50 text-primary-800 flex items-center justify-center">

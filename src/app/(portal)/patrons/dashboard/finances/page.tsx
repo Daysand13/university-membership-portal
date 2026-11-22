@@ -150,7 +150,7 @@ export default async function PatronFinancesPage({
         />
       </DashboardCard>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-2">
         <DashboardCard id="allocation" title="Where the Money Goes" icon={<PieChart size={20} />}>
           <p className="text-sm text-slate mb-4">Everything spent so far, by area.</p>
           {allocation.length === 0 ? (

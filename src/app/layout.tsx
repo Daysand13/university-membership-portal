@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { getSiteSettings } from "@/lib/services/content-service";
 import { AccessibilityWidget } from "@/components/a11y/AccessibilityWidget";
@@ -6,6 +6,18 @@ import { Toaster } from "@/components/ui/Toast";
 import { FormSafety } from "@/components/ui/FormSafety";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * On a phone the on-screen keyboard shrinks the page rather than covering
+ * it, so the box being typed in, and the sticky header, stay in view.
+ * Zoom is deliberately left alone: no maximum-scale, no user-scalable=no
+ * (WCAG 1.4.4) - people here pinch to read.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  interactiveWidget: "resizes-content",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();

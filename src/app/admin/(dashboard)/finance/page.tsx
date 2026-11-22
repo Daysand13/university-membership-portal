@@ -42,7 +42,7 @@ export default async function AdminFinancePage() {
         <StatCard icon={Scale} label="Balance" value={formatCedis(totals.balance)} />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
         <section className="bg-white rounded-lg border border-line p-6">
           <h2 className="font-display font-bold text-base text-primary-950 mb-1">Last twelve months</h2>
           <p className="text-sm text-slate mb-4">Money received by source, beside money spent.</p>

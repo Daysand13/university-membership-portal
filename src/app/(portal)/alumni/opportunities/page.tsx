@@ -37,7 +37,7 @@ export default async function AlumniOpportunitiesPage() {
         description="Jobs, internships, scholarships and volunteering posted by graduates for students and each other. An administrator checks each posting before it appears."
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] items-start">
         <DashboardCard id="board" title="On the Board" icon={<BriefcaseBusiness size={20} />} readAloud>
           {open.length === 0 ? (
             <EmptyState

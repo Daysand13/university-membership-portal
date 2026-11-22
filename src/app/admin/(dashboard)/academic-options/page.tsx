@@ -31,7 +31,7 @@ export default async function AcademicOptionsPage() {
             <h2 id={`${track}-heading`} className="font-display font-bold text-lg text-primary-950 mb-4">
               {title}
             </h2>
-            <div className="grid gap-6 xl:grid-cols-2">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-2">
               <AcademicOptionList
                 track={track}
                 kind="departments"
