@@ -222,3 +222,37 @@ export type UpdateVerdict =
   | { action: "offer"; release: ReleaseManifest }
   | { action: "require"; release: ReleaseManifest; reason: string }
   | { action: "unsupported-device"; reason: string };
+
+// ---------------------------------------------------------------------------
+// Mentorship
+// ---------------------------------------------------------------------------
+
+export interface MentorshipListItem {
+  id: string;
+  status: "REQUESTED" | "ACTIVE" | "DECLINED" | "ENDED";
+  otherName: string;
+  otherDetail: string;
+  unread: boolean;
+  lastMessageAt: string;
+  nextSession: { scheduledFor: string; topic: string | null } | null;
+  otherIsInCall: boolean;
+}
+
+export interface MentorshipList {
+  side: "student" | "mentor";
+  mentorships: MentorshipListItem[];
+}
+
+export interface MentorshipDetail {
+  id: string;
+  side: "student" | "mentor";
+  status: MentorshipListItem["status"];
+  otherName: string;
+  goals: string | null;
+  messages: { id: string; mine: boolean; body: string; createdAt: string }[];
+  sessions: { id: string; scheduledFor: string; topic: string | null; status: "SCHEDULED" | "COMPLETED" | "CANCELLED" }[];
+  calls: { id: string; mine: boolean; withVideo: boolean; startedAt: string; live: boolean; length: string }[];
+  otherIsInCall: boolean;
+  /** The call page on the website, where the meeting runs. */
+  callPath: string;
+}

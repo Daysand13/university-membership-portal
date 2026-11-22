@@ -156,7 +156,7 @@ export default function SignInScreen() {
           onPress={() => void attempt()}
         />
 
-        <Body muted>Forgotten your password? Reset it on the association&apos;s website, then sign in here.</Body>
+        <Button label="Forgotten your password?" variant="outline" onPress={() => router.push("/forgot-password")} />
 
         <Button label="Not a member yet? Join" variant="outline" onPress={() => router.push("/join")} />
       </Screen>

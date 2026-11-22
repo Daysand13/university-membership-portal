@@ -113,9 +113,22 @@ The address the app is built against must be the one that answers —
 another host drops the Authorization header from every signed-in request.
 `npm run verify` refuses to bundle against an address that redirects.
 
+### Mentorship and account recovery
+
+| Method and path | Sign-in needed | What it does |
+|---|---|---|
+| `POST /auth/forgot` | No | Sends the website's own reset email for every portal with that address; the same answer whether or not one exists |
+| `GET /mentorship` | Student or graduate | Their mentors, or their students, with unread and "in a call now" |
+| `GET /mentorship/{id}` | Student or graduate | One conversation: messages, sessions, recent calls, and `callPath` (the website's call page). Opening it marks it read. |
+| `POST /mentorship/{id}/messages` | Student or graduate | `{ body }` - the same service, email and rate limit as the website's reply box |
+
+A mentorship is found through the person asking, so someone else's id answers
+404. Calls are joined on the website (`callPath`), where the meeting runs.
+
 ### Still to build
 
-The ID card.
+See `FEATURE-PARITY.md`: profile, support requests, the ID card, barrier
+reports, booking a session.
 
 ## Notifications
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Linking } from "react-native";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -8,6 +9,8 @@ import { DisplayProvider, useDisplay } from "../src/a11y/preferences";
 import { ReadingProvider } from "../src/a11y/reading";
 import { HeaderControls } from "../src/a11y/A11yControls";
 import { prepareNotifications } from "../src/push/register";
+import { destinationFor } from "../src/push/routes";
+import { SITE_URL } from "../src/config";
 import { UpdateGate } from "../src/update/UpdateGate";
 import { GradientHeader } from "../src/ui/components";
 
@@ -73,7 +76,11 @@ function Navigation() {
 
   useEffect(() => {
     if (ready && auth.signedIn && pendingPath) {
-      router.push(pendingPath as never);
+      // A screen the app has opens here; anything else — a call, a page the
+      // app doesn't carry — opens on the website rather than a dead screen.
+      const destination = destinationFor(pendingPath);
+      if (destination.kind === "app") router.push(destination.route as never);
+      else void Linking.openURL(`${SITE_URL}${destination.path}`);
       setPendingPath(null);
     }
   }, [ready, auth.signedIn, pendingPath]);
@@ -102,11 +109,14 @@ function Navigation() {
           <Stack.Screen name="directory" options={{ title: "Alumni Directory" }} />
           <Stack.Screen name="library" options={{ title: "Library" }} />
           <Stack.Screen name="elections" options={{ title: "Elections" }} />
+          <Stack.Screen name="mentorship/index" options={{ title: "Mentorship" }} />
+          <Stack.Screen name="mentorship/[id]" options={{ title: "Conversation" }} />
         </Stack.Protected>
 
         <Stack.Protected guard={!auth.signedIn}>
           <Stack.Screen name="welcome" options={{ title: "ASSN" }} />
           <Stack.Screen name="sign-in" options={{ title: "Sign in" }} />
+          <Stack.Screen name="forgot-password" options={{ title: "Forgotten password" }} />
           <Stack.Screen name="join/index" options={{ title: "Join the association" }} />
           <Stack.Screen name="join/student" options={{ title: "Student membership" }} />
           <Stack.Screen name="join/alumni" options={{ title: "Alumni network" }} />

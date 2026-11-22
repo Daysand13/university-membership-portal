@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Linking, View } from "react-native";
+import { router } from "expo-router";
 import * as Application from "expo-application";
 import { useAuth } from "../../src/auth/AuthContext";
 import { registerForPush, updatePushPreferences } from "../../src/push/register";
@@ -74,6 +75,23 @@ export default function MoreScreen() {
         </Text>
       </Card>
       <DisplaySheet open={displayOpen} onClose={() => setDisplayOpen(false)} />
+
+      {(identity?.audience === "MEMBER" || identity?.audience === "ALUMNI") && (
+        <>
+          <SectionLabel>Mentorship</SectionLabel>
+          <Card
+            onPress={() => router.push("/mentorship")}
+            accessibilityLabel={
+              identity.audience === "MEMBER"
+                ? "Your mentors. Messages, sessions and calls."
+                : "Your students. Messages, sessions and calls."
+            }
+          >
+            <Text style={styles.cardTitle}>{identity.audience === "MEMBER" ? "Your mentors" : "Your students"}</Text>
+            <Text style={styles.muted}>Messages, sessions and calls.</Text>
+          </Card>
+        </>
+      )}
 
       <SectionLabel>Notifications on this phone</SectionLabel>
       <Card>
