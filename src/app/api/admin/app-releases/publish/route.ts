@@ -52,10 +52,12 @@ const schema = z.object({
 });
 
 function tokenMatches(given: string | null): boolean {
-  const expected = process.env.APP_RELEASE_TOKEN;
-  if (!expected || expected.length < 32 || !given) return false;
+  // Trimmed: a value piped into Vercel from Windows can keep a stray carriage return.
+  const expected = process.env.APP_RELEASE_TOKEN?.trim();
+  const sent = given?.trim();
+  if (!expected || expected.length < 32 || !sent) return false;
   // Hashed first, so the comparison is the same length whatever was sent.
-  const a = createHash("sha256").update(given).digest();
+  const a = createHash("sha256").update(sent).digest();
   const b = createHash("sha256").update(expected).digest();
   return timingSafeEqual(a, b);
 }
