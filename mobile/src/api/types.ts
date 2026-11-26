@@ -256,3 +256,83 @@ export interface MentorshipDetail {
   /** The call page on the website, where the meeting runs. */
   callPath: string;
 }
+
+// ---------------------------------------------------------------------------
+// A student's own record, requests and card
+// ---------------------------------------------------------------------------
+
+export interface EditableContact {
+  phone: string;
+  residentialAddress: string;
+  region: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+}
+
+export interface MemberProfile {
+  name: string;
+  indexNumber: string;
+  email: string;
+  programme: string;
+  level: string;
+  campus: string;
+  specialNeedsCategory: string;
+  status: string;
+  editable: EditableContact;
+}
+
+export interface SupportList {
+  types: { value: string; label: string; description: string; needsAmount: boolean }[];
+  requests: {
+    id: string;
+    type: string;
+    typeLabel: string;
+    details: string;
+    amountRequested: string | null;
+    neededBy: string | null;
+    status: string;
+    statusLabel: string;
+    reviewNote: string | null;
+    approvedAmount: string | null;
+    createdAt: string;
+    canWithdraw: boolean;
+  }[];
+}
+
+export interface BarrierReportList {
+  categories: { value: string; label: string }[];
+  maxEvidence: number;
+  reports: {
+    id: string;
+    title: string;
+    description: string;
+    categoryLabel: string;
+    location: string | null;
+    occurredOn: string | null;
+    status: string;
+    statusLabel: string;
+    resolutionNote: string | null;
+    attachments: number;
+    createdAt: string;
+    canWithdraw: boolean;
+  }[];
+}
+
+export type IdCardReply =
+  | {
+      status: "ready";
+      academicYear: string;
+      details: {
+        fullName: string;
+        indexNumber: string;
+        programme: string;
+        department: string;
+        specialNeedsCategory: string;
+        validUntil: string;
+        website: string;
+      };
+      front: string;
+      back: string;
+      issuedAt: string;
+    }
+  | { status: "dues_unpaid" | "not_found"; message: string };

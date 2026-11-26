@@ -114,7 +114,7 @@ export default function MentorshipListScreen() {
         })
       )}
 
-      <Body muted>Booking sessions and asking for a new mentor are on the website for now.</Body>
+      <Body muted>Asking a graduate to mentor you is done on the website, where you can read about each of them.</Body>
     </Screen>
   );
 }

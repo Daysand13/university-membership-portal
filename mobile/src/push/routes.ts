@@ -30,6 +30,11 @@ export function destinationFor(path: string): Destination {
     return { kind: "app", route: "/announcements" };
   }
   if (/^\/membership\/dashboard\/dues\/?$/.test(clean)) return { kind: "app", route: "/dues" };
+  if (/^\/(?:membership\/dashboard|alumni)\/profile\/?$/.test(clean)) return { kind: "app", route: "/profile" };
+  if (/^\/membership\/dashboard\/id-card\/?$/.test(clean)) return { kind: "app", route: "/id-card" };
+  if (/^\/membership\/dashboard\/support(?:\/.*)?$/.test(clean)) return { kind: "app", route: "/support" };
+  if (/^\/membership\/dashboard\/rights\/new\/?$/.test(clean)) return { kind: "app", route: "/barrier-reports/new" };
+  if (/^\/membership\/dashboard\/rights(?:\/.*)?$/.test(clean)) return { kind: "app", route: "/barrier-reports" };
   if (/^\/(?:membership\/dashboard\/)?elections\/?$/.test(clean)) return { kind: "app", route: "/elections" };
 
   return { kind: "web", path };

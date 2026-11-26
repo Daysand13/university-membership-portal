@@ -30,4 +30,13 @@ describe("where a website link lands in the app", () => {
     expect(destinationFor("/membership/dashboard/announcements")).toEqual({ kind: "app", route: "/announcements" });
     expect(destinationFor("/elections")).toEqual({ kind: "app", route: "/elections" });
   });
+
+  it("opens a student's own pages - profile, card, support, barrier reports - in the app", () => {
+    expect(destinationFor("/membership/dashboard/profile")).toEqual({ kind: "app", route: "/profile" });
+    expect(destinationFor("/alumni/profile")).toEqual({ kind: "app", route: "/profile" });
+    expect(destinationFor("/membership/dashboard/id-card")).toEqual({ kind: "app", route: "/id-card" });
+    expect(destinationFor("/membership/dashboard/support")).toEqual({ kind: "app", route: "/support" });
+    expect(destinationFor("/membership/dashboard/rights/cm999")).toEqual({ kind: "app", route: "/barrier-reports" });
+    expect(destinationFor("/membership/dashboard/rights/new")).toEqual({ kind: "app", route: "/barrier-reports/new" });
+  });
 });

@@ -39,6 +39,13 @@ export function mimeFromName(name: string): string | null {
     heic: "image/heic",
     heif: "image/heif",
     webp: "image/webp",
+    // Voice notes, for barrier evidence.
+    mp3: "audio/mpeg",
+    m4a: "audio/mp4",
+    wav: "audio/wav",
+    ogg: "audio/ogg",
+    opus: "audio/ogg",
+    webm: "audio/webm",
   };
   return types[ext] ?? null;
 }

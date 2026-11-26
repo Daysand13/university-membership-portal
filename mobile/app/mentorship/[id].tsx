@@ -6,7 +6,7 @@ import { api, ApiError } from "../../src/api/client";
 import type { MentorshipDetail } from "../../src/api/types";
 import { makeStyles } from "../../src/a11y/preferences";
 import { Badge, Body, Button, Card, Heading, Loading, Problem, Screen, SectionLabel } from "../../src/ui/components";
-import { FormAlert, TextField } from "../../src/ui/form";
+import { DateField, FormAlert, SelectField, TextField } from "../../src/ui/form";
 import { Text } from "../../src/ui/Text";
 import { SITE_URL } from "../../src/config";
 import { spacing } from "../../src/theme";
@@ -19,6 +19,13 @@ const when = new Intl.DateTimeFormat("en-GH", {
   minute: "2-digit",
   timeZone: "Africa/Accra",
 });
+
+/** Seven in the morning to nine at night, said the way people say them. */
+const HOURS = Array.from({ length: 15 }, (_, i) => {
+  const h = i + 7;
+  return { value: String(h).padStart(2, "0"), label: h === 12 ? "12 noon" : h < 12 ? `${h} am` : `${h - 12} pm` };
+});
+const MINUTES = ["00", "15", "30", "45"].map((m) => ({ value: m, label: m === "00" ? "on the hour" : `${m} past` }));
 
 /**
  * One mentorship: the conversation, the sessions, the calls.
@@ -47,6 +54,14 @@ export default function MentorshipScreen() {
   const [problem, setProblem] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string[] | undefined>();
   const [sent, setSent] = useState<string | null>(null);
+  const [day, setDay] = useState("");
+  const [hour, setHour] = useState("");
+  const [minute, setMinute] = useState("00");
+  const [topic, setTopic] = useState("");
+  const [booking, setBooking] = useState(false);
+  const [bookErrors, setBookErrors] = useState<Record<string, string[]>>({});
+  const [bookProblem, setBookProblem] = useState<string | null>(null);
+  const [booked, setBooked] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -83,6 +98,29 @@ export default function MentorshipScreen() {
       else setProblem(err instanceof Error ? err.message : "Your message couldn't be sent. Please try again.");
     } finally {
       setSending(false);
+    }
+  };
+
+  const book = async () => {
+    setBooking(true);
+    setBookErrors({});
+    setBookProblem(null);
+    setBooked(null);
+    try {
+      const reply = await api.post<{ scheduledFor: string }>(`/mentorship/${id}/sessions`, {
+        scheduledFor: `${day}T${hour}:${minute}`,
+        topic,
+      });
+      setBooked(`Booked for ${when.format(new Date(reply.scheduledFor))}. ${firstName} has been told.`);
+      setDay("");
+      setHour("");
+      setTopic("");
+      await refresh();
+    } catch (err) {
+      if (err instanceof ApiError && Object.keys(err.fieldErrors).length) setBookErrors(err.fieldErrors);
+      else setBookProblem(err instanceof Error ? err.message : "The session couldn't be booked. Please try again.");
+    } finally {
+      setBooking(false);
     }
   };
 
@@ -163,6 +201,24 @@ export default function MentorshipScreen() {
                 {session.topic ? <Text style={styles.muted}>{session.topic}</Text> : null}
               </Card>
             ))}
+          </>
+        )}
+
+        {active && (
+          <>
+            <SectionLabel>Book a session</SectionLabel>
+            <Body muted>A time in both your diaries. You each get a reminder that morning; you can call at any time anyway.</Body>
+            <DateField label="Day" value={day} onChange={setDay} fromYear={new Date().getFullYear()} toYear={new Date().getFullYear() + 1} required error={bookErrors.scheduledFor} />
+            <SelectField label="Hour (Ghana time)" value={hour} options={HOURS} onChange={setHour} required />
+            <SelectField label="Minutes" value={minute} options={MINUTES} onChange={setMinute} required />
+            <TextField label="What it's about (optional)" value={topic} onChange={setTopic} maxLength={200} error={bookErrors.topic} />
+            <FormAlert message={bookProblem} />
+            {booked && (
+              <Text accessibilityLiveRegion="polite" style={styles.muted}>
+                {booked}
+              </Text>
+            )}
+            <Button label="Book the session" busy={booking} disabled={!day || !hour} onPress={() => void book()} />
           </>
         )}
 

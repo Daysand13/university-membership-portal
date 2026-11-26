@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "expo-router";
 import { api, ApiError } from "../api/client";
 import { CACHE_MINUTES } from "../config";
 
@@ -143,5 +144,22 @@ export function useApi<T>(path: string, options: Options = {}): Loaded<T> {
     void load(false);
   }, [load]);
 
-  return { data, error, loading, refreshing, fromCache, refresh: () => load(true) };
+  // Stable, so a screen can hand it to useRefreshOnReturn without a loop.
+  const refresh = useCallback(() => load(true), [load]);
+  return { data, error, loading, refreshing, fromCache, refresh };
+}
+
+/**
+ * Loads a screen's data again whenever somebody comes back to it - after
+ * filing a new request on the next screen, say - but not on the first
+ * visit, which useApi has already loaded.
+ */
+export function useRefreshOnReturn(refresh: () => Promise<void>) {
+  const visited = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (visited.current) void refresh();
+      visited.current = true;
+    }, [refresh]),
+  );
 }

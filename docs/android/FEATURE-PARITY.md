@@ -1,6 +1,6 @@
 # Website and app: what each can do
 
-Status as of 22 November 2026 (app 1.2.0, website at the same commit).
+Status as of 26 November 2026 (app 1.3.0, website at the same commit).
 
 The app and the website use one backend and one database. Every app screen
 calls `/api/v1/app/*`, and those routes call the same services the website's
@@ -22,7 +22,7 @@ limits. Nothing is copied, and nothing can drift out of step.
 | Sign out, and sign out other phones | ✅ | ✅ |
 | Forgotten password | ✅ | ✅ The app sends the link; the new password is set on the website. **New.** |
 | Change password | ✅ | 🌐 |
-| View and edit profile | ✅ | 🌐 Next to build. |
+| View and edit profile | ✅ | ✅ Students view their record and edit their contact details; graduates and patrons edit on the website. **New in 1.3.0.** |
 
 ## Students
 
@@ -37,10 +37,11 @@ limits. Nothing is copied, and nothing can drift out of step.
 | Voting | At the ASSN Ballot terminal only | At the terminal only, by the association's decision |
 | Mentorship: mentors, conversation, sending messages | ✅ | ✅ **New** |
 | Mentorship: calls | ✅ | 🌐 Opens the call on the website; a phone notification says when someone is calling. **New.** |
-| Mentorship: asking for a mentor, booking a session | ✅ | 🌐 |
-| ID card | ✅ | 🌐 Next to build. |
-| Support requests | ✅ | 🌐 Next to build. |
-| Barrier reports | ✅ | 🌐 Next to build. |
+| Mentorship: booking a session | ✅ | ✅ **New in 1.3.0.** |
+| Mentorship: asking for a mentor | ✅ | 🌐 Where each graduate can be read about. |
+| ID card | ✅ | ✅ Both sides, its details as words for a screen reader, kept on the phone for use with no signal. **New in 1.3.0.** |
+| Support requests | ✅ | ✅ List, ask, withdraw. **New in 1.3.0.** |
+| Barrier reports | ✅ | ✅ List, report (with a photo, PDF or voice note), withdraw. **New in 1.3.0.** |
 | Academic records, letters, CV, study groups | ✅ | 🌐 |
 
 ## Graduates
@@ -85,13 +86,8 @@ into a screen the app has (news, events, mentorship, dues, announcements,
 elections), or opens it on the website. A notification never lands on a
 dead screen. Calls always open on the website, where the meeting runs.
 
-## Next, in order
+## Next
 
-1. Profile: view and edit contact details.
-2. Support requests: list and new.
-3. ID card: show it, offline.
-4. Barrier reports: list and new.
-5. Booking a mentorship session.
-
-Each needs one or two `/api/v1/app` routes over the existing services, and
-one screen.
+Every member feature now has a screen in the app or opens the website on
+purpose (paying dues, CVs and letters, asking for a mentor). The next
+candidates are the graduates' opportunity board and patron messages.

@@ -3,12 +3,12 @@
     "name": "ASSN",
     "slug": "assn",
     "scheme": "assn",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "android": {
       "package": "com.assnuew.app",
-      "versionCode": 4,
+      "versionCode": 5,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",

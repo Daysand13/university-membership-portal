@@ -76,6 +76,28 @@ export default function MoreScreen() {
       </Card>
       <DisplaySheet open={displayOpen} onClose={() => setDisplayOpen(false)} />
 
+      <SectionLabel>You</SectionLabel>
+      <Card onPress={() => router.push("/profile")} accessibilityLabel="Your profile. Your record, and your contact details.">
+        <Text style={styles.cardTitle}>Your profile</Text>
+        <Text style={styles.muted}>Your record, and your contact details.</Text>
+      </Card>
+      {identity?.audience === "MEMBER" && (
+        <>
+          <Card onPress={() => router.push("/id-card")} accessibilityLabel="Your ID card. Kept on this phone, so it works with no signal.">
+            <Text style={styles.cardTitle}>Your ID card</Text>
+            <Text style={styles.muted}>Kept on this phone, so it works with no signal.</Text>
+          </Card>
+          <Card onPress={() => router.push("/support")} accessibilityLabel="Support. Ask for assistive technology, a note-taker, or welfare support.">
+            <Text style={styles.cardTitle}>Support</Text>
+            <Text style={styles.muted}>Ask for assistive technology, a note-taker, or welfare support.</Text>
+          </Card>
+          <Card onPress={() => router.push("/barrier-reports")} accessibilityLabel="Report a barrier. Anything on campus that stops you taking part.">
+            <Text style={styles.cardTitle}>Report a barrier</Text>
+            <Text style={styles.muted}>Anything on campus that stops you taking part.</Text>
+          </Card>
+        </>
+      )}
+
       {(identity?.audience === "MEMBER" || identity?.audience === "ALUMNI") && (
         <>
           <SectionLabel>Mentorship</SectionLabel>

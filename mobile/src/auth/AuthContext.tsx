@@ -6,6 +6,8 @@ import { api, configureTokens, setAccessToken } from "../api/client";
 import type { Identity, Me, SignedIn } from "../api/types";
 import { clearSession, loadSession, saveSession, saveTokens } from "./storage";
 import { forgetPushToken, refreshPushRegistration } from "../push/register";
+import { clearCache } from "../data/useApi";
+import { forgetSavedCard } from "../data/id-card-store";
 
 /**
  * Who is signed in, for the whole app.
@@ -49,6 +51,15 @@ export function describeThisPhone() {
   };
 }
 
+/**
+ * What this person left on the phone: cached lists and their ID card. Gone
+ * with the session, so the next person to pick the phone up sees none of it.
+ */
+async function forgetSavedData(): Promise<void> {
+  forgetSavedCard();
+  await clearCache();
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [identity, setIdentity] = useState<Identity | null>(null);
@@ -58,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const forget = useCallback(async (reason: string) => {
     setAccessToken(null, null);
     await clearSession();
+    await forgetSavedData();
     setIdentity(null);
     setMe(null);
     setEndedMessage(reason);
@@ -148,6 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await api.post("/auth/logout").catch(() => {});
     setAccessToken(null, null);
     await clearSession();
+    await forgetSavedData();
     setIdentity(null);
     setMe(null);
     setEndedMessage(null);

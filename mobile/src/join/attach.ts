@@ -20,7 +20,8 @@ import { COMPRESS_STEPS, fitWithin, formatBytes, isImage, mimeFromName } from ".
  * if it is over the limit, rather than after a long upload.
  */
 
-export type AttachKind = "passport" | "medical";
+/** "evidence" is a photo, document or voice note for a barrier report, sent while signed in. */
+export type AttachKind = "passport" | "medical" | "evidence";
 
 export interface Attached {
   /** Empty when the server has storage switched off (local development). */
@@ -48,6 +49,8 @@ const LIMITS: Record<AttachKind, { bytes: number; maxSide: number; target: numbe
   passport: { bytes: 2 * 1024 * 1024, maxSide: 1000, target: 1024 * 1024 },
   // A photo of a printed report has to stay legible, so it is kept larger.
   medical: { bytes: 5 * 1024 * 1024, maxSide: 2000, target: 2.5 * 1024 * 1024 },
+  // The website's limit for barrier evidence; a photo is still made smaller.
+  evidence: { bytes: 20 * 1024 * 1024, maxSide: 2000, target: 3 * 1024 * 1024 },
 };
 
 const MEDICAL_TYPES = [
@@ -56,6 +59,19 @@ const MEDICAL_TYPES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "image/jpeg",
   "image/png",
+];
+
+/** What the website accepts as barrier evidence: photos, a PDF, or a voice note. */
+const EVIDENCE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/wav",
+  "audio/ogg",
+  "audio/webm",
 ];
 
 function sizeOf(uri: string, reported?: number | null): number {
@@ -88,11 +104,21 @@ async function shrinkImage(picked: Picked, kind: AttachKind): Promise<Picked> {
 }
 
 async function send(kind: AttachKind, file: Picked, onProgress?: (fraction: number) => void): Promise<string> {
-  const ticket = await api.post<{ mode: "upload"; uploadUrl: string; token: string } | { mode: "skip" }>(
-    "/join/upload",
-    { kind, filename: file.name, mimeType: file.mimeType, fileSize: file.bytes },
-    { open: true },
-  );
+  // An application's files are asked for before anybody has an account;
+  // evidence for a report is asked for by the signed-in student.
+  const ticket =
+    kind === "evidence"
+      ? await api.post<{ mode: "upload"; uploadUrl: string; token: string } | { mode: "skip" }>("/barrier-reports/upload", {
+          kind: "barrier-evidence",
+          filename: file.name,
+          mimeType: file.mimeType,
+          fileSize: file.bytes,
+        })
+      : await api.post<{ mode: "upload"; uploadUrl: string; token: string } | { mode: "skip" }>(
+          "/join/upload",
+          { kind, filename: file.name, mimeType: file.mimeType, fileSize: file.bytes },
+          { open: true },
+        );
   if (ticket.mode === "skip") return "";
 
   const task = new File(file.uri).createUploadTask(ticket.uploadUrl, {
@@ -117,6 +143,9 @@ async function attach(kind: AttachKind, picked: Picked, onProgress?: (fraction: 
 
   if (kind === "medical" && !MEDICAL_TYPES.includes(file.mimeType) && !isImage(file.mimeType)) {
     throw new AttachProblem("Your medical report must be a PDF or Word document, or a JPG or PNG photo of the report.");
+  }
+  if (kind === "evidence" && !EVIDENCE_TYPES.includes(file.mimeType) && !isImage(file.mimeType)) {
+    throw new AttachProblem("Evidence can be a photo, a PDF, or a voice note (MP3, M4A, WAV or OGG).");
   }
 
   // Every photo is re-encoded as JPEG — which also turns an iPhone's HEIC,
@@ -184,7 +213,11 @@ export async function attachFromPhotos(kind: AttachKind, onProgress?: (fraction:
 
 /** A saved document — a PDF or Word file, or a scan. */
 export async function attachDocument(kind: AttachKind, onProgress?: (fraction: number) => void): Promise<Attached | null> {
-  const result = await DocumentPicker.getDocumentAsync({ type: MEDICAL_TYPES, copyToCacheDirectory: true, multiple: false });
+  const result = await DocumentPicker.getDocumentAsync({
+    type: kind === "evidence" ? EVIDENCE_TYPES : MEDICAL_TYPES,
+    copyToCacheDirectory: true,
+    multiple: false,
+  });
   if (result.canceled || !result.assets[0]) return null;
   const asset = result.assets[0];
   return attach(
