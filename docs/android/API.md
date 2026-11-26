@@ -125,10 +125,21 @@ another host drops the Authorization header from every signed-in request.
 A mentorship is found through the person asking, so someone else's id answers
 404. Calls are joined on the website (`callPath`), where the meeting runs.
 
-### Still to build
+### A student's own record, requests and card
 
-See `FEATURE-PARITY.md`: profile, support requests, the ID card, barrier
-reports, booking a session.
+| Method and path | Sign-in needed | What it does |
+|---|---|---|
+| `GET /profile`, `POST /profile` | Student | Their record, and saving phone, region, address and emergency contact (the website's editable fields, same service and confirmation email) |
+| `GET /support`, `POST /support` | Student | Their support requests and the types on offer; asking for one (the website's schema and limit) |
+| `POST /support/{id}/withdraw` | Student | Withdraws one nobody has looked at |
+| `GET /barrier-reports`, `POST /barrier-reports` | Student | Their reports and the categories; filing one with up to 3 evidence tickets |
+| `POST /barrier-reports/upload` | Student | A signed address and ticket for one piece of evidence (photo, PDF, voice note) |
+| `POST /barrier-reports/{id}/withdraw` | Student | Withdraws one nobody has picked up |
+| `GET /id-card` | Student | `ready` with both sides as base64 PNG and the details as text, or `dues_unpaid` with the reason |
+| `POST /mentorship/{id}/sessions` | Student or graduate | `{ scheduledFor: "YYYY-MM-DDTHH:MM", topic }` in Ghana time |
+
+Everything is found through the person asking: another student's request or
+report answers 409, and a graduate's token on a student route answers 403.
 
 ## Notifications
 
