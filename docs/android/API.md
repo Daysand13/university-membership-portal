@@ -141,6 +141,16 @@ A mentorship is found through the person asking, so someone else's id answers
 Everything is found through the person asking: another student's request or
 report answers 409, and a graduate's token on a student route answers 403.
 
+### The opportunity board, and patrons' messages
+
+| Method and path | Sign-in needed | What it does |
+|---|---|---|
+| `GET /opportunities` | Student or graduate | Approved, unexpired openings; for a graduate also their own postings and where each stands |
+| `POST /opportunities` | Graduate | Posts an opening for review (the website's schema: a link or email to apply is required) |
+| `POST /opportunities/{id}/withdraw` | Graduate | Withdraws their own opening while it is still pending |
+| `GET /patron-messages`, `POST /patron-messages` | Patron | Their conversations and the contacts on offer; starting one (recipient must be from the list) |
+| `GET /patron-messages/{id}`, `POST /patron-messages/{id}` | Patron | Reading one (marks replies read) and replying |
+
 ## Notifications
 
 `POST /devices` with `{ "pushToken": "…", "preferences": { "news": true } }`,
