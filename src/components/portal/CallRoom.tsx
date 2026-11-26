@@ -401,9 +401,12 @@ export function CallRoom({
     on<{ kicked: { local: boolean } }>("participantKickedOut", (p) => {
       if (p.kicked.local) void finish("ended");
     });
-    on<{ isFatal?: boolean }>("errorOccurred", (p) => {
-      if (p.isFatal) {
-        say("The call lost its connection.");
+    on<{ isFatal?: boolean; name?: string }>("errorOccurred", (p) => {
+      // "notAllowed" is the service refusing this page's pass - in practice
+      // one that expired because the page sat open for hours. Not marked
+      // fatal by Jitsi, but nothing will happen without a fresh pass.
+      if (p.isFatal || /notAllowed|authentication/i.test(p.name ?? "")) {
+        say("The call couldn't continue. Reload this page and join again.");
         void finish("lost");
       }
     });
@@ -631,7 +634,9 @@ export function CallRoom({
       ) : state === "lost" ? (
         <>
           <h2 className="font-display font-bold text-lg text-primary-950">The call lost its connection</h2>
-          <p className="text-ink mt-2">Check your internet, then join again — you&apos;ll come back to the same room.</p>
+          <p className="text-ink mt-2">
+            Check your internet, then reload this page and join again — you&apos;ll come back to the same room.
+          </p>
         </>
       ) : state === "blocked" ? (
         <>
@@ -712,8 +717,13 @@ export function CallRoom({
           </a>
         ) : (
           <>
-            <button type="button" onClick={join} className={buttonClasses("primary", "md")}>
-              {state === "ended" || state === "lost" ? "Join again" : otherIsWaiting ? "Join the call" : "Start the call"}
+            <button
+              type="button"
+              // After a lost call the pass may have expired; reloading signs a fresh one.
+              onClick={state === "lost" ? () => window.location.reload() : join}
+              className={buttonClasses("primary", "md")}
+            >
+              {state === "lost" ? "Reload and join again" : state === "ended" ? "Join again" : otherIsWaiting ? "Join the call" : "Start the call"}
             </button>
             <a href={meeting.joinUrl} target="_blank" rel="noopener noreferrer" className={buttonClasses("outline", "md")}>
               <ExternalLink size={15} aria-hidden="true" /> Open in a new tab

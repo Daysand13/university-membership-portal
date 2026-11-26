@@ -29,6 +29,21 @@ service, and its owners can change its rules.
 
 ## Switching on Jitsi as a Service (recommended)
 
+**Done on 26 November 2026.** The live site uses JaaS:
+
+- App ID: `vpaas-magic-cookie-2d2904be88e04901b79d67b8ecedcfd1`
+- API key "ASSN portal (Vercel)", Key ID `.../5c871c`
+- **"Allow meeting participants to join unauthenticated" is off**, so a
+  meeting refuses anybody without a pass the site signed. This was tested:
+  a pass signed by the site's code joined; joining without one was refused
+  with "Authentication required".
+
+The private key is in Vercel as a secret. If it is ever lost or leaked,
+add a new key in the JaaS console under API Keys, put the new Key ID and
+private key in Vercel, redeploy, then remove the old key there.
+
+The steps below are how it was set up, for doing it again.
+
 This needs an account in the association's name, which only the association
 can create.
 
