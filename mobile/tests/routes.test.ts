@@ -39,4 +39,10 @@ describe("where a website link lands in the app", () => {
     expect(destinationFor("/membership/dashboard/rights/cm999")).toEqual({ kind: "app", route: "/barrier-reports" });
     expect(destinationFor("/membership/dashboard/rights/new")).toEqual({ kind: "app", route: "/barrier-reports/new" });
   });
+
+  it("opens the opportunity board and a patron's conversations in the app", () => {
+    expect(destinationFor("/alumni/opportunities")).toEqual({ kind: "app", route: "/opportunities" });
+    expect(destinationFor("/patrons/dashboard/messages")).toEqual({ kind: "app", route: "/messages" });
+    expect(destinationFor("/patrons/dashboard/messages/cmthread1")).toEqual({ kind: "app", route: "/messages/cmthread1" });
+  });
 });

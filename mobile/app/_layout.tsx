@@ -117,6 +117,11 @@ function Navigation() {
           <Stack.Screen name="support/new" options={{ title: "Ask for support" }} />
           <Stack.Screen name="barrier-reports/index" options={{ title: "Barriers" }} />
           <Stack.Screen name="barrier-reports/new" options={{ title: "Report a barrier" }} />
+          <Stack.Screen name="opportunities/index" options={{ title: "Opportunities" }} />
+          <Stack.Screen name="opportunities/new" options={{ title: "Post an opening" }} />
+          <Stack.Screen name="messages/index" options={{ title: "Messages" }} />
+          <Stack.Screen name="messages/new" options={{ title: "Write to the executive" }} />
+          <Stack.Screen name="messages/[id]" options={{ title: "Conversation" }} />
         </Stack.Protected>
 
         <Stack.Protected guard={!auth.signedIn}>

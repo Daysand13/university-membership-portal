@@ -98,6 +98,26 @@ export default function MoreScreen() {
         </>
       )}
 
+      {identity?.audience === "PATRON" && (
+        <Card onPress={() => router.push("/messages")} accessibilityLabel="Messages. Write to the association's executive.">
+          <Text style={styles.cardTitle}>Messages</Text>
+          <Text style={styles.muted}>Write to the association&apos;s executive.</Text>
+        </Card>
+      )}
+
+      {(identity?.audience === "MEMBER" || identity?.audience === "ALUMNI") && (
+        <>
+          <SectionLabel>Opportunities</SectionLabel>
+          <Card
+            onPress={() => router.push("/opportunities")}
+            accessibilityLabel="Opportunity board. Jobs, internships, scholarships and volunteering shared by graduates."
+          >
+            <Text style={styles.cardTitle}>Opportunity board</Text>
+            <Text style={styles.muted}>Jobs, internships, scholarships and volunteering shared by graduates.</Text>
+          </Card>
+        </>
+      )}
+
       {(identity?.audience === "MEMBER" || identity?.audience === "ALUMNI") && (
         <>
           <SectionLabel>Mentorship</SectionLabel>

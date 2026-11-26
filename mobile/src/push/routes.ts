@@ -36,6 +36,10 @@ export function destinationFor(path: string): Destination {
   if (/^\/membership\/dashboard\/rights\/new\/?$/.test(clean)) return { kind: "app", route: "/barrier-reports/new" };
   if (/^\/membership\/dashboard\/rights(?:\/.*)?$/.test(clean)) return { kind: "app", route: "/barrier-reports" };
   if (/^\/(?:membership\/dashboard\/)?elections\/?$/.test(clean)) return { kind: "app", route: "/elections" };
+  if (/^\/alumni\/opportunities\/?$/.test(clean)) return { kind: "app", route: "/opportunities" };
+  const thread = /^\/patrons\/dashboard\/messages\/([A-Za-z0-9_-]+)\/?$/.exec(clean);
+  if (thread) return { kind: "app", route: `/messages/${thread[1]}` };
+  if (/^\/patrons\/dashboard\/messages\/?$/.test(clean)) return { kind: "app", route: "/messages" };
 
   return { kind: "web", path };
 }

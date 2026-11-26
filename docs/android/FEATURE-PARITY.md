@@ -1,6 +1,6 @@
 # Website and app: what each can do
 
-Status as of 26 November 2026 (app 1.3.0, website at the same commit).
+Status as of 26 November 2026 (app 1.4.0, website at the same commit).
 
 The app and the website use one backend and one database. Every app screen
 calls `/api/v1/app/*`, and those routes call the same services the website's
@@ -43,6 +43,7 @@ limits. Nothing is copied, and nothing can drift out of step.
 | Support requests | ✅ | ✅ List, ask, withdraw. **New in 1.3.0.** |
 | Barrier reports | ✅ | ✅ List, report (with a photo, PDF or voice note), withdraw. **New in 1.3.0.** |
 | Academic records, letters, CV, study groups | ✅ | 🌐 |
+| Opportunity board | ✅ | ✅ **New in 1.4.0.** |
 
 ## Graduates
 
@@ -52,7 +53,8 @@ limits. Nothing is copied, and nothing can drift out of step.
 | Alumni directory | ✅ | ✅ |
 | Mentorship: students, conversation, messages | ✅ | ✅ **New** |
 | Mentorship: calls | ✅ | 🌐 **New** |
-| Opportunities, career, CV, letters, further studies, giving, records | ✅ | 🌐 |
+| Opportunity board: reading, posting an opening, following it through review | ✅ | ✅ **New in 1.4.0.** |
+| Career, CV, letters, further studies, giving, records | ✅ | 🌐 |
 
 ## Patrons
 
@@ -60,7 +62,8 @@ limits. Nothing is copied, and nothing can drift out of step.
 | --- | --- | --- |
 | Join, sign in | ✅ | ✅ |
 | News, events, announcements, library | ✅ | ✅ |
-| Advocacy, documents, finances, messages, membership | ✅ | 🌐 |
+| Messages with the executive: start, read, reply | ✅ | ✅ **New in 1.4.0.** |
+| Advocacy, documents, finances, membership | ✅ | 🌐 |
 
 ## Administrators
 
@@ -88,6 +91,6 @@ dead screen. Calls always open on the website, where the meeting runs.
 
 ## Next
 
-Every member feature now has a screen in the app or opens the website on
-purpose (paying dues, CVs and letters, asking for a mentor). The next
-candidates are the graduates' opportunity board and patron messages.
+Every member and graduate feature is in the app, or opens the website on
+purpose (paying dues, CVs and letters, asking for a mentor). Patrons'
+advocacy, documents and finances are the remaining website-only areas.

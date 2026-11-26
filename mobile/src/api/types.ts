@@ -336,3 +336,51 @@ export type IdCardReply =
       issuedAt: string;
     }
   | { status: "dues_unpaid" | "not_found"; message: string };
+
+// ---------------------------------------------------------------------------
+// The opportunity board, and patrons' messages
+// ---------------------------------------------------------------------------
+
+export interface Opportunity {
+  id: string;
+  title: string;
+  organization: string;
+  type: string;
+  typeLabel: string;
+  location: string | null;
+  description: string;
+  applyUrl: string | null;
+  applyEmail: string | null;
+  closingDate: string | null;
+  postedBy: string;
+  postedAt: string;
+}
+
+export interface OpportunityBoard {
+  canPost: boolean;
+  types: { value: string; label: string }[];
+  opportunities: Opportunity[];
+  mine: (Opportunity & { status: string; statusLabel: string; reviewNote: string | null; canWithdraw: boolean })[];
+}
+
+export interface PatronThreads {
+  contacts: string[];
+  threads: {
+    id: string;
+    subject: string;
+    addressedTo: string;
+    status: "OPEN" | "CLOSED";
+    unread: boolean;
+    lastMessageAt: string;
+    lastMessage: { body: string; fromYou: boolean } | null;
+    messages: number;
+  }[];
+}
+
+export interface PatronThread {
+  id: string;
+  subject: string;
+  addressedTo: string;
+  status: "OPEN" | "CLOSED";
+  messages: { id: string; fromYou: boolean; from: string; body: string; createdAt: string }[];
+}
