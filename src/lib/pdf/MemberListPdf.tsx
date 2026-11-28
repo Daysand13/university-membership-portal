@@ -28,21 +28,20 @@ const styles = StyleSheet.create({
   },
 });
 
-// Relative column widths, summing to 100.
+// Relative column widths, summing to 100. "No." numbers the list 1, 2, 3...
+// in the order exported, so a printed copy can be checked off and counted.
 const COLS = [
+  { key: "number", label: "No.", width: 4 },
   { key: "name", label: "Name", width: 15 },
-  { key: "index", label: "Index Number", width: 12 },
-  { key: "gender", label: "Gender", width: 7 },
-  { key: "department", label: "Academic Department", width: 20 },
-  { key: "programme", label: "Programme", width: 20 },
-  { key: "level", label: "Level", width: 8 },
+  { key: "index", label: "Index Number", width: 11 },
+  { key: "gender", label: "Gender", width: 6 },
+  { key: "department", label: "Academic Department", width: 17 },
+  { key: "programme", label: "Programme", width: 18 },
+  { key: "level", label: "Level", width: 7 },
   { key: "membershipType", label: "Membership Type", width: 9 },
-  { key: "joined", label: "Joined", width: 9 },
+  // The member's category of special needs, stored in `department`.
+  { key: "snCategory", label: "SN Category", width: 13 },
 ] as const;
-
-function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "short", year: "numeric" }).format(date);
-}
 
 export function MemberListPdf({
   members,
@@ -76,18 +75,19 @@ export function MemberListPdf({
 
           {members.map((member, i) => (
             <View key={member.id} style={[styles.row, i % 2 === 1 ? styles.rowAlt : {}]} wrap={false}>
-              <Text style={[styles.cell, { width: `${COLS[0].width}%` }]}>
+              <Text style={[styles.cell, { width: `${COLS[0].width}%` }]}>{i + 1}</Text>
+              <Text style={[styles.cell, { width: `${COLS[1].width}%` }]}>
                 {formatFullName(member.firstName, member.middleName, member.lastName)}
               </Text>
-              <Text style={[styles.cell, { width: `${COLS[1].width}%` }]}>{member.indexNumber}</Text>
-              <Text style={[styles.cell, { width: `${COLS[2].width}%` }]}>{member.gender ?? "—"}</Text>
-              <Text style={[styles.cell, { width: `${COLS[3].width}%` }]}>{member.academicDepartment ?? "—"}</Text>
-              <Text style={[styles.cell, { width: `${COLS[4].width}%` }]}>{member.programme}</Text>
-              <Text style={[styles.cell, { width: `${COLS[5].width}%` }]}>{member.level}</Text>
-              <Text style={[styles.cell, { width: `${COLS[6].width}%` }]}>
+              <Text style={[styles.cell, { width: `${COLS[2].width}%` }]}>{member.indexNumber}</Text>
+              <Text style={[styles.cell, { width: `${COLS[3].width}%` }]}>{member.gender ?? "—"}</Text>
+              <Text style={[styles.cell, { width: `${COLS[4].width}%` }]}>{member.academicDepartment ?? "—"}</Text>
+              <Text style={[styles.cell, { width: `${COLS[5].width}%` }]}>{member.programme}</Text>
+              <Text style={[styles.cell, { width: `${COLS[6].width}%` }]}>{member.level}</Text>
+              <Text style={[styles.cell, { width: `${COLS[7].width}%` }]}>
                 {member.membershipType ? MEMBERSHIP_TYPE_LABELS[member.membershipType] : "—"}
               </Text>
-              <Text style={[styles.cell, { width: `${COLS[7].width}%` }]}>{formatDate(member.createdAt)}</Text>
+              <Text style={[styles.cell, { width: `${COLS[8].width}%` }]}>{member.department || "—"}</Text>
             </View>
           ))}
         </View>

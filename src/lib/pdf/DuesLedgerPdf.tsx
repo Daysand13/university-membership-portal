@@ -43,9 +43,9 @@ const COLS: { key: string; label: string; width: number; right?: boolean }[] = [
   { key: "name", label: "Name", width: 20 },
   { key: "index", label: "Index Number", width: 13 },
   { key: "level", label: "Level", width: 7 },
-  { key: "tier", label: "Fee Tier", width: 16 },
+  { key: "tier", label: "Fee Tier", width: 14 },
   { key: "fee", label: "Fee (GHS)", width: 9, right: true },
-  { key: "paid", label: "Paid", width: 6 },
+  { key: "paid", label: "Status", width: 8 },
   { key: "method", label: "Method", width: 8 },
   { key: "amount", label: "Amount (GHS)", width: 11, right: true },
   { key: "on", label: "Paid On", width: 10 },
@@ -63,8 +63,10 @@ export interface DuesLedgerRow {
   paidOn: string;
 }
 
+// "GHS", not "GH₵": the PDF's built-in Helvetica has no cedi sign and
+// printed "GHµ" in its place. The table's headings already say GHS.
 function cedis(pesewas: number): string {
-  return `GH₵${(pesewas / 100).toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `GHS ${(pesewas / 100).toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function DuesLedgerPdf({
@@ -143,7 +145,7 @@ export function DuesLedgerPdf({
               <Text style={[styles.cell, { width: `${COLS[3].width}%` }]}>{row.tierLabel}</Text>
               <Text style={[styles.cell, styles.right, { width: `${COLS[4].width}%` }]}>{row.feeCedis}</Text>
               <Text style={[styles.cell, row.paid ? styles.paid : styles.unpaid, { width: `${COLS[5].width}%` }]}>
-                {row.paid ? "Yes" : "No"}
+                {row.paid ? "Paid" : "Not paid"}
               </Text>
               <Text style={[styles.cell, { width: `${COLS[6].width}%` }]}>{row.method}</Text>
               <Text style={[styles.cell, styles.right, { width: `${COLS[7].width}%` }]}>{row.amountCedis}</Text>
